@@ -1,0 +1,6 @@
+SET(CMAKE_SYSTEM_NAME Linux)
+SET(ARCH x32)
+SET(CMAKE_C_FLAGS -m32)
+SET(CMAKE_CXX_FLAGS -m32)
+set(CC_CFLAGS "-m32")
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
