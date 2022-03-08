@@ -56,18 +56,15 @@ Modifying runs
 
 These environment variables can be set to modify the tests:
 
-TOOLSTEST_TIMES    - the number of frames or loops to run
-TOOLSTEST_SANITY   - whether or not to inject sanity checking assert calls
-                     (GLES only for now)
-TOOLSTEST_NULL_RUN - if set, we will skip testing whether results make sense;
-                     useful for generating test runs on fake drivers
-                     (GLES only for now)
-TOOLSTEST_STEP     - enter step mode where we wait for keypress to proceed to the
-                     next frame; while 'q' will exit immediately
-                     (GLES only for now)
-TOOLSTEST_WINSYS   - change Vulkan winsys; only valid value for now is "headless",
-                     which will force the headless extension to be used
-                     (Vulkan only for now)
+* TOOLSTEST_TIMES    - the number of frames or loops to run
+* TOOLSTEST_SANITY   - whether or not to inject sanity checking assert calls
+  (GLES only for now)
+* TOOLSTEST_NULL_RUN - if set, we will skip testing whether results make sense;
+  useful for generating test runs on fake drivers (GLES only for now)
+* TOOLSTEST_STEP     - enter step mode where we wait for keypress to proceed to
+  the next frame; while 'q' will exit immediately (GLES only for now)
+* TOOLSTEST_WINSYS   - change Vulkan winsys; only valid value for now is "headless",
+  which will force the headless extension to be used (Vulkan only for now)
 
 Note that for fake driver runs where TOOLSTEST_NULL_RUN is required and traces are
 generated, any traces containing compute jobs will _not_ contain the correct buffer
