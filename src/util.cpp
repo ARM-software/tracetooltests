@@ -51,7 +51,8 @@ char keypress()
 	argout.c_cc[VMIN] = 1;
 	argout.c_cc[VTIME] = 0;
 	tcsetattr(0, TCSADRAIN, &argout);
-	read(0, &ch, 1);
+	size_t r = read(0, &ch, 1);
+	(void)r; // make compiler happy
 	tcsetattr(0, TCSADRAIN, &argin);
 #endif
 	return ch;
