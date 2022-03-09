@@ -11,6 +11,8 @@
 #ifdef SDL
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
+#elif X11
+#define USE_X11
 #endif
 
 #include "util.h"
