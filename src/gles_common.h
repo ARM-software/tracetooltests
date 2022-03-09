@@ -17,6 +17,8 @@
 
 #define GL_GLEXT_PROTOTYPES
 #include <EGL/egl.h>
+#include <EGL/eglplatform.h>
+#include <EGL/eglext.h>
 #include <GLES3/gl32.h>
 #include <GLES2/gl2ext.h>
 
