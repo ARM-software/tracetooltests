@@ -175,7 +175,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		ELOG("SDL could not initialize! SDL_Error: %s", SDL_GetError());
-		return EGL_FALSE;
+		return -2;
 	}
 	atexit(SDL_Quit);
 #else
@@ -195,13 +195,13 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		if (eglQueryDevicesEXT(0, nullptr, &numDevices) == EGL_FALSE)
 		{
 			ELOG("Failed to poll EGL devices");
-			return EGL_FALSE;
+			return -3;
 		}
 		std::vector<EGLDeviceEXT> devices(numDevices);
 		if (eglQueryDevicesEXT(devices.size(), devices.data(), &numDevices) == EGL_FALSE)
 		{
 			ELOG("Failed to fetch EGL devices");
-			return EGL_FALSE;
+			return -4;
 		}
 		for (unsigned i = 0; i < devices.size(); i++)
 		{
@@ -217,7 +217,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	if (handle.display == EGL_NO_DISPLAY)
 	{
 		ELOG("No display found");
-		return EGL_FALSE;
+		return -5;
 	}
 
 	EGLint surfaceAttribs[] = {
@@ -248,7 +248,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	if (!eglInitialize(handle.display, &majorVersion, &minorVersion))
 	{
 		ELOG("eglInitialize() failed");
-		return EGL_FALSE;
+		return -6;
 	}
 	DLOG("EGL version is %d.%d", majorVersion, minorVersion);
 
@@ -257,14 +257,14 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	{
 		ELOG("eglChooseConfig(null) failed");
 		eglTerminate(handle.display);
-		return EGL_FALSE;
+		return -7;
 	}
 	std::vector<EGLConfig> configs(numConfigs);
 	if (!eglChooseConfig(handle.display, attribs, configs.data(), configs.size(), &numConfigs))
 	{
 		ELOG("eglChooseConfig() failed");
 		eglTerminate(handle.display);
-		return EGL_FALSE;
+		return -8;
 	}
 
 	EGLint selected = -1;
@@ -331,12 +331,14 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		eglWaitNative(EGL_CORE_NATIVE_ENGINE);
 		handle.surface[j] = eglCreateWindowSurface(handle.display, configs[selected], windows[j], nullptr);
 		XMapWindow(display, windows[j]);
+		XFree(visualInfo);
+		XFreeColormap(display, attr.colormap);
 #elif SDL
 		handle.surface[j] = SDL_CreateWindow(wname.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, IT_WIDTH, IT_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 		if (handle.surface[j] == EGL_NO_SURFACE)
 		{
 			ELOG("Failed to create SDL window: %s", SDL_GetError());
-			return EGL_FALSE;
+			return -9;
 		}
 		handle.context[j] = SDL_GL_CreateContext(handle.surface[j]);
 		ILOG("Created context %lu with driver %s on %s\n", (unsigned long)handle.context[j], SDL_GetCurrentVideoDriver(), SDL_GetDisplayName(SDL_GetWindowDisplayIndex(handle.surface[j])));
@@ -353,13 +355,13 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		if (handle.surface[j] == EGL_NO_SURFACE)
 		{
 			ELOG("create surface failed: 0x%04x", (unsigned)eglGetError());
-			return EGL_FALSE;
+			return -10;
 		}
 		handle.context[j] = eglCreateContext(handle.display, configs[0], (j == 0) ? EGL_NO_CONTEXT : handle.context[0], contextAttribs);
 		if (handle.context[j] == EGL_NO_CONTEXT)
 		{
 			ELOG("eglCreateContext() failed: 0x%04x", (unsigned)eglGetError());
-			return EGL_FALSE;
+			return -11;
 		}
 #endif
 	}
@@ -368,7 +370,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	if (!eglMakeCurrent(handle.display, handle.surface[0], handle.surface[0], handle.context[0]))
  	{
 		ELOG("eglMakeCurrent() failed");
-		return EGL_FALSE;
+		return -12;
 	}
 	EGLint egl_context_client_version;
 	eglQueryContext(handle.display, handle.context[0], EGL_CONTEXT_CLIENT_VERSION, &egl_context_client_version);
@@ -430,8 +432,10 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 #endif
 #ifdef X11
 	eglWaitClient();
-	for (unsigned j = 0; j < handle.surface.size(); j++) XUnmapWindow(XOpenDisplay(nullptr), windows[j]);
+	for (unsigned j = 0; j < handle.surface.size(); j++) XUnmapWindow(display, windows[j]);
 	eglWaitNative(EGL_CORE_NATIVE_ENGINE);
+	for (unsigned j = 0; j < handle.surface.size(); j++) XDestroyWindow(display, windows[j]);
+	XCloseDisplay(display);
 #endif
 
 	handle.context.clear();

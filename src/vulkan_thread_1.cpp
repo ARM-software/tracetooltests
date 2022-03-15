@@ -8,7 +8,6 @@
 #define THREADS 20
 static std::atomic_int used[THREADS + 1];
 static vulkan_setup_t vulkan;
-static std::atomic_int mCallNo;
 
 void usage()
 {

@@ -46,25 +46,11 @@ const GLfloat data[] =
 
 const unsigned short indices[] = // 5 triangles
 {
-      0,
-      1,
-      2,
-
-      3,
-      4,
-      5,
-
-      6,
-      7,
-      8,
-
-      9,
-      10,
-      11,
-
-      12,
-      13,
-      14
+      0, 1, 2,
+      3, 4, 5,
+      6, 7, 8,
+      9, 10, 11,
+      12, 13, 14
 };
 
 static GLuint vs, fs, draw_program, iLocPosition, iLocFillColor;
@@ -98,7 +84,7 @@ static int setupGraphics(TOOLSTEST *handle)
 	iLocPosition = glGetAttribLocation(draw_program, "a_v4Position");
 	iLocFillColor = glGetAttribLocation(draw_program, "a_v4FillColor");
 	glVertexAttribPointer(iLocPosition, 2, GL_FLOAT, GL_FALSE, 24, data);
-	glVertexAttribPointer(iLocFillColor, 4, GL_FLOAT, GL_TRUE, 24, (data + 8));
+	glVertexAttribPointer(iLocFillColor, 4, GL_FLOAT, GL_TRUE, 24, (data + 2));
 	glEnableVertexAttribArray(iLocFillColor);
 	glEnableVertexAttribArray(iLocPosition);
 
@@ -107,8 +93,7 @@ static int setupGraphics(TOOLSTEST *handle)
 
 static void callback_draw(TOOLSTEST *handle)
 {
-	// Note that the max index value is actually 15 ...
-	glDrawRangeElements(GL_TRIANGLES, 0, 16, 24, GL_UNSIGNED_SHORT, indices);
+	glDrawRangeElements(GL_TRIANGLES, 0, 14, 5, GL_UNSIGNED_SHORT, indices);
 	assert_fb(handle);
 }
 

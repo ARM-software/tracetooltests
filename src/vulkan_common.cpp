@@ -196,6 +196,7 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 	for (auto str : enabledExtensions) printf("\t%s\n", str);
 	if (required.size() > 0)
 	{
+		printf("Missing required extensions:\n");
 		for (auto str : required) printf("\t%s\n", str.c_str());
 		exit(-1);
 	}

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 enable_testing()
+project(tracetooltests)
 
 set(WINDOWSYSTEM "fbdev" CACHE STRING "Window system to use for build")
 set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffer x11)
@@ -28,6 +29,14 @@ else()
 	message(FATAL_ERROR "Invalid window system: ${WINDOWSYSTEM}")
 endif()
 set(IT_CFLAGS "-std=c++11 -Wall -g")
+
+if (SANITIZE)
+	# before running test with sanitizer, recommend to run these two:
+	# export LSAN_OPTIONS='detect_leaks=0'
+	# export ASAN_OPTIONS='symbolize=1,abort_on_error=1'
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all -fsanitize=${SANITIZE} -fsanitize-undefined-trap-on-error -fuse-ld=gold")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fstack-protector-all -fsanitize=${SANITIZE} -fsanitize-undefined-trap-on-error -fuse-ld=gold")
+endif()
 
 function(gles_test test_name)
 	add_executable(gles_${ARGV0} src/gles_${ARGV0}.cpp src/gles_common.cpp src/gles_common.h src/util.cpp src/util.h)

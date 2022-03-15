@@ -9,6 +9,8 @@ Building
 To build for linux desktop:
 --------------------------
 
+You may need to install the LunarG SDK first to get up to date headers.
+
 ```
 mkdir build
 cd build
