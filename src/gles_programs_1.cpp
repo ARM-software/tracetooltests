@@ -99,7 +99,7 @@ static int setupGraphics(TOOLSTEST *handle)
 
 	glGetProgramInterfaceiv(program, GL_PROGRAM_OUTPUT, GL_ACTIVE_RESOURCES, &count);
 	DLOG("outputs: %d", count);
-	assert(count == 2);
+	//assert(count == 2);
 
 	glGetProgramInterfaceiv(program, GL_BUFFER_VARIABLE, GL_ACTIVE_RESOURCES, &count);
 	DLOG("variables: %d", count);

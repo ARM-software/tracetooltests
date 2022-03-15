@@ -56,6 +56,8 @@ The Vulkan tests are currently not using any window system.
 Modifying runs
 --------------
 
+Most tests have command line parameters. To see which, run it with --help
+
 These environment variables can be set to modify the tests:
 
 * TOOLSTEST_TIMES    - the number of frames or loops to run
