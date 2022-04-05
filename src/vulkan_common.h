@@ -49,3 +49,6 @@ void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const ch
 
 /// Get default number of repeated loops to be done, taken from an environment variable if available.
 int repeats();
+
+/// Select which GPU to use
+void selectgpu(int gpu);

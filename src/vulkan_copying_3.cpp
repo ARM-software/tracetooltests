@@ -10,6 +10,7 @@ void usage()
 {
 	printf("Usage: vulkan_copying_1\n");
 	printf("-h/--help              This help\n");
+	printf("-g/--gpu level N       Select GPU (default 0)\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
 	printf("-c/--copy-method N     Set copy method (default %d)\n", method);
@@ -105,6 +106,10 @@ int main(int argc, char** argv)
 		else if (match(argv[i], "-d", "--debug"))
 		{
 			p__debug_level = get_arg(argv, ++i, argc);
+		}
+		else if (match(argv[i], "-g", "--gpu"))
+		{
+			selectgpu(get_arg(argv, ++i, argc));
 		}
 		else if (match(argv[i], "-b", "--buffer-size"))
 		{
