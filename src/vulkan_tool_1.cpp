@@ -10,7 +10,7 @@ int main()
 	VkResult result;
 	std::vector<VkPhysicalDeviceToolPropertiesEXT> tools;
 	uint32_t toolCount = 0;
-	PFN_vkGetPhysicalDeviceToolPropertiesEXT ppGetPhysicalDeviceToolPropertiesEXT = (PFN_vkGetPhysicalDeviceToolPropertiesEXT)vkGetDeviceProcAddr(vulkan.device, "vkGetPhysicalDeviceToolPropertiesEXT");
+	PFN_vkGetPhysicalDeviceToolPropertiesEXT ppGetPhysicalDeviceToolPropertiesEXT = (PFN_vkGetPhysicalDeviceToolPropertiesEXT)vkGetInstanceProcAddr(vulkan.instance, "vkGetPhysicalDeviceToolPropertiesEXT");
 	assert(ppGetPhysicalDeviceToolPropertiesEXT);
 	result = ppGetPhysicalDeviceToolPropertiesEXT(vulkan.physical, &toolCount, NULL);
 	assert(result == VK_SUCCESS);
