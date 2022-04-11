@@ -61,7 +61,7 @@ static void copying_1()
 	VkQueue queue1;
 	VkQueue queue2;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue1);
-	vkGetDeviceQueue(vulkan.device, 0, 1, &queue2);
+	vkGetDeviceQueue(vulkan.device, 0, queue_variant == 5 ? 1 : 0, &queue2);
 
 	std::vector<VkBuffer> origin_buffers(num_buffers);
 	std::vector<VkBuffer> target_buffers(num_buffers);

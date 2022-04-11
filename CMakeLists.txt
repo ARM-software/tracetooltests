@@ -131,4 +131,6 @@ vulkan_test(copying_3)
 add_test(NAME vulkan_copying_3_test_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_3 -c 0 -t 3)
 add_test(NAME vulkan_copying_3_test_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_3 -c 1 -t 3)
 add_test(NAME vulkan_copying_3_test_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_3 -c 2 -t 3)
+
+vulkan_test(tool_1)
 endif()
