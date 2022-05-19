@@ -51,4 +51,4 @@ void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const ch
 int repeats();
 
 /// Select which GPU to use
-void selectgpu(int gpu);
+void select_gpu(int chosen_gpu);

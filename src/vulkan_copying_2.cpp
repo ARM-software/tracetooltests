@@ -214,7 +214,7 @@ int main(int argc, char** argv)
 		}
 		else if (match(argv[i], "-g", "--gpu"))
 		{
-			selectgpu(get_arg(argv, ++i, argc));
+			select_gpu(get_arg(argv, ++i, argc));
 		}
 		else if (match(argv[i], "-d", "--debug"))
 		{

@@ -30,9 +30,14 @@ int repeats()
 	return get_env_int("TOOLSTEST_TIMES", 10);
 }
 
-void selectgpu(int gpu)
+void select_gpu(int chosen_gpu)
 {
-	selected_gpu = gpu;
+	selected_gpu = chosen_gpu;
+}
+
+static int gpu()
+{
+	return get_env_int("TOOLSTEST_GPU", selected_gpu);
 }
 
 static VkBool32 messenger_callback(
@@ -165,21 +170,20 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 	check(result);
 	assert(result == VK_SUCCESS);
 	assert(num_devices == physical_devices.size());
-	printf("Found %d physical devices (using %d)!\n", (int)num_devices, selected_gpu);
-	for (unsigned i = 0; i < num_devices; i++)
+	printf("Found %d physical devices (selecting %d)!\n", (int)num_devices, gpu());
+	for (unsigned i = 0; i < physical_devices.size(); i++)
 	{
-		VkPhysicalDevice& dev = physical_devices[i];
 		VkPhysicalDeviceProperties device_properties = {};
-		vkGetPhysicalDeviceProperties(dev, &device_properties);
+		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
 		printf("\t%d : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
 		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion));
 	}
-	if (selected_gpu >= (int)num_devices)
+	if (gpu() >= (int)num_devices)
 	{
-		printf("Selected GPU %d does not exist!\n", selected_gpu);
+		printf("Selected GPU %d does not exist!\n", gpu());
 		exit(-1);
 	}
-	vulkan.physical = physical_devices[selected_gpu];
+	vulkan.physical = physical_devices[gpu()];
 
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
