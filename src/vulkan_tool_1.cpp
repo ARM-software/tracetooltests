@@ -8,6 +8,8 @@ int main()
 {
 	vulkan_setup_t vulkan = test_init("vulkan_tool_1", { "VK_EXT_tooling_info" });
 	VkResult result;
+
+	// Test VK_EXT_tooling_info
 	std::vector<VkPhysicalDeviceToolPropertiesEXT> tools;
 	uint32_t toolCount = 0;
 	PFN_vkGetPhysicalDeviceToolPropertiesEXT ppGetPhysicalDeviceToolPropertiesEXT = (PFN_vkGetPhysicalDeviceToolPropertiesEXT)vkGetInstanceProcAddr(vulkan.instance, "vkGetPhysicalDeviceToolPropertiesEXT");

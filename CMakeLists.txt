@@ -93,6 +93,7 @@ gles_test(uninit_texture_2)
 endif()
 
 if (NOT NO_VULKAN MATCHES "1")
+vulkan_test(general)
 vulkan_test(copying_1)
 add_test(NAME vulkan_copying_1_test_0_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_1 -q 0 -m 0)
 add_test(NAME vulkan_copying_1_test_1_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_1 -q 1 -m 0 -c 5)
