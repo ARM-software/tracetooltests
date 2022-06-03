@@ -11,6 +11,7 @@ unset VK_LAYER_PATH
 
 REPORT=$REPORTDIR/report.html
 HTMLIMGOPTS="width=200 height=200"
+export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
 echo "<body><h1>Comparison for vulkan-samples with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT

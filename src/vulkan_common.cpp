@@ -83,11 +83,11 @@ void test_done(vulkan_setup_t vulkan)
 	vkDestroyInstance(vulkan.instance, nullptr);
 }
 
-vulkan_setup_t test_init(const std::string& testname, const std::vector<std::string> req)
+vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
-	std::unordered_set<std::string> required(req.begin(), req.end()); // temp copy
+	std::unordered_set<std::string> required(reqs.extensions.begin(), reqs.extensions.end()); // temp copy
 
 	// Create instance
 	VkInstanceCreateInfo pCreateInfo = {};
@@ -97,7 +97,7 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 	app.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
 	app.pEngineName = "testEngine";
 	app.engineVersion = VK_MAKE_VERSION( 1, 0, 0 );
-	app.apiVersion = VK_API_VERSION_1_0;
+	app.apiVersion = reqs.apiVersion;
 	pCreateInfo.pApplicationInfo = &app;
 	pCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
@@ -110,7 +110,7 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 	assert(result == VK_SUCCESS);
 	for (const VkExtensionProperties& s : supported_dev_extensions)
 	{
-		if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
 	}
 	if (wsi && strcmp(wsi, "headless") == 0)
 	{
@@ -177,6 +177,12 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
 		printf("\t%d : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
 		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion));
+		if (i == (unsigned)gpu() && device_properties.apiVersion < reqs.apiVersion)
+		{
+			printf("Selected GPU %d does support required Vulkan version %d.%d.%d\n", gpu(), VK_VERSION_MAJOR(reqs.apiVersion),
+			       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
+			exit(-1);
+		}
 	}
 	if (gpu() >= (int)num_devices)
 	{
@@ -185,10 +191,20 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 	}
 	vulkan.physical = physical_devices[gpu()];
 
+	uint32_t family_count = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
+	std::vector<VkQueueFamilyProperties> familyprops(family_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, familyprops.data());
+	if (familyprops[0].queueCount < reqs.queues)
+	{
+		printf("Vulkan implementation does not have sufficient queues (only %d, need %d) for this test\n", familyprops[0].queueCount, reqs.queues);
+		exit(-1);
+	}
+
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	queueCreateInfo.queueFamilyIndex = 0; // just grab first one
-	queueCreateInfo.queueCount = 2;
+	queueCreateInfo.queueCount = reqs.queues;
 	float queuePriorities[] = { 1.0f, 0.5f };
 	queueCreateInfo.pQueuePriorities = queuePriorities;
 	VkDeviceCreateInfo deviceInfo = {};
@@ -209,17 +225,17 @@ vulkan_setup_t test_init(const std::string& testname, const std::vector<std::str
 
 	for (const VkExtensionProperties& s : supported_extensions)
 	{
-		for (const auto& str : req) if (str == s.extensionName)
+		for (const auto& str : reqs.extensions) if (str == s.extensionName)
 		{
 			enabledExtensions.push_back(str.c_str());
 			required.erase(str);
 		}
 	}
-	if (enabledExtensions.size() > 0) printf("Required extensions:\n");
+	if (enabledExtensions.size() > 0) printf("Required device extensions:\n");
 	for (auto str : enabledExtensions) printf("\t%s\n", str);
 	if (required.size() > 0)
 	{
-		printf("Missing required extensions:\n");
+		printf("Missing required device extensions:\n");
 		for (auto str : required) printf("\t%s\n", str.c_str());
 		exit(-1);
 	}

@@ -6,9 +6,12 @@ void usage()
 
 int main()
 {
-	vulkan_setup_t vulkan = test_init("vulkan_as_1", { "VK_KHR_acceleration_structure" });
-	VkResult result;
+	vulkan_req_t reqs;
+	reqs.extensions.push_back("VK_KHR_acceleration_structure");
+	reqs.apiVersion = VK_API_VERSION_1_2;
+	vulkan_setup_t vulkan = test_init("vulkan_as_1", reqs);
 
+	VkResult result;
 	VkBuffer buffer;
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

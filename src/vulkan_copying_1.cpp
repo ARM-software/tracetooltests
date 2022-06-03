@@ -55,7 +55,9 @@ static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
 
 static void copying_1()
 {
-	vulkan_setup_t vulkan = test_init("copying_1");
+	vulkan_req_t reqs;
+	reqs.queues = (queue_variant == 5) ? 2 : 1;
+	vulkan_setup_t vulkan = test_init("vulkan_copying_1", reqs);
 	VkResult result;
 
 	VkQueue queue1;

@@ -6,12 +6,12 @@ void usage()
 {
 }
 
-// Written for Vulkan 1.0
+// Written for Vulkan 1.1
 int main()
 {
 	vulkan_req_t reqs;
-	reqs.apiVersion = VK_API_VERSION_1_0;
-	vulkan_setup_t vulkan = test_init("vulkan_memory_1", reqs);
+	reqs.apiVersion = VK_API_VERSION_1_1;
+	vulkan_setup_t vulkan = test_init("vulkan_memory_1_1", reqs);
 
 	VkCommandPool cmdpool;
 	VkCommandPoolCreateInfo cmdcreateinfo = {};
@@ -43,42 +43,32 @@ int main()
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer[i]);
 	}
 
-	VkMemoryRequirements req;
-	vkGetBufferMemoryRequirements(vulkan.device, buffer[0], &req);
-	uint32_t memoryTypeIndex = get_device_memory_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkBufferMemoryRequirementsInfo2 reqinfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2, nullptr, buffer[0] };
+	VkMemoryRequirements2 req = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+	vkGetBufferMemoryRequirements2(vulkan.device, &reqinfo, &req);
+	uint32_t memoryTypeIndex = get_device_memory_type(req.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	VkMemoryAllocateInfo pAllocateMemInfo = {};
 	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = req.size * NUM_BUFFERS;
+	pAllocateMemInfo.allocationSize = req.memoryRequirements.size * NUM_BUFFERS;
 	VkDeviceMemory memory = 0;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
 
-	VkDeviceSize offset = 0;
-	vkBindBufferMemory(vulkan.device, buffer[0], memory, offset); offset += req.size;
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[0], "Very temporary buffer");
-	vkBindBufferMemory(vulkan.device, buffer[1], memory, offset); offset += req.size;
-	vkDestroyBuffer(vulkan.device, buffer[0], nullptr); buffer[0] = VK_NULL_HANDLE;
-	vkBindBufferMemory(vulkan.device, buffer[2], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[3], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[4], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[5], memory, offset); offset += req.size;
-	vkDestroyBuffer(vulkan.device, buffer[4], nullptr); buffer[4] = VK_NULL_HANDLE;
-	vkBindBufferMemory(vulkan.device, buffer[6], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[7], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[8], memory, offset); offset += req.size;
-	vkBindBufferMemory(vulkan.device, buffer[9], memory, offset); offset += req.size;
-	vkDestroyBuffer(vulkan.device, buffer[9], nullptr); buffer[9] = VK_NULL_HANDLE;
-	vkBindBufferMemory(vulkan.device, buffer[10], memory, offset); offset += req.size;
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[10], "Buffer 10");
-	vkDestroyBuffer(vulkan.device, buffer[1], nullptr); buffer[1] = VK_NULL_HANDLE;
-
-	for (unsigned i = 11; i < NUM_BUFFERS; i++)
+	std::vector<VkBindBufferMemoryInfo> infos(NUM_BUFFERS);
+	uint32_t offset = 0;
+	for (unsigned i = 0; i < NUM_BUFFERS; i++)
 	{
-		vkBindBufferMemory(vulkan.device, buffer[i], memory, offset);
-		offset += req.size;
+		infos.at(i).sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
+		infos.at(i).pNext = nullptr;
+		infos.at(i).buffer = buffer[i];
+		infos.at(i).memory = memory;
+		infos.at(i).memoryOffset = offset;
+		offset += req.memoryRequirements.size;
 	}
+	result = vkBindBufferMemory2(vulkan.device, infos.size(), infos.data());
+	assert(result == VK_SUCCESS);
 
 	VkDescriptorSetLayoutCreateInfo cdslayout = {};
 	cdslayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -107,6 +97,8 @@ int main()
 	result = vkCreateDescriptorPool(vulkan.device, &cdspool, nullptr, &pool);
 	assert(result == VK_SUCCESS);
 	vkResetDescriptorPool(vulkan.device, pool, 0);
+
+	vkTrimCommandPool(vulkan.device, cmdpool, 0);
 
 	// Cleanup...
 	vkDestroyDescriptorPool(vulkan.device, pool, nullptr);

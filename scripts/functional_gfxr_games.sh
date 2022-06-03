@@ -12,6 +12,7 @@ mkdir -p $REPORTDIR
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
+export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 HTMLIMGOPTS="width=200 height=200"
 

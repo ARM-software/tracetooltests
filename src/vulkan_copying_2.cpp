@@ -8,6 +8,8 @@ static int queue_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
 static int times = repeats();
+static int vulkan_variant = 0;
+static PFN_vkQueueSubmit2 fpQueueSubmit2 = nullptr;
 
 void usage()
 {
@@ -23,23 +25,34 @@ void usage()
 	printf("\t1 - put all jobs on one queue\n");
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - wait for fences each loop\n");
-	printf("\t1 - do not wait for fences\n");
 	printf("-m/--map-variant N     Set map variant (default %d)\n", map_variant);
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
+	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
+	printf("\t0 - Vulkan 1.1\n");
+	printf("\t1 - Vulkan 1.3\n");
 	exit(-1);
 }
 
 static void copying_2()
 {
-	vulkan_setup_t vulkan = test_init("copying_2");
+	vulkan_req_t reqs;
+	reqs.apiVersion = (vulkan_variant == 0) ? VK_API_VERSION_1_1 : VK_API_VERSION_1_3;
+	reqs.queues = (queue_variant == 0) ? 2 : 1;
+	vulkan_setup_t vulkan = test_init("vulkan_copying_2", reqs);
 	VkResult result;
+
+	if (vulkan_variant == 1)
+	{
+		fpQueueSubmit2 = (PFN_vkQueueSubmit2)vkGetDeviceProcAddr(vulkan.device, "vkQueueSubmit2");
+		assert(fpQueueSubmit2);
+	}
 
 	VkQueue queue1;
 	VkQueue queue2;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue1);
-	vkGetDeviceQueue(vulkan.device, 0, 1, &queue2);
+	vkGetDeviceQueue(vulkan.device, 0, (queue_variant == 0) ? 1 : 0, &queue2);
 
 	std::vector<VkBuffer> origin_buffers(num_buffers);
 	std::vector<VkBuffer> target_buffers(num_buffers);
@@ -115,7 +128,7 @@ static void copying_2()
 	check(result);
 	VkCommandBufferBeginInfo command_buffer_begin_info = {};
 	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	command_buffer_begin_info.flags = 0;
 	VkMemoryBarrier memory_barrier = {};
 	memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 	memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -161,6 +174,7 @@ static void copying_2()
 				result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
 				check(result);
 			}
+			VkPipelineStageFlags flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			VkSubmitInfo submit_info = {};
 			submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			submit_info.commandBufferCount = 1;
@@ -171,13 +185,26 @@ static void copying_2()
 			{
 				submit_info.waitSemaphoreCount = 1;
 				submit_info.pWaitSemaphores = &semaphores.at(i - 1);
-				VkPipelineStageFlags flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				submit_info.pWaitDstStageMask = &flags;
 			}
 			VkQueue q = queue1;
 			if (queue_variant == 0 && i % 2 == 1) q = queue2; // interleave mode
-			result = vkQueueSubmit(q, 1, &submit_info, fences[i]);
-			check(result);
+			if (vulkan_variant == 0)
+			{
+				result = vkQueueSubmit(q, 1, &submit_info, fences[i]);
+				check(result);
+			}
+			else
+			{
+				assert(vulkan_variant == 1);
+				VkSemaphore waitsema = (i > 0) ? semaphores.at(i - 1) : VK_NULL_HANDLE;
+				VkSemaphoreSubmitInfo s1 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, waitsema, VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // wait semaphore
+				VkSemaphoreSubmitInfo s2 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, semaphores[i], VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // signal semaphore
+				VkCommandBufferSubmitInfo csi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, command_buffers[i], 0 };
+				VkSubmitInfo2 submit_info2 = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, (i > 0), &s1, 1, &csi, 1, &s2 };
+				result = fpQueueSubmit2(q, 1, &submit_info2, fences[i]);
+				check(result);
+			}
 		}
 		if (fence_variant == 0)
 		{
@@ -251,7 +278,15 @@ int main(int argc, char** argv)
 		else if (match(argv[i], "-f", "--fence-variant"))
 		{
 			fence_variant = get_arg(argv, ++i, argc);
-			if (fence_variant < 0 || fence_variant > 1)
+			if (fence_variant < 0 || fence_variant > 0)
+			{
+				usage();
+			}
+		}
+		else if (match(argv[i], "-V", "--vulkan-variant"))
+		{
+			vulkan_variant = get_arg(argv, ++i, argc);
+			if (vulkan_variant < 0 || vulkan_variant > 1)
 			{
 				usage();
 			}

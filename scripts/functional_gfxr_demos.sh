@@ -10,11 +10,12 @@ rm -f external/vulkan-demos/*.ppm
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
+export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-samples with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT
 
 function demo
 {
@@ -74,7 +75,7 @@ function demo
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><img $HTMLIMGOPTS src="$1_f3_compare.png" /></td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_remap.png" /><img $HTMLIMGOPTS src="$1_f3_compare_remap.png" /></td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_realign.png" /><img $HTMLIMGOPTS src="$1_f3_compare_realign.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_rebind.png" /><img $HTMLIMGOPTS src="$1_f3_compare_rebind.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_rebind.png" /><img $HTMLIMGOPTS src="$1_f3_compare_rebind.png" /></td></tr>" >> $REPORT
 }
 
 demo triangle

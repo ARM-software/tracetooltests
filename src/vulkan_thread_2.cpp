@@ -55,7 +55,7 @@ static void thread_test_stress(VkCommandPool *cmdpool, VkCommandBuffer* cmdbuffe
 
 int main()
 {
-	vulkan = test_init("wtf");
+	vulkan = test_init("vulkan_thread_2");
 	std::vector<std::thread*> threads(THREADS);
 	for (int k = 0; k < THREADS; k++)
 	{

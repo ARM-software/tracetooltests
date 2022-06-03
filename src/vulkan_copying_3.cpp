@@ -23,7 +23,7 @@ void usage()
 
 static void copying_3()
 {
-	vulkan_setup_t vulkan = test_init("copying_3");
+	vulkan_setup_t vulkan = test_init("vulkan_copying_3");
 	VkResult result;
 
 	VkQueue queue;

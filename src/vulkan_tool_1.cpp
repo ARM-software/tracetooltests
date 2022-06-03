@@ -6,7 +6,9 @@ void usage()
 
 int main()
 {
-	vulkan_setup_t vulkan = test_init("vulkan_tool_1", { "VK_EXT_tooling_info" });
+	vulkan_req_t reqs;
+	reqs.extensions.push_back("VK_EXT_tooling_info");
+	vulkan_setup_t vulkan = test_init("vulkan_tool_1", reqs);
 	VkResult result;
 
 	// Test VK_EXT_tooling_info

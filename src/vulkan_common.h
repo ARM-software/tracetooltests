@@ -35,6 +35,13 @@ struct vulkan_setup_t
 	VkPhysicalDevice physical;
 };
 
+struct vulkan_req_t
+{
+	uint32_t apiVersion = VK_API_VERSION_1_1;
+	uint32_t queues = 1;
+	std::vector<std::string> extensions;
+};
+
 const char* errorString(const VkResult errorCode);
 
 void check_retval(VkResult stored_retval, VkResult retval);
@@ -42,7 +49,7 @@ void check_retval(VkResult stored_retval, VkResult retval);
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 
-vulkan_setup_t test_init(const std::string& testname, const std::vector<std::string> req = std::vector<std::string>());
+vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs = vulkan_req_t());
 void test_done(vulkan_setup_t s);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const char* name);

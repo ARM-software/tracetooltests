@@ -116,17 +116,17 @@ add_test(NAME vulkan_copying_1_test_5_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulk
 vulkan_test(thread_1)
 vulkan_test(thread_2)
 vulkan_test(memory_1)
+vulkan_test(memory_1_1)
 vulkan_test(as_1)
 
 vulkan_test(copying_2)
 add_test(NAME vulkan_copying_2_test_0_0_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 0 -f 0 -m 0 -t 3)
 add_test(NAME vulkan_copying_2_test_0_0_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 0 -f 0 -m 1 -t 3)
 add_test(NAME vulkan_copying_2_test_0_0_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 0 -f 0 -m 2 -t 3)
-add_test(NAME vulkan_copying_2_test_0_1_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 0 -f 1 -m 0 -t 3)
 add_test(NAME vulkan_copying_2_test_1_0_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 0 -m 0 -t 3)
-add_test(NAME vulkan_copying_2_test_1_1_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 1 -m 0 -t 3)
-add_test(NAME vulkan_copying_2_test_1_1_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 1 -m 1 -c 5 -t 3)
-add_test(NAME vulkan_copying_2_test_1_1_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 1 -m 2 -b 1000 -t 3)
+add_test(NAME vulkan_copying_2_test_1_1_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 0 -m 1 -c 5 -t 3)
+add_test(NAME vulkan_copying_2_test_1_1_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 1 -f 0 -m 2 -b 1000 -t 3)
+add_test(NAME vulkan_copying_2_test_2_0_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -V 1) # vulkan 1.3 required
 
 vulkan_test(copying_3)
 add_test(NAME vulkan_copying_3_test_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_3 -c 0 -t 3)

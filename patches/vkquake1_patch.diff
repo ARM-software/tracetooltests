@@ -1,0 +1,49 @@
+diff --git a/Quake/cl_main.c b/Quake/cl_main.c
+index 7866715..a329ee3 100644
+--- a/Quake/cl_main.c
++++ b/Quake/cl_main.c
+@@ -276,6 +276,17 @@ void CL_NextDemo (void)
+ 	if (cls.demonum == -1)
+ 		return; // don't play demos
+ 
++	if (cls.demonum >= 1)
++	{
++		Con_Printf ("DONE showing demos!\n");
++		cls.demonum = -1;
++		CL_Disconnect();
++		m_state = m_quit;
++		Host_ShutdownServer(false);
++		Sys_Quit();
++		return;
++	}
++
+ 	if (!cls.demos[cls.demonum][0] || cls.demonum == MAX_DEMOS)
+ 	{
+ 		cls.demonum = 0;
+diff --git a/Quake/gl_rmisc.c b/Quake/gl_rmisc.c
+index c4b604e..c7d5104 100644
+--- a/Quake/gl_rmisc.c
++++ b/Quake/gl_rmisc.c
+@@ -1453,7 +1453,9 @@ void R_CreatePipelineLayouts ()
+ 
+ 	// Show triangles
+ 	pipeline_layout_create_info.setLayoutCount = 0;
++	pipeline_layout_create_info.pSetLayouts = NULL;
+ 	pipeline_layout_create_info.pushConstantRangeCount = 0;
++	pipeline_layout_create_info.pPushConstantRanges = NULL;
+ 
+ 	err = vkCreatePipelineLayout (vulkan_globals.device, &pipeline_layout_create_info, NULL, &vulkan_globals.showtris_pipeline.layout.handle);
+ 	if (err != VK_SUCCESS)
+diff --git a/Quake/gl_vidsdl.c b/Quake/gl_vidsdl.c
+index e3961e9..c9aac59 100644
+--- a/Quake/gl_vidsdl.c
++++ b/Quake/gl_vidsdl.c
+@@ -2306,6 +2306,8 @@ void VID_Shutdown (void)
+ {
+ 	if (vid_initialized)
+ 	{
++		vkDestroyDevice (vulkan_globals.device, NULL);
++		vkDestroyInstance (vulkan_instance, NULL);
+ 		SDL_QuitSubSystem (SDL_INIT_VIDEO);
+ 		draw_context = NULL;
+ 		PL_VID_Shutdown ();

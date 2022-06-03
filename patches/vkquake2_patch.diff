@@ -1,0 +1,14 @@
+diff --git a/client/cl_main.c b/client/cl_main.c
+index ff44868..e25c4e6 100644
+--- a/client/cl_main.c
++++ b/client/cl_main.c
+@@ -660,6 +660,9 @@ void CL_Disconnect (void)
+ 	}
+ 
+ 	cls.state = ca_disconnected;
++
++	CL_Shutdown();
++	Com_Quit();
+ }
+ 
+ void CL_Disconnect_f (void)
