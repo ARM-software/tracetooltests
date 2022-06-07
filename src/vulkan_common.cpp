@@ -88,6 +88,7 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
 	std::unordered_set<std::string> required(reqs.extensions.begin(), reqs.extensions.end()); // temp copy
+	bool has_tooling_checksum = false;
 
 	// Create instance
 	VkInstanceCreateInfo pCreateInfo = {};
@@ -225,6 +226,7 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 
 	for (const VkExtensionProperties& s : supported_extensions)
 	{
+		if (strcmp(s.extensionName, "VK_TRACETOOLTEST_checksum_validation") == 0) { enabledExtensions.push_back(s.extensionName); has_tooling_checksum = true; }
 		for (const auto& str : reqs.extensions) if (str == s.extensionName)
 		{
 			enabledExtensions.push_back(str.c_str());
@@ -250,6 +252,11 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	test_set_name(vulkan.device, VK_OBJECT_TYPE_DEVICE, (uint64_t)vulkan.device, "Our device");
 
 	vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
+
+	if (has_tooling_checksum)
+	{
+		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
+	}
 
 	return vulkan;
 }

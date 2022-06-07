@@ -269,6 +269,17 @@ static void copying_1()
 		waitfence(vulkan, fence); // only one fence...
 	}
 
+	// Verification
+	if (vulkan.vkAssertBuffer)
+	{
+		for (unsigned i = 0; i < num_buffers; i++)
+		{
+			const uint32_t orig = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i));
+			const uint32_t dest = vulkan.vkAssertBuffer(vulkan.device, target_buffers.at(i));
+			assert(orig == dest);
+		}
+	}
+
 	// Cleanup...
 	if (map_variant == 0 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
 	vkDestroyFence(vulkan.device, fence, nullptr);

@@ -102,7 +102,7 @@ int main()
 	VkDescriptorPoolSize dps = {};
 	dps.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dps.descriptorCount = 1;
-	cdspool.pPoolSizes = &dps;;
+	cdspool.pPoolSizes = &dps;
 	VkDescriptorPool pool;
 	result = vkCreateDescriptorPool(vulkan.device, &cdspool, nullptr, &pool);
 	assert(result == VK_SUCCESS);

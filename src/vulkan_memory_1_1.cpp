@@ -41,6 +41,9 @@ int main()
 	for (unsigned i = 0; i < NUM_BUFFERS; i++)
 	{
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer[i]);
+		check(result);
+		test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[i], "A buffer");
+		test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[i], "B for buffer");
 	}
 
 	VkBufferMemoryRequirementsInfo2 reqinfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2, nullptr, buffer[0] };
@@ -87,12 +90,12 @@ int main()
 	VkDescriptorPoolCreateInfo cdspool = {};
 	cdspool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	cdspool.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	cdspool.maxSets = 500;
+	cdspool.maxSets = 50;
 	cdspool.poolSizeCount = 1;
 	VkDescriptorPoolSize dps = {};
 	dps.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dps.descriptorCount = 1;
-	cdspool.pPoolSizes = &dps;;
+	cdspool.pPoolSizes = &dps;
 	VkDescriptorPool pool;
 	result = vkCreateDescriptorPool(vulkan.device, &cdspool, nullptr, &pool);
 	assert(result == VK_SUCCESS);

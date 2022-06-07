@@ -76,6 +76,19 @@ generated, any traces containing compute jobs will _not_ contain the correct buf
 contents. Not all tests support all environment variables. For the vulkan tests,
 usually better to look at their command line options.
 
+Private Vulkan extensions
+-------------------------
+
+VK_TRACETOOLTEST_checksum_validation - defines a new command
+vkAssertBufferTRACETOOLTEST(VkDevice device, VkBuffer buffer) which injects and
+returns an Adler32 checksum of the given buffer into the command stream. This can
+be used to validate tools like tracers.
+
+Private GLES extensions
+-----------------------
+
+TBD
+
 Known issues
 ------------
 

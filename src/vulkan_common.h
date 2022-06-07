@@ -21,6 +21,8 @@
 
 #include "util.h"
 
+typedef uint32_t (VKAPI_PTR *PFN_vkAssertBufferTRACETOOLTEST)(VkDevice device, VkBuffer buffer);
+
 #define check(result) \
 	if (result != VK_SUCCESS) \
 	{ \
@@ -30,9 +32,10 @@
 
 struct vulkan_setup_t
 {
-	VkInstance instance;
-	VkDevice device;
-	VkPhysicalDevice physical;
+	VkInstance instance = VK_NULL_HANDLE;
+	VkDevice device = VK_NULL_HANDLE;
+	VkPhysicalDevice physical = VK_NULL_HANDLE;
+	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
 };
 
 struct vulkan_req_t
