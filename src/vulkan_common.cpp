@@ -77,6 +77,16 @@ void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const ch
 	//vkSetDebugUtilsObjectNameEXT(device, &info);
 }
 
+void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory)
+{
+	if (vulkan.vkGetDeviceTracingObjectProperty)
+	{
+		uint64_t allocations = vulkan.vkGetDeviceTracingObjectProperty(vulkan.device, VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)memory, VK_TRACING_OBJECT_PROPERTY_ALLOCATIONS_COUNT_TRACETOOLTEST);
+		assert(allocations == 0);
+	}
+	vkFreeMemory(vulkan.device, memory, nullptr);
+}
+
 void test_done(vulkan_setup_t vulkan)
 {
 	vkDestroyDevice(vulkan.device, nullptr);
@@ -89,6 +99,8 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	vulkan_setup_t vulkan;
 	std::unordered_set<std::string> required(reqs.extensions.begin(), reqs.extensions.end()); // temp copy
 	bool has_tooling_checksum = false;
+	bool has_tooling_obj_property = false;
+	bool has_tooling_benchmarking = false;
 
 	// Create instance
 	VkInstanceCreateInfo pCreateInfo = {};
@@ -106,12 +118,18 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	uint32_t propertyCount = 0;
 	VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, nullptr);
 	assert(result == VK_SUCCESS);
-	std::vector<VkExtensionProperties> supported_dev_extensions(propertyCount);
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, supported_dev_extensions.data());
+	std::vector<VkExtensionProperties> supported_instance_extensions(propertyCount);
+	result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, supported_instance_extensions.data());
 	assert(result == VK_SUCCESS);
-	for (const VkExtensionProperties& s : supported_dev_extensions)
+	for (const VkExtensionProperties& s : supported_instance_extensions)
 	{
 		if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
+		else if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
+		else if (strcmp(s.extensionName, "VK_TRACETOOLTEST_benchmarking") == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			has_tooling_benchmarking = true;
+		}
 	}
 	if (wsi && strcmp(wsi, "headless") == 0)
 	{
@@ -127,12 +145,10 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 #ifdef VALIDATION
-	enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	const char *validationLayerNames[] = { "VK_LAYER_LUNARG_standard_validation" };
 	pCreateInfo.enabledLayerCount = 1;
 	pCreateInfo.ppEnabledLayerNames = validationLayerNames;
 #endif
-	enabledExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 	if (enabledExtensions.size() > 0)
 	{
@@ -202,6 +218,29 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 		exit(-1);
 	}
 
+	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
+	{
+		VkBenchmarkingTRACETOOLTEST benchmarking = { VK_STRUCTURE_TYPE_BENCHMARKING_TRACETOOLTEST, nullptr };
+		VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+		if (has_tooling_benchmarking) feat13.pNext = &benchmarking;
+		VkPhysicalDeviceVulkan12Features feat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &feat13 };
+		VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &feat12 };
+		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &feat11 };
+		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
+		if (reqs.samplerAnisotropy) assert(feat2.features.samplerAnisotropy);
+		if (has_tooling_benchmarking)
+		{
+			printf("Benchmarking mode requested:\n");
+			printf("\tfixedTimeStep = %u\n", benchmarking.fixedTimeStep);
+			printf("\tdisablePerformanceAdaptation = %s\n", benchmarking.disablePerformanceAdaptation ? "true" : "false");
+			printf("\tdisableVendorAdaptation = %s\n", benchmarking.disableVendorAdaptation ? "true" : "false");
+			printf("\tdisableLoadingFrames = %s\n", benchmarking.disableVendorAdaptation ? "true" : "false");
+			printf("\tvisualSettings = %u\n", benchmarking.visualSettings);
+			printf("\tscenario = %u\n", benchmarking.scenario);
+			printf("\tloopTime = %u\n", benchmarking.loopTime);
+		}
+	}
+
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	queueCreateInfo.queueFamilyIndex = 0; // just grab first one
@@ -215,18 +254,30 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
 	VkPhysicalDeviceFeatures features = {};
+	if (reqs.samplerAnisotropy) features.samplerAnisotropy = VK_TRUE;
 	deviceInfo.pEnabledFeatures = &features;
 
 	enabledExtensions.clear();
 	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, nullptr);
 	assert(result == VK_SUCCESS);
-	std::vector<VkExtensionProperties> supported_extensions(propertyCount);
-	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_extensions.data());
+	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);
+	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
 	assert(result == VK_SUCCESS);
 
-	for (const VkExtensionProperties& s : supported_extensions)
+	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
-		if (strcmp(s.extensionName, "VK_TRACETOOLTEST_checksum_validation") == 0) { enabledExtensions.push_back(s.extensionName); has_tooling_checksum = true; }
+		// These are fake extensions used for testing, see README.md for documentation
+		if (strcmp(s.extensionName, "VK_TRACETOOLTEST_checksum_validation") == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			has_tooling_checksum = true;
+		}
+		else if (strcmp(s.extensionName, "VK_TRACETOOLTEST_object_property") == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			has_tooling_obj_property = true;
+		}
+
 		for (const auto& str : reqs.extensions) if (str == s.extensionName)
 		{
 			enabledExtensions.push_back(str.c_str());
@@ -256,6 +307,10 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	if (has_tooling_checksum)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
+	}
+	if (has_tooling_obj_property)
+	{
+		vulkan.vkGetDeviceTracingObjectProperty = (PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkGetDeviceTracingObjectPropertyTRACETOOLTEST");
 	}
 
 	return vulkan;

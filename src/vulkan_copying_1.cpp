@@ -289,8 +289,8 @@ static void copying_1()
 		vkDestroyBuffer(vulkan.device, target_buffers.at(i), nullptr);
 	}
 
-	vkFreeMemory(vulkan.device, origin_memory, nullptr);
-	vkFreeMemory(vulkan.device, target_memory, nullptr);
+	testFreeMemory(vulkan, origin_memory);
+	testFreeMemory(vulkan, target_memory);
 	vkFreeCommandBuffers(vulkan.device, command_pool, num_buffers + 1, command_buffers.data());
 	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 	test_done(vulkan);

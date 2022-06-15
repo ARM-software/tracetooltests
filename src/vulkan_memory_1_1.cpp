@@ -111,7 +111,7 @@ int main()
 		vkDestroyBuffer(vulkan.device, buffer[i], nullptr);
 	}
 
-	vkFreeMemory(vulkan.device, memory, nullptr);
+	testFreeMemory(vulkan, memory);
 	vkFreeCommandBuffers(vulkan.device, cmdpool, cmdbuffers.size(), cmdbuffers.data());
 	vkDestroyCommandPool(vulkan.device, cmdpool, nullptr);
 

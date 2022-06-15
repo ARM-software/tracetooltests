@@ -61,7 +61,7 @@ int main()
 
 	ttDestroyAccelerationStructureKHR(vulkan.device, as, nullptr);
 	vkDestroyBuffer(vulkan.device, buffer, nullptr);
-	vkFreeMemory(vulkan.device, memory, nullptr);
+	testFreeMemory(vulkan, memory);
 
 	test_done(vulkan);
 	return 0;

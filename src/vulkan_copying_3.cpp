@@ -91,7 +91,7 @@ static void copying_3()
 	vkUnmapMemory(vulkan.device, memory);
 
 	vkDestroyBuffer(vulkan.device, buffer, nullptr);
-	vkFreeMemory(vulkan.device, memory, nullptr);
+	testFreeMemory(vulkan, memory);
 	test_done(vulkan);
 }
 

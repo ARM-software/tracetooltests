@@ -235,8 +235,8 @@ static void copying_2()
 		vkDestroySemaphore(vulkan.device, semaphores.at(i), nullptr);
 		vkDestroyFence(vulkan.device, fences[i], nullptr);
 	}
-	vkFreeMemory(vulkan.device, origin_memory, nullptr);
-	vkFreeMemory(vulkan.device, target_memory, nullptr);
+	testFreeMemory(vulkan, origin_memory);
+	testFreeMemory(vulkan, target_memory);
 	vkFreeCommandBuffers(vulkan.device, command_pool, num_buffers, command_buffers.data());
 	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 	test_done(vulkan);
