@@ -6,7 +6,7 @@ DEMO_PARAMS="--benchmark -bfs 10"
 
 mkdir -p traces
 mkdir -p $REPORTDIR
-rm -f external/vulkan-demos/*.ppm
+rm -f external/vulkan-demos/*.ppm *.ppm traces/demo_*.gfxr
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH

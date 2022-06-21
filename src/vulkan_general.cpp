@@ -8,6 +8,7 @@ void usage()
 	printf("-h/--help              This help\n");
 	printf("-g/--gpu level N       Select GPU (default 0)\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
+	printf("-x/--ugly-exit         Exit without cleanup\n");
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - normal run\n");
 	printf("\t1 - expect induced fence delay\n");
@@ -16,6 +17,7 @@ void usage()
 
 int main(int argc, char** argv)
 {
+	bool ugly_exit = false;
 	for (int i = 1; i < argc; i++)
 	{
 		if (match(argv[i], "-h", "--help"))
@@ -25,6 +27,10 @@ int main(int argc, char** argv)
 		else if (match(argv[i], "-d", "--debug"))
 		{
 			p__debug_level = get_arg(argv, ++i, argc);
+		}
+		else if (match(argv[i], "-x", "--ugly-exit"))
+		{
+			ugly_exit = true;
 		}
 		else if (match(argv[i], "-g", "--gpu"))
 		{
@@ -103,9 +109,12 @@ int main(int argc, char** argv)
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_NOT_READY);
 
-	vkDestroyFence(vulkan.device, fence1, nullptr);
-	vkDestroyFence(vulkan.device, fence2, nullptr);
+	if (!ugly_exit)
+	{
+		vkDestroyFence(vulkan.device, fence1, nullptr);
+		vkDestroyFence(vulkan.device, fence2, nullptr);
+		test_done(vulkan);
+	}
 
-	test_done(vulkan);
 	return 0;
 }

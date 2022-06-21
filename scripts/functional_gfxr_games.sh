@@ -86,7 +86,7 @@ replay vkquake1 "VkQuake 1" $FRAME
 
 # --- vkQuake 2 ---
 
-FRAME=3000
+FRAME=300
 
 echo
 echo "****** vkquake2 ******"

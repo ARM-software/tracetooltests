@@ -4,7 +4,7 @@ REPORTDIR=reports/gfxr/samples
 
 mkdir -p traces
 mkdir -p $REPORTDIR
-rm -f external/vulkan-samples/*.ppm
+rm -f external/vulkan-samples/*.ppm *.ppm traces/sample_*.gfxr
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
@@ -30,6 +30,7 @@ function run
 	# Native run
 	( cd external/vulkan-samples ; VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
 	convert -alpha off external/vulkan-samples/3.ppm $REPORTDIR/sample_$1_f3_native.png
+	rm external/vulkan-samples/*.ppm
 
 	echo
 	echo "** trace **"
@@ -39,7 +40,6 @@ function run
 	rm -f external/vulkan-samples/*.gfxr
 	( cd external/vulkan-samples ; gfxrecon-capture.py -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
 	mv external/vulkan-samples/sample_$1*.gfxr traces/sample_$1.gfxr
-	rm -f external/vulkan-samples/*.ppm
 
 	echo
 	echo "** replay **"
