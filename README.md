@@ -114,8 +114,9 @@ Structure details:
   performance or rendering quality
 * VkBool32 disableLoadingFrames - do not render anything during application loading; this
   may be important when running in very slow simulation environments
-* uint32_t visualSettings - visual quality, where zero is best; if the best possible
-  quality cannot be achieved on the host platform, the value shall not be returned as zero
+* uint32_t visualSettings - visual quality, where one is best; if the best possible
+  quality cannot be achieved on the host platform, the value shall not be returned as one;
+  if zero then no override of visual settings
 * uint32_t scenario - the scenario to run, return zero if fetched value is not supported
 * uint32_t loopTime - the number of seconds to loop the main body of the content; this is
   useful for power usage benchmarking

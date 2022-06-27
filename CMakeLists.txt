@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 enable_testing()
 project(tracetooltests)
 
-set(WINDOWSYSTEM "fbdev" CACHE STRING "Window system to use for build")
+set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
 set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffer x11)
 
 if(WINDOWSYSTEM MATCHES "sdl")
@@ -90,6 +90,7 @@ gles_test(ext_texture_buffer)
 gles_test(ext_texture_cube_map_array)
 gles_test(uninit_texture_1)
 gles_test(uninit_texture_2)
+gles_test(texsubimage3d)
 endif()
 
 if (NOT NO_VULKAN MATCHES "1")

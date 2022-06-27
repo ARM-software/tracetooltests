@@ -103,7 +103,7 @@ static bool has_extension(const char* name)
 	return false;
 }
 
-void usage()
+static void usage(TOOLSTEST_CALLBACK_USAGE usage)
 {
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
@@ -112,18 +112,20 @@ void usage()
 	printf("-s/--step              Step mode\n");
 	printf("-i/--inject            Inject sanity checking\n");
 	printf("-n/--null-run          Skip testing of results\n");
+	if (usage) usage();
 	exit(1);
 }
 
-int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data, EGLint *attribs, int surfaces)
+int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 {
+	const EGLint *attribs = init.attribs;
 	TOOLSTEST handle;
-	handle.name = name;
-	handle.swap = swap;
-	handle.init = setup;
-	handle.done = cleanup;
+	handle.name = init.name;
+	handle.swap = init.swap;
+	handle.init = init.init;
+	handle.done = init.done;
 	handle.times = get_env_int("TOOLSTEST_TIMES", 10);
-	handle.user_data = user_data;
+	handle.user_data = init.user_data;
 	handle.current_frame = 0;
 
 	if (get_env_int("TOOLSTEST_STEP", 0) > 0) step_mode = true;
@@ -138,7 +140,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	{
 		if (match(argv[i], "-h", "--help"))
 		{
-			usage();
+			usage(init.usage);
 		}
 		else if (match(argv[i], "-d", "--debug"))
 		{
@@ -162,8 +164,11 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		}
 		else
 		{
-			ELOG("Unrecognized cmd line parameter: %s", argv[i]);
-			return -1;
+			if (!init.cmdopt || !init.cmdopt(i, argc, argv))
+			{
+				ELOG("Unrecognized cmd line parameter: %s", argv[i]);
+				usage(init.usage);
+			}
 		}
 	}
 
@@ -189,7 +194,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 
 	PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT = (PFNEGLQUERYDEVICESEXTPROC)eglGetProcAddress("eglQueryDevicesEXT");
 	PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
-	if (eglQueryDevicesEXT && eglGetPlatformDisplayEXT)
+	if (eglQueryDevicesEXT && eglGetPlatformDisplayEXT && handle.display == EGL_NO_DISPLAY)
 	{
 		EGLint numDevices = 0;
 		if (eglQueryDevicesEXT(0, nullptr, &numDevices) == EGL_FALSE)
@@ -205,12 +210,9 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		}
 		for (unsigned i = 0; i < devices.size(); i++)
 		{
-			if (handle.display == EGL_NO_DISPLAY)
-			{
-				handle.display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, devices[i], 0);
-				DLOG("Using EGL device %u for our display!", i);
-			}
-			else DLOG("EGL device found and ignored: %u", i);
+			handle.display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, devices[i], 0);
+			DLOG("Using EGL device %u for our display!", i);
+			break;
 		}
 	}
 
@@ -220,7 +222,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		return -5;
 	}
 
-	EGLint surfaceAttribs[] = {
+	const EGLint surfaceAttribs[] = {
 		EGL_SURFACE_TYPE,
 #if PBUFFERS
 		EGL_PBUFFER_BIT,
@@ -236,7 +238,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 		EGL_DEPTH_SIZE, 24,
 		EGL_NONE, EGL_NONE,
 	};
-	EGLint contextAttribs[] = {
+	const EGLint contextAttribs[] = {
 		EGL_CONTEXT_MAJOR_VERSION, 3,
 		EGL_CONTEXT_MINOR_VERSION, 2,
 		EGL_NONE, EGL_NONE,
@@ -283,14 +285,14 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	assert(selected != -1);
 #endif
 
-	handle.surface.resize(surfaces);
-	handle.context.resize(surfaces);
+	handle.surface.resize(init.surfaces);
+	handle.context.resize(init.surfaces);
 #if defined(X11) || defined(FBDEV)
-	windows.resize(surfaces);
+	windows.resize(init.surfaces);
 #endif
-	for (int j = 0; j < surfaces; j++)
+	for (int j = 0; j < init.surfaces; j++)
 	{
-		std::string wname = std::string(name) + "_w" + std::to_string(j);
+		std::string wname = std::string(init.name) + "_w" + std::to_string(j);
 #ifdef FBDEV
 		windows[j] = { IT_HEIGHT, IT_WIDTH };
 		handle.surface[j] = eglCreateWindowSurface(handle.display, configs[selected], (intptr_t)(&windows[j]), nullptr);
@@ -397,7 +399,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	glEnable(GL_DEBUG_OUTPUT_KHR); // use GL_DEBUG_OUTPUT_SYNCHRONOUS_KHR for serious debugging
 	glDebugMessageCallback(debug_callback, NULL);
 
-	int ret = setup(&handle);
+	int ret = init.init(&handle);
 	if (ret != 0)
 	{
 		ELOG("Setup failed");
@@ -406,9 +408,9 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	for (int i = 0; i < handle.times; i++)
 	{
 		handle.current_frame = i;
-		std::string annotation = std::string(name) + " frame " + std::to_string(handle.current_frame);
+		std::string annotation = std::string(init.name) + " frame " + std::to_string(handle.current_frame);
 		annotate(annotation.c_str());
-		swap(&handle);
+		init.swap(&handle);
 		test_swap(&handle);
 		if (step_mode)
 		{
@@ -420,7 +422,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 #endif
 		}
 	}
-	cleanup(&handle);
+	init.done(&handle);
 
 	eglMakeCurrent(handle.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
@@ -446,6 +448,19 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 #endif
 
 	return 0;
+}
+
+int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data, EGLint *attribs, int surfaces)
+{
+	TOOLSTEST_INIT initparam;
+	initparam.name = name;
+	initparam.swap = swap;
+	initparam.init = setup;
+	initparam.done = cleanup;
+	initparam.user_data = user_data,
+	initparam.attribs = attribs;
+	initparam.surfaces = surfaces;
+	return init(argc, argv, initparam);
 }
 
 // before calling this, add appropriate memory barriers

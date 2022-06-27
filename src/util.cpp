@@ -71,7 +71,8 @@ int get_arg(char** in, int i, int argc)
 {
 	if (i == argc)
 	{
-		usage();
+		ELOG("Missing command line parameter\n");
+		exit(-1);
 	}
 	return atoi(in[i]);
 }
