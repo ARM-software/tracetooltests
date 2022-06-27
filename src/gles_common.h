@@ -49,8 +49,9 @@ struct TOOLSTEST;
 typedef int (GLAPIENTRY *TOOLSTEST_CALLBACK_INIT)(TOOLSTEST *handle);
 typedef void (GLAPIENTRY *TOOLSTEST_CALLBACK_SWAP)(TOOLSTEST *handle);
 typedef void (GLAPIENTRY *TOOLSTEST_CALLBACK_FREE)(TOOLSTEST *handle);
-typedef void (GLAPIENTRY *TOOLSTEST_CALLBACK_USAGE)();
-typedef bool (GLAPIENTRY *TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv);
+
+typedef void (*TOOLSTEST_CALLBACK_USAGE)();
+typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv);
 
 struct TOOLSTEST
 {

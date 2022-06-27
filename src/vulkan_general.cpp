@@ -1,57 +1,37 @@
 #include "vulkan_common.h"
 
 static int fence_variant = 0;
+static bool ugly_exit = false;
 
-void usage()
+static void show_usage()
 {
-	printf("Usage: vulkan_general\n");
-	printf("-h/--help              This help\n");
-	printf("-g/--gpu level N       Select GPU (default 0)\n");
-	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-x/--ugly-exit         Exit without cleanup\n");
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - normal run\n");
 	printf("\t1 - expect induced fence delay\n");
-	exit(0);
+}
+
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-x", "--ugly-exit"))
+	{
+		ugly_exit = true;
+		return true;
+	}
+	else if (match(argv[i], "-f", "--fence-variant"))
+	{
+		fence_variant = get_arg(argv, ++i, argc);
+		return (fence_variant >= 0 && fence_variant <= 1);
+	}
+	return false;
 }
 
 int main(int argc, char** argv)
 {
-	bool ugly_exit = false;
-	for (int i = 1; i < argc; i++)
-	{
-		if (match(argv[i], "-h", "--help"))
-		{
-			usage();
-		}
-		else if (match(argv[i], "-d", "--debug"))
-		{
-			p__debug_level = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-x", "--ugly-exit"))
-		{
-			ugly_exit = true;
-		}
-		else if (match(argv[i], "-g", "--gpu"))
-		{
-			select_gpu(get_arg(argv, ++i, argc));
-		}
-		else if (match(argv[i], "-f", "--fence-variant"))
-		{
-			fence_variant = get_arg(argv, ++i, argc);
-			if (fence_variant < 0 || fence_variant > 1)
-			{
-				usage();
-			}
-		}
-		else
-		{
-			ELOG("Unrecognized cmd line parameter: %s", argv[i]);
-			return -1;
-		}
-	}
-
-	vulkan_setup_t vulkan = test_init("vulkan_general");
+	vulkan_req_t reqs;
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_general", reqs);
 	VkResult r;
 
 	// Test tool interference in function lookups

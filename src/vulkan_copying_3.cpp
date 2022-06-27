@@ -6,24 +6,42 @@ static int method = 0;
 static unsigned buffer_size = (32 * 1024);
 static int times = repeats();
 
-void usage()
+static void show_usage()
 {
-	printf("Usage: vulkan_copying_1\n");
-	printf("-h/--help              This help\n");
-	printf("-g/--gpu level N       Select GPU (default 0)\n");
-	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
 	printf("-c/--copy-method N     Set copy method (default %d)\n", method);
 	printf("\t0 - memset\n");
 	printf("\t1 - memcpy\n");
 	printf("\t2 - fread\n");
 	printf("-t/--times N           Times to repeat (default %d)\n", times);
-	exit(-1);
 }
 
-static void copying_3()
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	vulkan_setup_t vulkan = test_init("vulkan_copying_3");
+	if (match(argv[i], "-b", "--buffer-size"))
+	{
+		buffer_size = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-t", "--times"))
+	{
+		times = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-c", "--copy-method"))
+	{
+		method = get_arg(argv, ++i, argc);
+		return (method >= 0 && method <= 2);
+	}
+	return false;
+}
+
+static void copying_3(int argc, char** argv)
+{
+	vulkan_req_t reqs;
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_3", reqs);
 	VkResult result;
 
 	VkQueue queue;
@@ -97,38 +115,6 @@ static void copying_3()
 
 int main(int argc, char** argv)
 {
-	for (int i = 1; i < argc; i++)
-	{
-		if (match(argv[i], "-h", "--help"))
-		{
-			usage();
-		}
-		else if (match(argv[i], "-d", "--debug"))
-		{
-			p__debug_level = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-g", "--gpu"))
-		{
-			select_gpu(get_arg(argv, ++i, argc));
-		}
-		else if (match(argv[i], "-b", "--buffer-size"))
-		{
-			buffer_size = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-t", "--times"))
-		{
-			times = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-c", "--copy-method"))
-		{
-			method = get_arg(argv, ++i, argc);
-		}
-		else
-		{
-			ELOG("Unrecognized cmd line parameter: %s", argv[i]);
-		}
-	}
-	printf("Running with copy method %d\n", method);
-	copying_3();
+	copying_3(argc, argv);
 	return 0;
 }

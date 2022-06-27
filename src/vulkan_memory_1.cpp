@@ -2,16 +2,12 @@
 
 #define NUM_BUFFERS 48
 
-void usage()
-{
-}
-
 // Written for Vulkan 1.0
-int main()
+int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
 	reqs.apiVersion = VK_API_VERSION_1_0;
-	vulkan_setup_t vulkan = test_init("vulkan_memory_1", reqs);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_memory_1", reqs);
 
 	VkCommandPool cmdpool;
 	VkCommandPoolCreateInfo cmdcreateinfo = {};

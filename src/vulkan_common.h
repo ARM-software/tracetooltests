@@ -66,6 +66,10 @@ typedef uint64_t (VKAPI_PTR *PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)(
 	} \
 	assert(result == VK_SUCCESS);
 
+struct vulkan_req_t;
+typedef void (*TOOLSTEST_CALLBACK_USAGE)();
+typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv, vulkan_req_t& reqs);
+
 struct vulkan_setup_t
 {
 	VkInstance instance = VK_NULL_HANDLE;
@@ -81,6 +85,8 @@ struct vulkan_req_t
 	uint32_t queues = 1;
 	std::vector<std::string> extensions;
 	bool samplerAnisotropy = false;
+	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
+	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
 };
 
 const char* errorString(const VkResult errorCode);
@@ -90,7 +96,7 @@ void check_retval(VkResult stored_retval, VkResult retval);
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 
-vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs = vulkan_req_t());
+vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs);
 void test_done(vulkan_setup_t s);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const char* name);

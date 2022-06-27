@@ -58,7 +58,7 @@ static void test_cleanup(TOOLSTEST *handle)
 	glDeleteTextures(1, &maintex);
 }
 
-static bool test_usage(int& i, int argc, char** argv)
+static bool test_cmdopt(int& i, int argc, char** argv)
 {
 	if (match(argv[i], "-T", "--texture-size"))
 	{
@@ -103,6 +103,6 @@ int main(int argc, char** argv)
 	initparam.init = setupGraphics;
 	initparam.done = test_cleanup;
 	initparam.usage = our_usage;
-	initparam.cmdopt = test_usage;
+	initparam.cmdopt = test_cmdopt;
 	return init(argc, argv, initparam);
 }

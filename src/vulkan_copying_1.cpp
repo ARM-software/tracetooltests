@@ -9,12 +9,8 @@ static int fence_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
 
-void usage()
+static void show_usage()
 {
-	printf("Usage: vulkan_copying_1\n");
-	printf("-h/--help              This help\n");
-	printf("-g/--gpu level N       Select GPU (default 0)\n");
-	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
 	printf("-c/--buffer-count N    Set buffer count (default %d)\n", num_buffers);
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
@@ -31,7 +27,6 @@ void usage()
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
-	exit(-1);
 }
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
@@ -53,17 +48,49 @@ static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
 	}
 }
 
-static void copying_1()
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-b", "--buffer-size"))
+	{
+		buffer_size = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-c", "--buffer-count"))
+	{
+		num_buffers = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-q", "--queue-variant"))
+	{
+		queue_variant = get_arg(argv, ++i, argc);
+		if (queue_variant == 5) reqs.queues = 2;
+		return (queue_variant >= 0 && queue_variant <= 5);
+	}
+	else if (match(argv[i], "-m", "--map-variant"))
+	{
+		map_variant = get_arg(argv, ++i, argc);
+		return (map_variant >= 0 && map_variant <= 2);
+	}
+	else if (match(argv[i], "-f", "--fence-variant"))
+	{
+		fence_variant = get_arg(argv, ++i, argc);
+		return (fence_variant >= 0 && fence_variant <= 1);
+	}
+	return false;
+}
+
+static void copying_1(int argc, char** argv)
 {
 	vulkan_req_t reqs;
-	reqs.queues = (queue_variant == 5) ? 2 : 1;
-	vulkan_setup_t vulkan = test_init("vulkan_copying_1", reqs);
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_1", reqs);
 	VkResult result;
 
 	VkQueue queue1;
 	VkQueue queue2;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue1);
-	vkGetDeviceQueue(vulkan.device, 0, queue_variant == 5 ? 1 : 0, &queue2);
+	vkGetDeviceQueue(vulkan.device, 0, (queue_variant == 5) ? 1 : 0, &queue2);
 
 	std::vector<VkBuffer> origin_buffers(num_buffers);
 	std::vector<VkBuffer> target_buffers(num_buffers);
@@ -298,59 +325,6 @@ static void copying_1()
 
 int main(int argc, char** argv)
 {
-	for (int i = 1; i < argc; i++)
-	{
-		if (match(argv[i], "-h", "--help"))
-		{
-			usage();
-		}
-		else if (match(argv[i], "-d", "--debug"))
-		{
-			p__debug_level = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-g", "--gpu"))
-		{
-			select_gpu(get_arg(argv, ++i, argc));
-		}
-		else if (match(argv[i], "-b", "--buffer-size"))
-		{
-			buffer_size = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-c", "--buffer-count"))
-		{
-			num_buffers = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-q", "--queue-variant"))
-		{
-			queue_variant = get_arg(argv, ++i, argc);
-			if (queue_variant < 0 || queue_variant > 5)
-			{
-				usage();
-			}
-		}
-		else if (match(argv[i], "-m", "--map-variant"))
-		{
-			map_variant = get_arg(argv, ++i, argc);
-			if (map_variant < 0 || map_variant > 2)
-			{
-				usage();
-			}
-		}
-		else if (match(argv[i], "-f", "--fence-variant"))
-		{
-			fence_variant = get_arg(argv, ++i, argc);
-			if (fence_variant < 0 || fence_variant > 1)
-			{
-				usage();
-			}
-		}
-		else
-		{
-			ELOG("Unrecognized cmd line parameter: %s", argv[i]);
-			return -1;
-		}
-	}
-	printf("Running with queue variant %d, map variant %d, fence variant %d\n", queue_variant, map_variant, fence_variant);
-	copying_1();
+	copying_1(argc, argv);
 	return 0;
 }

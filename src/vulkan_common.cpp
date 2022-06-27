@@ -93,7 +93,17 @@ void test_done(vulkan_setup_t vulkan)
 	vkDestroyInstance(vulkan.instance, nullptr);
 }
 
-vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
+static void print_usage(TOOLSTEST_CALLBACK_USAGE usage)
+{
+	printf("Usage:\n");
+	printf("-h/--help              This help\n");
+	printf("-g/--gpu level N       Select GPU (default %d)\n", gpu());
+	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
+	if (usage) usage();
+	exit(1);
+}
+
+vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs)
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
@@ -101,6 +111,30 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_tooling_benchmarking = false;
+
+	for (int i = 1; i < argc; i++)
+	{
+		if (match(argv[i], "-h", "--help"))
+		{
+			print_usage(reqs.usage);
+		}
+		else if (match(argv[i], "-d", "--debug"))
+		{
+			p__debug_level = get_arg(argv, ++i, argc);
+		}
+		else if (match(argv[i], "-g", "--gpu"))
+		{
+			select_gpu(get_arg(argv, ++i, argc));
+		}
+		else
+		{
+			if (!reqs.cmdopt || !reqs.cmdopt(i, argc, argv, reqs))
+			{
+				ELOG("Unrecognized cmd line parameter: %s", argv[i]);
+				print_usage(reqs.usage);
+			}
+		}
+	}
 
 	// Create instance
 	VkInstanceCreateInfo pCreateInfo = {};
@@ -198,7 +232,7 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 		{
 			printf("Selected GPU %d does support required Vulkan version %d.%d.%d\n", gpu(), VK_VERSION_MAJOR(reqs.apiVersion),
 			       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
-			exit(-1);
+			exit(77);
 		}
 	}
 	if (gpu() >= (int)num_devices)
@@ -215,7 +249,7 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	if (familyprops[0].queueCount < reqs.queues)
 	{
 		printf("Vulkan implementation does not have sufficient queues (only %d, need %d) for this test\n", familyprops[0].queueCount, reqs.queues);
-		exit(-1);
+		exit(77);
 	}
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
@@ -290,7 +324,7 @@ vulkan_setup_t test_init(const std::string& testname, const vulkan_req_t& reqs)
 	{
 		printf("Missing required device extensions:\n");
 		for (auto str : required) printf("\t%s\n", str.c_str());
-		exit(-1);
+		exit(77);
 	}
 	deviceInfo.enabledExtensionCount = enabledExtensions.size();
 	if (enabledExtensions.size() > 0)

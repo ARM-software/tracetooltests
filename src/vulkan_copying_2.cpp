@@ -11,12 +11,8 @@ static int times = repeats();
 static int vulkan_variant = 0;
 static PFN_vkQueueSubmit2 fpQueueSubmit2 = nullptr;
 
-void usage()
+static void show_usage()
 {
-	printf("Usage: vulkan_copying_1\n");
-	printf("-h/--help              This help\n");
-	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
-	printf("-g/--gpu level N       Select GPU (default 0)\n");
 	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
 	printf("-c/--buffer-count N    Set buffer count (default %d)\n", num_buffers);
 	printf("-t/--times N           Times to repeat (default %d)\n", times);
@@ -32,15 +28,57 @@ void usage()
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
 	printf("\t0 - Vulkan 1.1\n");
 	printf("\t1 - Vulkan 1.3\n");
-	exit(-1);
 }
 
-static void copying_2()
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-b", "--buffer-size"))
+	{
+		buffer_size = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-t", "--times"))
+	{
+		times = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-c", "--buffer-count"))
+	{
+		num_buffers = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-q", "--queue-variant"))
+	{
+		queue_variant = get_arg(argv, ++i, argc);
+		if (queue_variant == 1) reqs.queues = 1;
+		return (queue_variant >= 0 && queue_variant <= 1);
+	}
+	else if (match(argv[i], "-m", "--map-variant"))
+	{
+		map_variant = get_arg(argv, ++i, argc);
+		return (map_variant >= 0 && map_variant <= 2);
+	}
+	else if (match(argv[i], "-f", "--fence-variant"))
+	{
+		fence_variant = get_arg(argv, ++i, argc);
+		return (fence_variant == 0);
+	}
+	else if (match(argv[i], "-V", "--vulkan-variant"))
+	{
+		vulkan_variant = get_arg(argv, ++i, argc);
+		if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_3;
+		return (vulkan_variant >= 0 && vulkan_variant <= 1);
+	}
+	return false;
+}
+
+static void copying_2(int argc, char** argv)
 {
 	vulkan_req_t reqs;
-	reqs.apiVersion = (vulkan_variant == 0) ? VK_API_VERSION_1_1 : VK_API_VERSION_1_3;
-	reqs.queues = (queue_variant == 0) ? 2 : 1;
-	vulkan_setup_t vulkan = test_init("vulkan_copying_2", reqs);
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
+	reqs.queues = 2;
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_2", reqs);
 	VkResult result;
 
 	if (vulkan_variant == 1)
@@ -244,71 +282,6 @@ static void copying_2()
 
 int main(int argc, char** argv)
 {
-	for (int i = 1; i < argc; i++)
-	{
-		if (match(argv[i], "-h", "--help"))
-		{
-			usage();
-		}
-		else if (match(argv[i], "-g", "--gpu"))
-		{
-			select_gpu(get_arg(argv, ++i, argc));
-		}
-		else if (match(argv[i], "-d", "--debug"))
-		{
-			p__debug_level = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-b", "--buffer-size"))
-		{
-			buffer_size = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-t", "--times"))
-		{
-			times = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-c", "--buffer-count"))
-		{
-			num_buffers = get_arg(argv, ++i, argc);
-		}
-		else if (match(argv[i], "-q", "--queue-variant"))
-		{
-			queue_variant = get_arg(argv, ++i, argc);
-			if (queue_variant < 0 || queue_variant > 1)
-			{
-				usage();
-			}
-		}
-		else if (match(argv[i], "-m", "--map-variant"))
-		{
-			map_variant = get_arg(argv, ++i, argc);
-			if (map_variant < 0 || map_variant > 2)
-			{
-				usage();
-			}
-		}
-		else if (match(argv[i], "-f", "--fence-variant"))
-		{
-			fence_variant = get_arg(argv, ++i, argc);
-			if (fence_variant < 0 || fence_variant > 0)
-			{
-				usage();
-			}
-		}
-		else if (match(argv[i], "-V", "--vulkan-variant"))
-		{
-			vulkan_variant = get_arg(argv, ++i, argc);
-			if (vulkan_variant < 0 || vulkan_variant > 1)
-			{
-				usage();
-			}
-		}
-		else
-		{
-			ELOG("Unrecognized cmd line parameter: %s", argv[i]);
-			return -1;
-		}
-	}
-	printf("Running with queue variant %d, map variant %d, fence variant %d\n", queue_variant, map_variant, fence_variant);
-	copying_2();
+	copying_2(argc, argv);
 	return 0;
 }

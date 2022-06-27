@@ -3,15 +3,9 @@
 
 #include "vulkan_common.h"
 
-#define NUM_BUFFERS 48
-
 #define THREADS 20
 static std::atomic_int used[THREADS + 1];
 static vulkan_setup_t vulkan;
-
-void usage()
-{
-}
 
 static void thread_test_stress(int tid)
 {
@@ -52,9 +46,10 @@ static void thread_test_stress(int tid)
 	if (random() % 5 == 1) usleep(random() % 3 * 10000); // introduce some pseudo-random timings
 }
 
-int main()
+int main(int argc, char** argv)
 {
-	vulkan = test_init("vulkan_thread_1");
+	vulkan_req_t reqs;
+	vulkan = test_init(argc, argv, "vulkan_thread_1", reqs);
 	std::vector<std::thread*> threads(THREADS);
 	int i = 0;
 	for (auto& t : threads)

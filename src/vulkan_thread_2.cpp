@@ -12,10 +12,6 @@ static VkCommandBuffer cmds[THREADS * BUFFERS];
 static std::unordered_set<VkCommandBuffer> used;
 static std::mutex order;
 
-void usage()
-{
-}
-
 static void hack_vkFreeCommandBuffers(VkDevice device, VkCommandPool commandPool, uint32_t commandBufferCount, const VkCommandBuffer* pCommandBuffers)
 {
 	order.lock();
@@ -53,9 +49,10 @@ static void thread_test_stress(VkCommandPool *cmdpool, VkCommandBuffer* cmdbuffe
 	hack_vkFreeCommandBuffers(vulkan.device, *cmdpool, BUFFERS, cmdbuffers);
 }
 
-int main()
+int main(int argc, char** argv)
 {
-	vulkan = test_init("vulkan_thread_2");
+	vulkan_req_t reqs;
+	vulkan = test_init(argc, argv, "vulkan_thread_2", reqs);
 	std::vector<std::thread*> threads(THREADS);
 	for (int k = 0; k < THREADS; k++)
 	{
