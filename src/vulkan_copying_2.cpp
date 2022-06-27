@@ -217,8 +217,11 @@ static void copying_2(int argc, char** argv)
 			submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			submit_info.commandBufferCount = 1;
 			submit_info.pCommandBuffers = &command_buffers[i];
-			submit_info.signalSemaphoreCount = 1;
-			submit_info.pSignalSemaphores = &semaphores[i];
+			if (i != num_buffers - 1)
+			{
+				submit_info.signalSemaphoreCount = 1;
+				submit_info.pSignalSemaphores = &semaphores[i];
+			}
 			if (i > 0)
 			{
 				submit_info.waitSemaphoreCount = 1;

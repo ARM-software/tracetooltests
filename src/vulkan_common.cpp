@@ -2,6 +2,9 @@
 
 #include <unordered_set>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "external/stb_image_write.h"
+
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int selected_gpu = 0;
 
@@ -412,4 +415,21 @@ void check_retval(VkResult stored_retval, VkResult retval)
 		FELOG("TOOLSTEST ERROR: Returncode does not match stored value, got error: %s (code %u)", err, (unsigned)retval);
 		assert(false);
 	}
+}
+
+void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t size, uint32_t width, uint32_t height)
+{
+	float* ptr = nullptr;
+	VkResult result = vkMapMemory(vulkan.device, memory, offset, size, 0, (void**)&ptr);
+	check(result);
+	assert(ptr != nullptr);
+	std::vector<unsigned char> image;
+	image.reserve(width * height * 4);
+	for (unsigned i = 0; i < width * height * 4; i++)
+	{
+		image.push_back((unsigned char)(255.0f * ptr[i]));
+	}
+	int r = stbi_write_png(filename, width, height, 4, image.data(), 0);
+	assert(r != 0);
+	vkUnmapMemory(vulkan.device, memory);
 }
