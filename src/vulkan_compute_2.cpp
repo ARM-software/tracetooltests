@@ -72,6 +72,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		sync_variant = get_arg(argv, ++i, argc);
 		return (sync_variant >= 0 && sync_variant <= 2);
 	}
+	else if (match(argv[i], "-q", "--queue-variant"))
+	{
+		queue_variant = get_arg(argv, ++i, argc);
+		return (queue_variant >= 0 && queue_variant <= 1);
+	}
 	else if (match(argv[i], "-i", "--image-output"))
 	{
 		output = true;
