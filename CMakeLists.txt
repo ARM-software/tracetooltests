@@ -117,6 +117,7 @@ add_test(NAME vulkan_copying_1_test_5_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulk
 
 vulkan_test(thread_1)
 vulkan_test(thread_2)
+vulkan_test(thread_3)
 vulkan_test(memory_1)
 vulkan_test(memory_1_1)
 vulkan_test(as_1)

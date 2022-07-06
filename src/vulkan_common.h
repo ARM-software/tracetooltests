@@ -17,45 +17,10 @@
 #endif
 #endif
 
-#include "vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
 #include "util.h"
-
-// ---- Fake extensions ----
-
-typedef enum VkTracingFlagsTRACETOOLTEST {
-	VK_TRACING_NO_COHERENT_MEMORY_BIT_TRACETOOLTEST = 0x00000001,
-	VK_TRACING_NO_SUBALLOCATION_BIT_TRACETOOLTEST = 0x00000002,
-	VK_TRACING_NO_MEMORY_ALIASING_BIT_TRACETOOLTEST = 0x00000004,
-	VK_TRACING_NO_POINTER_OFFSETS_BIT_TRACETOOLTEST = 0x00000008,
-	VK_TRACING_NO_JUST_IN_TIME_REUSE_BIT_TRACETOOLTEST = 0x00000010,
-} VkTracingFlagsTRACETOOLTEST;
-
-typedef struct VkBenchmarkingTRACETOOLTEST {
-	VkStructureType             sType;
-	void*                       pNext;
-	VkFlags                     flags;
-	uint32_t                    fixedTimeStep;
-	VkBool32                    disablePerformanceAdaptation;
-	VkBool32                    disableVendorAdaptation;
-	VkBool32                    disableLoadingFrames;
-	uint32_t                    visualSettings;
-	uint32_t                    scenario;
-	uint32_t                    loopTime;
-	VkTracingFlagsTRACETOOLTEST tracingFlags;
-} VkBenchmarkingModesEXT;
-
-const VkStructureType VK_STRUCTURE_TYPE_BENCHMARKING_TRACETOOLTEST = (VkStructureType)700000141u; // a pretty random number
-
-typedef enum VkTracingObjectPropertyTRACETOOLTEST {
-	VK_TRACING_OBJECT_PROPERTY_ALLOCATIONS_COUNT_TRACETOOLTEST,
-	VK_TRACING_OBJECT_PROPERTY_UPDATES_COUNT_TRACETOOLTEST,
-	VK_TRACING_OBJECT_PROPERTY_UPDATES_BYTES_TRACETOOLTEST,
-	VK_TRACING_OBJECT_PROPERTY_BACKING_DEVICEMEMORY_TRACETOOLTEST,
-} VkTracingObjectPropertyTRACETOOLTEST;
-
-typedef uint32_t (VKAPI_PTR *PFN_vkAssertBufferTRACETOOLTEST)(VkDevice device, VkBuffer buffer);
-typedef uint64_t (VKAPI_PTR *PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)(VkDevice device, VkObjectType objectType, uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType);
+#include "vulkan_ext.h"
 
 // ---- Common code ----
 
