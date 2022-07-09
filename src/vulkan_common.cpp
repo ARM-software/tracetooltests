@@ -162,7 +162,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
 		else if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
-		else if (strcmp(s.extensionName, "VK_TRACETOOLTEST_benchmarking") == 0)
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_benchmarking = true;
@@ -170,7 +170,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 	if (wsi && strcmp(wsi, "headless") == 0)
 	{
-		enabledExtensions.push_back("VK_EXT_headless_surface");
+		enabledExtensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
 	}
 #ifdef VK_USE_PLATFORM_XCB_KHR
 	else
@@ -304,12 +304,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
 		// These are fake extensions used for testing, see README.md for documentation
-		if (strcmp(s.extensionName, "VK_TRACETOOLTEST_checksum_validation") == 0)
+		if (strcmp(s.extensionName, VK_TRACETOOLTEST_CHECKSUM_VALIDATION_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_checksum = true;
 		}
-		else if (strcmp(s.extensionName, "VK_TRACETOOLTEST_object_property") == 0)
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_OBJECT_PROPERTY_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_obj_property = true;

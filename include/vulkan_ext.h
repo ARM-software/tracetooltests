@@ -6,7 +6,7 @@
 
 // -- VK_TRACETOOLTEST_benchmarking --
 
-#define VK_TRACETOOLTEST_BENCHMARKING_NAME "VK_TRACETOOLTEST_benchmarking"
+#define VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME "VK_TRACETOOLTEST_benchmarking"
 
 typedef enum VkTracingFlagsTRACETOOLTEST {
 	VK_TRACING_NO_COHERENT_MEMORY_BIT_TRACETOOLTEST = 0x00000001,
@@ -43,13 +43,13 @@ typedef enum VkTracingObjectPropertyTRACETOOLTEST {
 
 // -- VK_TRACETOOLTEST_checksum_validation --
 
-#define VK_TRACETOOLTEST_CHECKSUM_VALIDATION_NAME "VK_TRACETOOLTEST_checksum_validation"
+#define VK_TRACETOOLTEST_CHECKSUM_VALIDATION_EXTENSION_NAME "VK_TRACETOOLTEST_checksum_validation"
 
 typedef uint32_t (VKAPI_PTR *PFN_vkAssertBufferTRACETOOLTEST)(VkDevice device, VkBuffer buffer);
 
 
 // -- VK_TRACETOOLTEST_object_property --
 
-#define VK_TRACETOOLTEST_OBJECT_PROPERTY_NAME "VK_TRACETOOLTEST_object_property"
+#define VK_TRACETOOLTEST_OBJECT_PROPERTY_EXTENSION_NAME "VK_TRACETOOLTEST_object_property"
 
 typedef uint64_t (VKAPI_PTR *PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)(VkDevice device, VkObjectType objectType, uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType);

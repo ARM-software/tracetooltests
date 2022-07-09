@@ -19,7 +19,6 @@ static VkCommandPool pool2;
 static VkCommandBuffer cmd1;
 static VkCommandBuffer cmd2;
 static VkCommandBuffer cmd2_2;
-static std::mutex order;
 
 static void dummy_cmd(VkCommandBuffer cmd)
 {
