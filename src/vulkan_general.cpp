@@ -2,6 +2,8 @@
 
 static int fence_variant = 0;
 static bool ugly_exit = false;
+static int vulkan_variant = 0;
+static vulkan_req_t reqs;
 
 static void show_usage()
 {
@@ -9,6 +11,10 @@ static void show_usage()
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - normal run\n");
 	printf("\t1 - expect induced fence delay\n");
+	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
+	printf("\t0 - Vulkan 1.0\n");
+	printf("\t1 - Vulkan 1.1\n");
+	printf("\t2 - Vulkan 1.2\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -23,16 +29,33 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant >= 0 && fence_variant <= 1);
 	}
+	else if (match(argv[i], "-V", "--vulkan-variant"))
+	{
+		vulkan_variant = get_arg(argv, ++i, argc);
+		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
+		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
+		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
+		return (vulkan_variant >= 0 && vulkan_variant <= 2);
+	}
 	return false;
 }
 
 int main(int argc, char** argv)
 {
-	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_general", reqs);
 	VkResult r;
+
+	if (vulkan_variant >= 1)
+	{
+		uint32_t pApiVersion = 0;
+		r = vkEnumerateInstanceVersion(&pApiVersion); // new in Vulkan 1.1
+		assert(r == VK_SUCCESS);
+		assert(pApiVersion > 0);
+		printf("vkEnumerateInstanceVersion says Vulkan %d.%d.%d)\n", VK_VERSION_MAJOR(pApiVersion),
+                       VK_VERSION_MINOR(pApiVersion), VK_VERSION_PATCH(pApiVersion));
+	}
 
 	// Test tool interference in function lookups
 	PFN_vkVoidFunction badptr = vkGetInstanceProcAddr(nullptr, "vkNonsense");
@@ -49,8 +72,11 @@ int main(int argc, char** argv)
 	assert(goodptr);
 	goodptr = vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties");
 	assert(goodptr);
-	goodptr = vkGetInstanceProcAddr(nullptr, "vkGetInstanceProcAddr"); // Valid starting with Vulkan 1.2
-	assert(goodptr);
+	if (vulkan_variant >= 2)
+	{
+		goodptr = vkGetInstanceProcAddr(nullptr, "vkGetInstanceProcAddr"); // Valid starting with Vulkan 1.2
+		assert(goodptr);
+	}
 	goodptr = vkGetInstanceProcAddr(vulkan.instance, "vkGetInstanceProcAddr");
 	assert(goodptr);
 

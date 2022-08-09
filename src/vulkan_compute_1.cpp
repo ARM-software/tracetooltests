@@ -121,7 +121,7 @@ int main(int argc, char** argv)
 	vulkan_req_t req;
 	req.usage = show_usage;
 	req.cmdopt = test_cmdopt;
-	vulkan_setup_t vulkan = test_init(argc, argv, "compute_1", req);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_1", req);
 	VkResult result;
 	resources r;
 	const size_t buffer_size = sizeof(pixel) * width * height;
