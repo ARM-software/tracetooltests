@@ -339,7 +339,16 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	check(result);
 	test_set_name(vulkan.device, VK_OBJECT_TYPE_DEVICE, (uint64_t)vulkan.device, "Our device");
 
-	vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
+	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
+	{
+		VkPhysicalDeviceMemoryProperties2 mprops = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2, nullptr };
+		vkGetPhysicalDeviceMemoryProperties2(vulkan.physical, &mprops);
+		memory_properties = mprops.memoryProperties; // struct copy
+	}
+	else
+	{
+		vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
+	}
 
 	if (has_tooling_checksum)
 	{

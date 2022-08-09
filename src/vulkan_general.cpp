@@ -1,8 +1,9 @@
 #include "vulkan_common.h"
+#include <inttypes.h>
 
 static int fence_variant = 0;
 static bool ugly_exit = false;
-static int vulkan_variant = 0;
+static int vulkan_variant = 1;
 static vulkan_req_t reqs;
 
 static void show_usage()
@@ -79,6 +80,21 @@ int main(int argc, char** argv)
 	}
 	goodptr = vkGetInstanceProcAddr(vulkan.instance, "vkGetInstanceProcAddr");
 	assert(goodptr);
+
+	if (vulkan_variant >= 1)
+	{
+		uint32_t devgrpcount = 0;
+		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, nullptr);
+		std::vector<VkPhysicalDeviceGroupProperties> devgrps(devgrpcount);
+		printf("Found %u physical device groups:\n", devgrpcount);
+		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, devgrps.data());
+		for (auto& v : devgrps)
+		{
+			printf("\t%u devices (subsetAllocation=%s):", v.physicalDeviceCount, v.subsetAllocation ? "true" : "false");
+			for (unsigned i = 0; i < v.physicalDeviceCount; i++) printf(" 0x%" PRIx64 ",", (uint64_t)v.physicalDevices[i]);
+			printf("\n");
+		}
+	}
 
 	// Test tool interference in fence handling
 	VkFence fence1;

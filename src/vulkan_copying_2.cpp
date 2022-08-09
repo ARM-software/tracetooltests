@@ -133,8 +133,11 @@ static void copying_2(int argc, char** argv)
 	VkDeviceSize offset = 0;
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
-		vkBindBufferMemory(vulkan.device, origin_buffers.at(i), origin_memory, offset);
-		vkBindBufferMemory(vulkan.device, target_buffers.at(i), target_memory, offset);
+		std::vector<VkBindBufferMemoryInfo> bufinfos {
+			{ VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, origin_buffers.at(i), origin_memory, offset },
+			{ VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, target_buffers.at(i), target_memory, offset },
+		};
+		vkBindBufferMemory2(vulkan.device, bufinfos.size(), bufinfos.data());
 		offset += aligned_size;
 	}
 
