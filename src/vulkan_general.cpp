@@ -48,6 +48,8 @@ int main(int argc, char** argv)
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_general", reqs);
 	VkResult r;
 
+	// Test vkEnumerateInstanceVersion
+
 	if (vulkan_variant >= 1)
 	{
 		uint32_t pApiVersion = 0;
@@ -59,6 +61,7 @@ int main(int argc, char** argv)
 	}
 
 	// Test tool interference in function lookups
+
 	PFN_vkVoidFunction badptr = vkGetInstanceProcAddr(nullptr, "vkNonsense");
 	assert(!badptr);
 	badptr = vkGetInstanceProcAddr(vulkan.instance, "vkNonsense");
@@ -97,6 +100,7 @@ int main(int argc, char** argv)
 	}
 
 	// Test tool interference in fence handling
+
 	VkFence fence1;
 	VkFence fence2;
 	VkFenceCreateInfo fence_create_info = {};
@@ -130,6 +134,34 @@ int main(int argc, char** argv)
 	check(r);
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_NOT_READY);
+
+	// Test valid null destroy commands
+
+	vkDestroyInstance(VK_NULL_HANDLE, nullptr);
+	vkDestroyDevice(VK_NULL_HANDLE, nullptr);
+	vkDestroyFence(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroySemaphore(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyEvent(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyQueryPool(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyBuffer(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyBufferView(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyImage(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyImageView(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyShaderModule(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyPipelineCache(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyPipeline(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyPipelineLayout(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroySampler(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyDescriptorSetLayout(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyDescriptorPool(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyFramebuffer(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyRenderPass(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyCommandPool(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroySamplerYcbcrConversion(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyDescriptorUpdateTemplate(vulkan.device, VK_NULL_HANDLE, nullptr);
+	vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);
+
+	// Optionally test ugly exit
 
 	if (!ugly_exit)
 	{
