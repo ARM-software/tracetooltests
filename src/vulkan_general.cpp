@@ -16,6 +16,7 @@ static void show_usage()
 	printf("\t0 - Vulkan 1.0\n");
 	printf("\t1 - Vulkan 1.1\n");
 	printf("\t2 - Vulkan 1.2\n");
+	printf("\t3 - Vulkan 1.3\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -36,7 +37,8 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
 		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
 		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
-		return (vulkan_variant >= 0 && vulkan_variant <= 2);
+		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
+		return (vulkan_variant >= 0 && vulkan_variant <= 3);
 	}
 	return false;
 }
@@ -159,7 +161,10 @@ int main(int argc, char** argv)
 	vkDestroyCommandPool(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroySamplerYcbcrConversion(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroyDescriptorUpdateTemplate(vulkan.device, VK_NULL_HANDLE, nullptr);
-	vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);
+	if (vulkan_variant >= 3)
+	{
+		vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);
+	}
 
 	// Optionally test ugly exit
 
