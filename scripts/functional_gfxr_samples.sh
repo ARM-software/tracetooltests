@@ -87,13 +87,13 @@ run instancing
 run separate_image_sampler
 run terrain_tessellation
 run texture_mipmap_generation
-run buffer_device_address
+#run buffer_device_address # '-m rebind' may not support the replay of captured device addresses
 run conservative_rasterization
 run debug_utils
 run descriptor_indexing
-#run dynamic_rendering
-#run fragment_shading_rate
-#run fragment_shading_rate_dynamic
+run dynamic_rendering
+run fragment_shading_rate
+run fragment_shading_rate_dynamic
 #run open_gl_interop # hangs
 #run portability
 run push_descriptors
