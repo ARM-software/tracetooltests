@@ -54,7 +54,7 @@ function demo
 	mv external/vulkan-demos/build/bin/demo_$1.vk traces/
 
 	echo
-	echo "** replay $1 original **"
+	echo "** replay $1 **"
 	echo
 
 	# Replay
@@ -116,6 +116,7 @@ demo indirectdraw
 ( vulkaninfo | grep -e VK_EXT_inline_uniform_block > /dev/null ) && demo inlineuniformblocks
 demo inputattachments
 demo instancing
+demo mesh
 demo multisampling
 demo multithreading
 ( vulkaninfo | grep -e VK_KHR_multiview > /dev/null ) && demo multiview
@@ -139,10 +140,12 @@ demo radialblur
 #demo raytracingreflections
 #demo raytracingshadows
 #demo renderheadless # not non-interactive
+demo scenerendering
 demo screenshot
 demo shadowmapping
 #demo shadowmappingcascade # out of memory on replay without -H 0
 demo shadowmappingomni
+demo skeletalanimation
 demo specializationconstants
 demo sphericalenvmapping
 demo ssao

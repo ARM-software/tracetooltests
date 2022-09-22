@@ -159,8 +159,11 @@ int main(int argc, char** argv)
 	vkDestroyFramebuffer(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroyRenderPass(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroyCommandPool(vulkan.device, VK_NULL_HANDLE, nullptr);
-	vkDestroySamplerYcbcrConversion(vulkan.device, VK_NULL_HANDLE, nullptr);
-	vkDestroyDescriptorUpdateTemplate(vulkan.device, VK_NULL_HANDLE, nullptr);
+	if (vulkan_variant >= 1)
+	{
+		vkDestroySamplerYcbcrConversion(vulkan.device, VK_NULL_HANDLE, nullptr);
+		vkDestroyDescriptorUpdateTemplate(vulkan.device, VK_NULL_HANDLE, nullptr);
+	}
 	if (vulkan_variant >= 3)
 	{
 		vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);

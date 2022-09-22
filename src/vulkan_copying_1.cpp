@@ -6,8 +6,10 @@
 static int queue_variant = 0;
 static int map_variant = 0;
 static int fence_variant = 0;
+static int vulkan_variant = 1;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
+static vulkan_req_t reqs;
 
 static void show_usage()
 {
@@ -27,6 +29,11 @@ static void show_usage()
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
+	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
+	printf("\t0 - Vulkan 1.0\n");
+	printf("\t1 - Vulkan 1.1\n");
+	printf("\t2 - Vulkan 1.2\n");
+	printf("\t3 - Vulkan 1.3\n");
 }
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
@@ -76,12 +83,20 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant >= 0 && fence_variant <= 1);
 	}
+	else if (match(argv[i], "-V", "--vulkan-variant"))
+	{
+		vulkan_variant = get_arg(argv, ++i, argc);
+		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
+		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
+		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
+		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
+		return (vulkan_variant >= 0 && vulkan_variant <= 3);
+	}
 	return false;
 }
 
 static void copying_1(int argc, char** argv)
 {
-	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_1", reqs);

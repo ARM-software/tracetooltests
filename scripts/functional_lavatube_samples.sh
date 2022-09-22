@@ -55,7 +55,7 @@ function run
 	mv external/vulkan-samples/sample_$1.vk traces/
 
 	echo
-	echo "** replay $1 original **"
+	echo "** replay $1 **"
 	echo
 
 	# Replay
