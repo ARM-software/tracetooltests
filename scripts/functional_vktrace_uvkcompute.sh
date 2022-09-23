@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
-mkdir -p traces
-rm -f traces/uvkc_*.vk
+set -x
 
-LAVATUBE_PATH=/work/lava/build
+mkdir -p traces
+rm -f traces/uvkc_*.vktrace
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
@@ -22,12 +22,9 @@ function run1
 	echo
 
 	# Make trace
-	export LAVATUBE_DESTINATION=uvkc_$1_$2_$TESTNAME
-	export VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d
-	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
-	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
-	( cd external/uvkcompute/build ; ./benchmarks/$1/$2 --benchmark_filter="$3" )
-	mv external/uvkcompute/build/uvkc_$1_$2_$TESTNAME.vk traces/
+	DESTINATION=uvkc_$1_$2_$TESTNAME.vktrace
+	( cd external/uvkcompute/build ; vktrace -o $DESTINATION -p ./benchmarks/$1/$2 -a "--benchmark_filter=$3" )
+	mv external/uvkcompute/build/$DESTINATION traces/
 
 	echo
 	echo "** replay $1_$2_$TESTNAME original **"
@@ -36,46 +33,9 @@ function run1
 	# Replay
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	$LAVATUBE_PATH/replay traces/uvkc_$1_$2_$TESTNAME.vk
+	# on desktop this crashes when replay is complete:
+	#vkreplay -o traces/uvkc_$1_$2_$TESTNAME.vktrace
 }
-
-function run
-{
-	echo
-	echo "****** $1_$2 ******"
-	echo
-
-	echo
-	echo "** trace $1_$2 **"
-	echo
-
-	# Make trace
-	export LAVATUBE_DESTINATION=uvkc_$1_$2
-	export VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d
-	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
-	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
-	( cd external/uvkcompute/build ; ./benchmarks/$1/$2 )
-	mv external/uvkcompute/build/uvkc_$1_$2.vk traces/
-
-	echo
-	echo "** replay $1_$2 original **"
-	echo
-
-	# Replay
-	unset VK_INSTANCE_LAYERS
-	unset VK_LAYER_PATH
-	$LAVATUBE_PATH/replay traces/uvkc_$1_$2.vk
-}
-
-# all-in-one traces
-run "memory" "copy_storage_buffer"
-run "memory" "copy_sampled_image_to_storage_buffer"
-run "compute" "mad_throughput"
-run "reduction" "tree_reduce"
-run "reduction" "atomic_reduce"
-run "reduction" "one_workgroup_reduce"
-run "subgroup" "subgroup_arithmetic"
-run "overhead" "dispatch_void_shader"
 
 # single test traces
 run1 "memory" "copy_storage_buffer" "scalar/1048576"
