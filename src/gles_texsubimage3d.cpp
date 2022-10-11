@@ -7,7 +7,7 @@ static GLenum format = GL_RGB;
 static GLenum type = GL_UNSIGNED_BYTE;
 static GLuint bytesperpixel = 3;
 static GLsizei dim = 512;
-static std::vector<char> buffer;
+static std::vector<char> buffer[2];
 static int upload_variant = 0;
 
 static void our_usage()
@@ -24,8 +24,12 @@ static void our_usage()
 
 static int setupGraphics(TOOLSTEST *handle)
 {
-	buffer.resize(dim * dim * dim * bytesperpixel);
-	assert(buffer.size() > 0);
+	buffer[0].resize(dim * dim * dim * bytesperpixel);
+	buffer[1].resize(dim * dim * dim * bytesperpixel);
+	memset(buffer[0].data(), 0xbe, buffer[0].size());
+	memset(buffer[1].data(), 0xef, buffer[1].size());
+	assert(buffer[0].size() > 0);
+	assert(buffer[1].size() > 0);
 	glGenTextures(1, &maintex);
 	glBindTexture(GL_TEXTURE_3D, maintex);
 	if (upload_variant == 0)
@@ -43,13 +47,15 @@ static int setupGraphics(TOOLSTEST *handle)
 
 static void callback_draw(TOOLSTEST *handle)
 {
+	int i = 0;
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	GLuint curr = dim;
 	for (; curr >= 16; curr /= 2)
 	{
-		glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, curr, curr, curr, format, type, buffer.data());
+		glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, curr, curr, curr, format, type, buffer[i].data());
+		i++; if (i == 2) i = 0;
 	}
 }
 

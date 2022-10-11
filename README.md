@@ -89,11 +89,11 @@ VK_TRACETOOLTEST_object_property - defines a new command
 vkGetDeviceTracingObjectPropertyTRACETOOLTEST(VkDevice device, VkObjectType objectType,
 uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType) which can request
 layer internal information from the layer supporting this extension. 'valueType' can be
-one of the following enums prefixed with VK_TRACING_OBJECT_PROPERTY_
-	ALLOCATIONS_COUNT_TRACETOOLTEST - number of current GPU memory allocations
-	UPDATES_COUNT_TRACETOOLTEST - number of memory tracking updates done
-	UPDATES_BYTES_TRACETOOLTEST - number of bytes done in memory tracking updates
-	BACKING_DEVICEMEMORY_TRACETOOLTEST - the vulkan device memory of an image or buffer
+one of the following enums prefixed with VK_TRACING_OBJECT_PROPERTY_:
+* ALLOCATIONS_COUNT_TRACETOOLTEST - number of current GPU memory allocations
+* UPDATES_COUNT_TRACETOOLTEST - number of memory tracking updates done
+* UPDATES_BYTES_TRACETOOLTEST - number of bytes done in memory tracking updates
+* BACKING_DEVICEMEMORY_TRACETOOLTEST - the vulkan device memory of an image or buffer
 
 VK_TRACETOOLTEST_benchmarking - defines a structure that can be "fetched" from
 vkGetPhysicalDeviceFeatures2() and "returned" to vkCreateDevice() to negotiate the details of

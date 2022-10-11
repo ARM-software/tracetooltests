@@ -139,6 +139,7 @@ vulkan_test(thread_3)
 vulkan_test(memory_1)
 vulkan_test(memory_1_1)
 vulkan_test(as_1)
+vulkan_test(mesh_1)
 
 vulkan_test(copying_2)
 add_test(NAME vulkan_copying_2_test_0_0_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_copying_2 -q 0 -f 0 -m 0 -t 3)

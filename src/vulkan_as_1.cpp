@@ -6,8 +6,18 @@ int main(int argc, char** argv)
 	reqs.extensions.push_back("VK_KHR_acceleration_structure");
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_1", reqs);
-
 	VkResult result;
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accel = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
+	VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &accel };
+	vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
+	printf("Acceleration structure features:\n");
+	printf("\taccelerationStructure = %s\n", accel.accelerationStructure ? "true" : "false");
+	printf("\taccelerationStructureCaptureReplay = %s\n", accel.accelerationStructureCaptureReplay ? "true" : "false");
+	printf("\taccelerationStructureIndirectBuild = %s\n", accel.accelerationStructureIndirectBuild ? "true" : "false");
+	printf("\taccelerationStructureHostCommands = %s\n", accel.accelerationStructureHostCommands ? "true" : "false");
+	printf("\tdescriptorBindingAccelerationStructureUpdateAfterBind = %s\n", accel.descriptorBindingAccelerationStructureUpdateAfterBind ? "true" : "false");
+
 	VkBuffer buffer;
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
