@@ -20,13 +20,14 @@ function run()
 	$REPLAYER -x TRUE -o traces/${1}${3}.vktrace
 }
 
-run vulkan_memory_1 "" ""
-run vulkan_thread_1 "" ""
-run vulkan_thread_2 "" ""
 run vulkan_general "-V 0" "V0"
 #run vulkan_general "-V 1" "V1"
 #run vulkan_general "-V 2" "V2"
 #run vulkan_general "-V 3" "V3"
+run vulkan_memory_1 "" ""
+run vulkan_memory_1_1 "" ""
+run vulkan_thread_1 "" ""
+run vulkan_thread_2 "" ""
 run vulkan_copying_1 "-V 0" "V0"
 run vulkan_copying_1 "-V 1" "V1"
 run vulkan_copying_1 "-V 2" "V2"

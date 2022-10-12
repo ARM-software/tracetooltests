@@ -22,6 +22,7 @@ function run()
 
 run vulkan_tool_1 ""
 run vulkan_memory_1 "" ""
+run vulkan_memory_1_1 "" ""
 run vulkan_thread_1 "" ""
 run vulkan_thread_2 "" ""
 run vulkan_general "-V 0" "V0"

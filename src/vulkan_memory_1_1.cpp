@@ -7,6 +7,7 @@ int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
 	reqs.apiVersion = VK_API_VERSION_1_1;
+	reqs.extensions.push_back("VK_KHR_get_memory_requirements2");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_memory_1_1", reqs);
 
 	VkCommandPool cmdpool;
@@ -46,6 +47,14 @@ int main(int argc, char** argv)
 	VkMemoryRequirements2 req = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
 	vkGetBufferMemoryRequirements2(vulkan.device, &reqinfo, &req);
 	uint32_t memoryTypeIndex = get_device_memory_type(req.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	auto ttGetBufferMemoryRequirements2KHR = (PFN_vkGetBufferMemoryRequirements2KHR)vkGetDeviceProcAddr(vulkan.device, "vkGetBufferMemoryRequirements2KHR");
+	VkBufferMemoryRequirementsInfo2KHR reqinfokhr = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2_KHR, nullptr, buffer[0] };
+	VkMemoryRequirements2KHR reqkhr = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR };
+	ttGetBufferMemoryRequirements2KHR(vulkan.device, &reqinfokhr, &reqkhr);
+	assert(reqkhr.memoryRequirements.memoryTypeBits == req.memoryRequirements.memoryTypeBits);
+	uint32_t memoryTypeIndexkhr = get_device_memory_type(reqkhr.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	assert(memoryTypeIndex == memoryTypeIndexkhr);
 
 	VkMemoryAllocateInfo pAllocateMemInfo = {};
 	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

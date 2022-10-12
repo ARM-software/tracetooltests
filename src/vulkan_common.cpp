@@ -277,6 +277,16 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			printf("\tloopTime = %u\n", benchmarking.loopTime);
 		}
 	}
+	else // vulkan 1.0 mode
+	{
+		VkPhysicalDeviceFeatures feat = {};
+		vkGetPhysicalDeviceFeatures(vulkan.physical, &feat);
+	}
+
+	uint32_t layer_count = 0;
+	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+	std::vector<VkLayerProperties> layer_info(layer_count);
+	vkEnumerateInstanceLayerProperties(&layer_count, layer_info.data());
 
 	VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
