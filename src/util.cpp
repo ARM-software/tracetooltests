@@ -76,3 +76,53 @@ int get_arg(char** in, int i, int argc)
 	}
 	return atoi(in[i]);
 }
+
+const char* get_string_arg(char** in, int i, int argc)
+{
+	if (i == argc)
+	{
+		ELOG("Missing command line parameter\n");
+		exit(-1);
+	}
+	return in[i];
+}
+
+bool exists_blob(const std::string& filename)
+{
+	FILE* fp = fopen(filename.c_str(), "rb");
+	if (!fp) return false;
+	struct stat st = {};
+	int r = fstat(fileno(fp), &st);
+	fclose(fp);
+	return (r == 0 && st.st_size > 0);
+}
+
+char* load_blob(const std::string& filename, uint32_t* size)
+{
+	FILE* fp = fopen(filename.c_str(), "rb");
+	if (!fp)
+	{
+		ABORT("Cannot open \"%s\": %s", filename.c_str(), strerror(errno));
+	}
+	struct stat st;
+	int r = fstat(fileno(fp), &st);
+	if (r != 0) ABORT("Could not stat \"%s\": %s", filename.c_str(), strerror(errno));
+	char* blob = (char*)malloc(st.st_size);
+	r = fread(blob, st.st_size, 1, fp);
+	if (r != 1) ABORT("Could not read \"%s\": %s", filename.c_str(), strerror(errno));
+	fclose(fp);
+	*size = st.st_size;
+	return blob;
+}
+
+void save_blob(const std::string& filename, const char* data, uint32_t size)
+{
+	FILE* fp = fopen(filename.c_str(), "wb");
+	if (!fp)
+	{
+		ABORT("Cannot open \"%s\": %s", filename.c_str(), strerror(errno));
+	}
+	int r = fwrite(data, size, 1, fp);
+	if (r != 1) ABORT("Could not write \"%s\": %s", filename.c_str(), strerror(errno));
+	fclose(fp);
+}

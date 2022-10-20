@@ -12,11 +12,14 @@
 
 static int fence_variant = 0;
 static bool output = false;
+static bool pipelinecache = false;
+static std::string cachefile;
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
 static int width = 640;
 static int height = 480;
+static VkPipelineCache cache = VK_NULL_HANDLE;
 
 struct resources
 {
@@ -45,6 +48,8 @@ static void show_usage()
 	printf("\t0 - use vkWaitForFences\n");
 	printf("\t1 - use vkGetFenceStatus\n");
 	printf("-i/--image-output      Save an image of the output to disk\n");
+	printf("-pc/--pipelinecache    Add a pipeline cache to compute pipeline. By default it is empty.\n");
+	printf("-pcf/--cachefile N     Save and restore pipeline cache to/from file N\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -57,6 +62,16 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-i", "--image-output"))
 	{
 		output = true;
+		return true;
+	}
+	else if (match(argv[i], "-pc", "--pipelinecache"))
+	{
+		pipelinecache = true;
+		return true;
+	}
+	else if (match(argv[i], "-pcf", "--cachefile"))
+	{
+		cachefile = get_string_arg(argv, ++i, argc);
 		return true;
 	}
 	return false;
@@ -112,7 +127,24 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
         pipelineCreateInfo.stage = shaderStageCreateInfo;
         pipelineCreateInfo.layout = r.pipelineLayout;
 
-	result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+	if (pipelinecache)
+	{
+		char* blob = nullptr;
+		VkPipelineCacheCreateInfo cacheinfo = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO, nullptr };
+		cacheinfo.flags = 0;
+		if (!cachefile.empty() && exists_blob(cachefile))
+		{
+			ILOG("Reading pipeline cache data from %s", cachefile.c_str());
+			uint32_t size = 0;
+			blob = load_blob(cachefile, &size);
+			cacheinfo.initialDataSize = size;
+			cacheinfo.pInitialData = blob;
+		}
+		result = vkCreatePipelineCache(vulkan.device, &cacheinfo, nullptr, &cache);
+		free(blob);
+	}
+
+	result = vkCreateComputePipelines(vulkan.device, cache, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
 	check(result);
 }
 
@@ -241,6 +273,20 @@ int main(int argc, char** argv)
 
 	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, buffer_size, width, height);
 
+	if (pipelinecache && !cachefile.empty())
+	{
+		size_t size = 0;
+		result = vkGetPipelineCacheData(vulkan.device, cache, &size, nullptr); // get size
+		std::vector<char> blob(size);
+		result = vkGetPipelineCacheData(vulkan.device, cache, &size, blob.data()); // get data
+		save_blob(cachefile, blob.data(), blob.size());
+		ILOG("Saved pipeline cache data to %s", cachefile.c_str());
+	}
+
+	if (pipelinecache)
+	{
+		vkDestroyPipelineCache(vulkan.device, cache, nullptr);
+	}
 	vkDestroyFence(vulkan.device, r.fence, NULL);
 	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
 	testFreeMemory(vulkan, r.memory);

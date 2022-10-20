@@ -89,4 +89,8 @@ static inline bool is_debug() { return p__debug_level; }
 char keypress();
 bool match(const char* in, const char* short_form, const char* long_form);
 int get_arg(char** in, int i, int argc);
+const char* get_string_arg(char** in, int i, int argc);
 void usage();
+char* load_blob(const std::string& filename, uint32_t* size);
+void save_blob(const std::string& filename, const char* data, uint32_t size);
+bool exists_blob(const std::string& filename);

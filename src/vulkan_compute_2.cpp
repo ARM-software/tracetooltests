@@ -16,6 +16,7 @@ static int sync_variant = 0;
 static bool output = false;
 static unsigned times = repeats();
 static unsigned nodes = 10;
+static vulkan_req_t req;
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
@@ -75,6 +76,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-q", "--queue-variant"))
 	{
 		queue_variant = get_arg(argv, ++i, argc);
+		req.queues = (queue_variant == 0) ? 2 : 1;
 		return (queue_variant >= 0 && queue_variant <= 1);
 	}
 	else if (match(argv[i], "-i", "--image-output"))
@@ -122,7 +124,6 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
 
 int main(int argc, char** argv)
 {
-	vulkan_req_t req;
 	req.usage = show_usage;
 	req.cmdopt = test_cmdopt;
 	req.queues = 2;

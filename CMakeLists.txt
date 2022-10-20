@@ -168,5 +168,10 @@ set_property(TEST vulkan_copying_3_test_2 PROPERTY SKIP_RETURN_CODE 77)
 vulkan_test(tool_1)
 vulkan_test(feature_1)
 vulkan_test(compute_1)
+add_custom_command(TARGET vulkan_compute_1 PRE_BUILD COMMAND rm -f test.bin)
+add_test(NAME vulkan_compute_1_test_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc) # pipelinecache, only use
+add_test(NAME vulkan_compute_1_test_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc -pcf test.bin) # +save
+add_test(NAME vulkan_compute_1_test_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc -pcf test.bin) # +read
 vulkan_test(compute_2)
+set_property(TEST vulkan_compute_2 PROPERTY SKIP_RETURN_CODE 77)
 endif()
