@@ -137,7 +137,10 @@ int main(int argc, char** argv)
 	r.descriptorSet.resize(nodes);
 
 	vkGetDeviceQueue(vulkan.device, 0, 0, &r.queue1);
-	vkGetDeviceQueue(vulkan.device, 0, 1, &r.queue2);
+	if (queue_variant == 0)
+	{
+		vkGetDeviceQueue(vulkan.device, 0, 1, &r.queue2);
+	}
 
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -185,7 +188,7 @@ int main(int argc, char** argv)
 
 	VkDescriptorPoolSize descriptorPoolSize = {};
 	descriptorPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	descriptorPoolSize.descriptorCount = 1;
+	descriptorPoolSize.descriptorCount = nodes;
 	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
 	descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	descriptorPoolCreateInfo.maxSets = nodes;
@@ -289,7 +292,11 @@ int main(int argc, char** argv)
 			check(result);
 		}
 		if (sync_variant == 0) vkDeviceWaitIdle(vulkan.device);
-		else if (sync_variant == 1) { vkQueueWaitIdle(r.queue1); vkQueueWaitIdle(r.queue2); }
+		else if (sync_variant == 1)
+		{
+			vkQueueWaitIdle(r.queue1);
+			if (queue_variant == 0) vkQueueWaitIdle(r.queue2);
+		}
 		else if (sync_variant == 2)
 		{
 			result = vkWaitForFences(vulkan.device, nodes, fences.data(), VK_TRUE, UINT32_MAX);
