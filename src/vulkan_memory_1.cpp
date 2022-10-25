@@ -1,13 +1,45 @@
 #include "vulkan_common.h"
 
-#define NUM_BUFFERS 48
+static int num_buffers = 48;
+static int loops = 1;
+static bool apprename = false;
 
-// Written for Vulkan 1.0
-int main(int argc, char** argv)
+static void show_usage()
+{
+	printf("-b/--buffers N         Set number of buffers to use (default %d)\n", num_buffers);
+	printf("-l/--loops N           Set number of loops to run (default %d)\n", loops);
+	printf("-N/--rename            Change app name for each loop (default %s)\n", apprename ? "true" : "false");
+}
+
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-b", "--buffers"))
+	{
+		num_buffers = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-l", "--loops"))
+	{
+		loops = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-N", "--rename"))
+	{
+		apprename = true;
+		return true;
+	}
+	return false;
+}
+
+static int test(int argc, char** argv, int iteration)
 {
 	vulkan_req_t reqs;
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
 	reqs.apiVersion = VK_API_VERSION_1_0;
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_memory_1", reqs);
+	std::string testname = "vulkan_memory_1";
+	if (apprename) testname += "_i" + std::to_string(iteration);
+	vulkan_setup_t vulkan = test_init(argc, argv, testname, reqs);
 
 	VkCommandPool cmdpool;
 	VkCommandPoolCreateInfo cmdcreateinfo = {};
@@ -28,13 +60,13 @@ int main(int argc, char** argv)
 	result = vkAllocateCommandBuffers(vulkan.device, &pAllocateInfo, cmdbuffers.data());
 	check(result);
 
-	VkBuffer buffer[NUM_BUFFERS];
+	std::vector<VkBuffer> buffer(num_buffers);
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.size = 1024 * 1024;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	for (unsigned i = 0; i < NUM_BUFFERS; i++)
+	for (int i = 0; i < num_buffers; i++)
 	{
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer[i]);
 	}
@@ -46,7 +78,7 @@ int main(int argc, char** argv)
 	VkMemoryAllocateInfo pAllocateMemInfo = {};
 	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = req.size * NUM_BUFFERS;
+	pAllocateMemInfo.allocationSize = req.size * num_buffers;
 	VkDeviceMemory memory = 0;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
@@ -70,7 +102,7 @@ int main(int argc, char** argv)
 	test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[10], "Buffer 10");
 	vkDestroyBuffer(vulkan.device, buffer[1], nullptr); buffer[1] = VK_NULL_HANDLE;
 
-	for (unsigned i = 11; i < NUM_BUFFERS; i++)
+	for (int i = 11; i < num_buffers; i++)
 	{
 		vkBindBufferMemory(vulkan.device, buffer[i], memory, offset);
 		offset += req.size;
@@ -107,7 +139,7 @@ int main(int argc, char** argv)
 	// Cleanup...
 	vkDestroyDescriptorPool(vulkan.device, pool, nullptr);
 	vkDestroyDescriptorSetLayout(vulkan.device, dslayout, nullptr);
-	for (unsigned i = 0; i < NUM_BUFFERS; i++)
+	for (int i = 0; i < num_buffers; i++)
 	{
 		vkDestroyBuffer(vulkan.device, buffer[i], nullptr);
 	}
@@ -118,4 +150,9 @@ int main(int argc, char** argv)
 
 	test_done(vulkan);
 	return 0;
+}
+
+int main(int argc, char** argv)
+{
+	for (int i = 0; i < loops; i++) test(argc, argv, i);
 }

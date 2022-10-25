@@ -47,6 +47,13 @@ run vulkan_copying_3 "" ""
 run vulkan_copying_3 "-c 1" "c1"
 #run vulkan_copying_3 "-c 2" "c2" # accepted failure, see https://github.com/LunarG/gfxreconstruct/issues/686
 #run vulkan_as_1 ""
+#run vulkan_mesh_1 "" ""
+run vulkan_compute_1 "" ""
+#run vulkan_compute_2 "" "" # two queues required
+run vulkan_compute_1 "-pc" "pipelinecache"
+run vulkan_compute_1 "-pc -pcf test.bin" "pipelinecache2"
+run vulkan_compute_1 "-pc -pcf test.bin" "pipelinecache3"
+run vulkan_pipelinecache_1 "" ""
 
 echo
 echo "SUCCESS!"
