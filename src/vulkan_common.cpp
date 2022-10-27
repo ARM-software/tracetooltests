@@ -90,10 +90,13 @@ void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory)
 	vkFreeMemory(vulkan.device, memory, nullptr);
 }
 
-void test_done(vulkan_setup_t vulkan)
+void test_done(vulkan_setup_t vulkan, bool shared_instance)
 {
 	vkDestroyDevice(vulkan.device, nullptr);
-	vkDestroyInstance(vulkan.instance, nullptr);
+	if (!shared_instance)
+	{
+		vkDestroyInstance(vulkan.instance, nullptr);
+	}
 }
 
 static void print_usage(TOOLSTEST_CALLBACK_USAGE usage)
@@ -140,82 +143,89 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 
 	// Create instance
-	VkInstanceCreateInfo pCreateInfo = {};
-	VkApplicationInfo app = {};
-	app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app.pApplicationName = testname.c_str();
-	app.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
-	app.pEngineName = "testEngine";
-	app.engineVersion = VK_MAKE_VERSION( 1, 0, 0 );
-	app.apiVersion = reqs.apiVersion;
-	pCreateInfo.pApplicationInfo = &app;
-	pCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	if (reqs.instance == VK_NULL_HANDLE)
+	{
+		VkInstanceCreateInfo pCreateInfo = {};
+		VkApplicationInfo app = {};
+		app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		app.pApplicationName = testname.c_str();
+		app.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
+		app.pEngineName = "testEngine";
+		app.engineVersion = VK_MAKE_VERSION( 1, 0, 0 );
+		app.apiVersion = reqs.apiVersion;
+		pCreateInfo.pApplicationInfo = &app;
+		pCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
-	std::vector<const char*> enabledExtensions;
-	uint32_t propertyCount = 0;
-	VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, nullptr);
-	assert(result == VK_SUCCESS);
-	std::vector<VkExtensionProperties> supported_instance_extensions(propertyCount);
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, supported_instance_extensions.data());
-	assert(result == VK_SUCCESS);
-	for (const VkExtensionProperties& s : supported_instance_extensions)
-	{
-		if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
-		else if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
+		std::vector<const char*> enabledExtensions;
+		uint32_t propertyCount = 0;
+		VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, nullptr);
+		assert(result == VK_SUCCESS);
+		std::vector<VkExtensionProperties> supported_instance_extensions(propertyCount);
+		result = vkEnumerateInstanceExtensionProperties(nullptr, &propertyCount, supported_instance_extensions.data());
+		assert(result == VK_SUCCESS);
+		for (const VkExtensionProperties& s : supported_instance_extensions)
 		{
-			enabledExtensions.push_back(s.extensionName);
-			has_tooling_benchmarking = true;
+			if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
+			else if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
+			else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
+			{
+				enabledExtensions.push_back(s.extensionName);
+				has_tooling_benchmarking = true;
+			}
 		}
-	}
-	if (wsi && strcmp(wsi, "headless") == 0)
-	{
-		enabledExtensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
-	}
+		if (wsi && strcmp(wsi, "headless") == 0)
+		{
+			enabledExtensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
+		}
 #ifdef VK_USE_PLATFORM_XCB_KHR
-	else
-	{
-		enabledExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-	}
+		else
+		{
+			enabledExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+		}
 #endif
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
-	enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+		enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 #ifdef VALIDATION
-	const char *validationLayerNames[] = { "VK_LAYER_LUNARG_standard_validation" };
-	pCreateInfo.enabledLayerCount = 1;
-	pCreateInfo.ppEnabledLayerNames = validationLayerNames;
+		const char *validationLayerNames[] = { "VK_LAYER_LUNARG_standard_validation" };
+		pCreateInfo.enabledLayerCount = 1;
+		pCreateInfo.ppEnabledLayerNames = validationLayerNames;
 #endif
-	enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-	if (enabledExtensions.size() > 0)
-	{
-		pCreateInfo.ppEnabledExtensionNames = enabledExtensions.data();
+		enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		if (enabledExtensions.size() > 0)
+		{
+			pCreateInfo.ppEnabledExtensionNames = enabledExtensions.data();
+		}
+		pCreateInfo.enabledExtensionCount = enabledExtensions.size();
+
+		VkDebugReportCallbackCreateInfoEXT debugcallbackext = {};
+		debugcallbackext.pNext = nullptr;
+		debugcallbackext.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+		debugcallbackext.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
+					| VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+		debugcallbackext.pfnCallback = report_callback;
+		debugcallbackext.pUserData = nullptr;
+
+		VkDebugUtilsMessengerCreateInfoEXT messext = {};
+		messext.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		messext.pNext = &debugcallbackext;
+		messext.flags = 0;
+		messext.pfnUserCallback = messenger_callback;
+		messext.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		messext.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		pCreateInfo.pNext = &messext;
+
+		result = vkCreateInstance(&pCreateInfo, NULL, &vulkan.instance);
+		check(result);
 	}
-	pCreateInfo.enabledExtensionCount = enabledExtensions.size();
-
-	VkDebugReportCallbackCreateInfoEXT debugcallbackext = {};
-	debugcallbackext.pNext = nullptr;
-	debugcallbackext.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-	debugcallbackext.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
-				| VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-	debugcallbackext.pfnCallback = report_callback;
-	debugcallbackext.pUserData = nullptr;
-
-	VkDebugUtilsMessengerCreateInfoEXT messext = {};
-	messext.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	messext.pNext = &debugcallbackext;
-	messext.flags = 0;
-	messext.pfnUserCallback = messenger_callback;
-	messext.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	messext.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	pCreateInfo.pNext = &messext;
-
-	result = vkCreateInstance(&pCreateInfo, NULL, &vulkan.instance);
-	check(result);
+	else
+	{
+		vulkan.instance = reqs.instance;
+	}
 
 	// Create logical device
 	uint32_t num_devices = 0;
-	result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);
+	VkResult result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);
 	check(result);
 	assert(result == VK_SUCCESS);
 	assert(num_devices > 0);
@@ -304,7 +314,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (reqs.samplerAnisotropy) features.samplerAnisotropy = VK_TRUE;
 	deviceInfo.pEnabledFeatures = &features;
 
-	enabledExtensions.clear();
+	std::vector<const char*> enabledExtensions;
+	uint32_t propertyCount = 0;
 	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, nullptr);
 	assert(result == VK_SUCCESS);
 	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);

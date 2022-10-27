@@ -48,10 +48,11 @@ struct vulkan_req_t
 {
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	uint32_t queues = 1;
-	std::vector<std::string> extensions;
+	std::vector<std::string> extensions; // required device extensions
 	bool samplerAnisotropy = false;
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
+	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
 };
 
 const char* errorString(const VkResult errorCode);
@@ -62,7 +63,7 @@ void check_retval(VkResult stored_retval, VkResult retval);
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 
 vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs);
-void test_done(vulkan_setup_t s);
+void test_done(vulkan_setup_t s, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const char* name);
 
