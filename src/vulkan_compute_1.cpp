@@ -10,6 +10,7 @@
 
 #include <cmath>
 
+static int vulkan_variant = 1;
 static int fence_variant = 0;
 static bool output = false;
 static bool pipelinecache = false;
@@ -50,6 +51,11 @@ static void show_usage()
 	printf("-i/--image-output      Save an image of the output to disk\n");
 	printf("-pc/--pipelinecache    Add a pipeline cache to compute pipeline. By default it is empty.\n");
 	printf("-pcf/--cachefile N     Save and restore pipeline cache to/from file N\n");
+	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
+	printf("\t0 - Vulkan 1.0\n");
+	printf("\t1 - Vulkan 1.1\n");
+	printf("\t2 - Vulkan 1.2\n");
+	printf("\t3 - Vulkan 1.3\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -73,6 +79,15 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	{
 		cachefile = get_string_arg(argv, ++i, argc);
 		return true;
+	}
+	else if (match(argv[i], "-V", "--vulkan-variant"))
+	{
+		vulkan_variant = get_arg(argv, ++i, argc);
+		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
+		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
+		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
+		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
+		return (vulkan_variant >= 0 && vulkan_variant <= 3);
 	}
 	return false;
 }
@@ -127,6 +142,13 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
         pipelineCreateInfo.stage = shaderStageCreateInfo;
         pipelineCreateInfo.layout = r.pipelineLayout;
 
+	VkPipelineCreationFeedback creationfeedback = { 0, 0 };
+	VkPipelineCreationFeedbackCreateInfo feedinfo = { VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO, nullptr, &creationfeedback, 0, nullptr };
+	if (vulkan_variant == 3)
+	{
+		pipelineCreateInfo.pNext = &feedinfo;
+	}
+
 	if (pipelinecache)
 	{
 		char* blob = nullptr;
@@ -146,6 +168,18 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
 
 	result = vkCreateComputePipelines(vulkan.device, cache, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
 	check(result);
+
+	if (vulkan_variant == 3)
+	{
+		if (creationfeedback.flags & VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT)
+		{
+			ILOG("VkPipelineCreationFeedback value = %lu ns", (unsigned long)creationfeedback.duration);
+		}
+		else
+		{
+			ILOG("VkPipelineCreationFeedback invalid");
+		}
+	}
 }
 
 int main(int argc, char** argv)
