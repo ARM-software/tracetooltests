@@ -137,6 +137,31 @@ int main(int argc, char** argv)
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_NOT_READY);
 
+	// Test private data
+	bool private_data_support = false;
+	if (vulkan_variant >= 3)
+	{
+		VkPhysicalDevicePrivateDataFeatures pFeat = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES, nullptr };
+		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &pFeat };
+		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
+		private_data_support = pFeat.privateData;
+		if (!private_data_support) ILOG("Private data feature not supported!");
+	}
+	if (vulkan_variant >= 3 && private_data_support)
+	{
+		VkPrivateDataSlotCreateInfo pdinfo = { VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO, nullptr, 0 };
+		VkPrivateDataSlot pdslot;
+		r = vkCreatePrivateDataSlot(vulkan.device, &pdinfo, nullptr, &pdslot);
+		check(r);
+		r = vkSetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence1, pdslot, 1234);
+		check(r);
+		uint64_t pData = 0;
+		vkGetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence1, pdslot, &pData);
+		assert(pData == 1234);
+		vkDestroyPrivateDataSlot(vulkan.device, pdslot, nullptr);
+		// TBD test device pre-allocate private data using VkDevicePrivateDataCreateInfo + VK_STRUCTURE_TYPE_DEVICE_PRIVATE_DATA_CREATE_INFO
+	}
+
 	// Test valid null destroy commands
 
 	vkDestroyInstance(VK_NULL_HANDLE, nullptr);
