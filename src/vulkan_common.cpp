@@ -104,6 +104,7 @@ static void print_usage(TOOLSTEST_CALLBACK_USAGE usage)
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
 	printf("-g/--gpu level N       Select GPU (default %d)\n", gpu());
+	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	if (usage) usage();
 	exit(1);
@@ -127,6 +128,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		else if (match(argv[i], "-d", "--debug"))
 		{
 			p__debug_level = get_arg(argv, ++i, argc);
+		}
+		else if (match(argv[i], "-v", "--validation"))
+		{
+			p__validation = true;
 		}
 		else if (match(argv[i], "-g", "--gpu"))
 		{
@@ -186,11 +191,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
 		enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
-#ifdef VALIDATION
 		const char *validationLayerNames[] = { "VK_LAYER_LUNARG_standard_validation" };
-		pCreateInfo.enabledLayerCount = 1;
-		pCreateInfo.ppEnabledLayerNames = validationLayerNames;
-#endif
+		if (p__validation)
+		{
+			pCreateInfo.enabledLayerCount = 1;
+			pCreateInfo.ppEnabledLayerNames = validationLayerNames;
+		}
 		enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 		if (enabledExtensions.size() > 0)
 		{

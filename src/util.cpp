@@ -15,7 +15,19 @@
 #include <SDL2/SDL.h>
 #endif
 
-uint_fast8_t p__debug_level = 1;
+static int get_env_int(const char* name, int fallback)
+{
+	int v = fallback;
+	const char* tmpstr = getenv(name);
+	if (tmpstr)
+	{
+		v = atoi(tmpstr);
+	}
+	return v;
+}
+
+uint_fast8_t p__debug_level = get_env_int("TOOLSTEST_VALIDATION", 0);
+uint_fast8_t p__validation = 0;
 
 void set_thread_name(const char* name)
 {

@@ -23,6 +23,7 @@ char (&ComputeArraySize(T (&)[N]))[N];
 #define ARRAY_SIZE(Array) sizeof(ComputeArraySize(Array))
 
 extern uint_fast8_t p__debug_level;
+extern uint_fast8_t p__validation;
 
 #ifdef ANDROID
 #include <sstream>
