@@ -183,5 +183,6 @@ vulkan_test(pipelinecache_1)
 set_property(TEST vulkan_pipelinecache_1 PROPERTY SKIP_RETURN_CODE 77)
 
 vulkan_test(multidevice_1)
+vulkan_test(multiinstance)
 
 endif()

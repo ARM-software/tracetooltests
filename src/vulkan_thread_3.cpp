@@ -194,8 +194,10 @@ int main(int argc, char** argv)
 	dummy_cmd(cmd2_2);
 	result = vkEndCommandBuffer(cmd2_2);
 	check(result);
+	m.lock();
 	ready.store(true);
 	cv.notify_one();
+	m.unlock();
 	helper->join();
 	delete helper;
 	helper = nullptr;
