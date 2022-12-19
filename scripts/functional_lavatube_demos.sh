@@ -5,7 +5,7 @@ DEMO_PARAMS="--benchmark -bfs 10"
 
 mkdir -p traces
 mkdir -p $REPORTDIR
-rm -f traces/demos_*.vk
+rm -f traces/demo_*.vk
 rm -f $REPORTDIR/*.png
 rm -f $REPORTDIR/*.html
 
@@ -109,7 +109,7 @@ demo geometryshader
 demo gltfloading
 demo gltfscenerendering
 demo gltfskinning
-#demo graphicspipelinelibrary
+( vulkaninfo | grep -e VK_EXT_graphics_pipeline_library > /dev/null ) && demo graphicspipelinelibrary
 demo hdr
 demo imgui
 demo indirectdraw
@@ -140,12 +140,10 @@ demo radialblur
 #demo raytracingreflections
 #demo raytracingshadows
 #demo renderheadless # not non-interactive
-demo scenerendering
 demo screenshot
 demo shadowmapping
 #demo shadowmappingcascade # out of memory on replay without -H 0
 demo shadowmappingomni
-demo skeletalanimation
 demo specializationconstants
 demo sphericalenvmapping
 demo ssao
@@ -165,5 +163,7 @@ demo texturemipmapgen
 demo vertexattributes
 demo viewportarray
 demo vulkanscene
+demo occlusionquery
+( vulkaninfo | grep -e VK_EXT_descriptor_buffer > /dev/null ) && demo descriptorbuffer
 
 echo "</table></body></html>" >> $REPORT

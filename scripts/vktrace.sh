@@ -51,9 +51,10 @@ run vulkan_tool_1 "" ""
 #run vulkan_mesh_1 "" ""
 run vulkan_compute_1 "" ""
 run vulkan_compute_2 "" ""
+rm -f test.bin
 run vulkan_compute_1 "-pc" "pipelinecache"
 run vulkan_compute_1 "-pc -pcf test.bin" "pipelinecache2"
-run vulkan_compute_1 "-pc -pcf test.bin" "pipelinecache3"
+run vulkan_compute_1 "-pc -pcf test.bin" "pipelinecache3" # repeat with test.bin
 run vulkan_pipelinecache_1 "" ""
 
 echo

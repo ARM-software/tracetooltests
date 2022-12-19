@@ -104,7 +104,7 @@ demo geometryshader
 demo gltfloading
 demo gltfscenerendering
 demo gltfskinning
-#demo graphicspipelinelibrary
+( vulkaninfo | grep -e VK_EXT_graphics_pipeline_library > /dev/null ) && demo graphicspipelinelibrary
 demo hdr
 demo imgui
 demo indirectdraw
@@ -135,12 +135,10 @@ demo radialblur
 #demo raytracingreflections
 #demo raytracingshadows
 #demo renderheadless # not non-interactive
-demo scenerendering
 demo screenshot
 demo shadowmapping
-#demo shadowmappingcascade # out of memory on replay without -H 0
+demo shadowmappingcascade
 demo shadowmappingomni
-demo skeletalanimation
 demo specializationconstants
 demo sphericalenvmapping
 demo ssao
@@ -156,9 +154,11 @@ demo texturecubemap
 demo texturecubemaparray
 demo texturemipmapgen
 ( vulkaninfo | grep -e sparseResidencyImage2D | grep -e 1 > /dev/null ) && demo texturesparseresidency
-#demo variablerateshading
+#demo variablerateshading # uses VK_NV_shading_rate_image, not VK_KHR_fragment_shading_rate
 demo vertexattributes
 demo viewportarray
 demo vulkanscene
+demo occlusionquery
+( vulkaninfo | grep -e VK_EXT_descriptor_buffer > /dev/null ) && demo descriptorbuffer
 
 echo "</table></body></html>" >> $REPORT

@@ -192,9 +192,9 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		}
 		pCreateInfo.enabledExtensionCount = enabledExtensions.size();
 
+		VkDebugUtilsMessengerCreateInfoEXT messext = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
 		if (has_debug_utils)
 		{
-			VkDebugUtilsMessengerCreateInfoEXT messext = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
 			messext.flags = 0;
 			messext.pfnUserCallback = messenger_callback;
 			messext.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
