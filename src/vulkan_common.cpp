@@ -179,7 +179,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
 		enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
-		const char *validationLayerNames[] = { "VK_LAYER_LUNARG_standard_validation" };
+		const char *validationLayerNames[] = { "VK_LAYER_KHRONOS_validation" };
 		if (p__validation)
 		{
 			pCreateInfo.enabledLayerCount = 1;

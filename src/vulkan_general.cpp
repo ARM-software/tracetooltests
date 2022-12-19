@@ -91,6 +91,7 @@ int main(int argc, char** argv)
 		uint32_t devgrpcount = 0;
 		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, nullptr);
 		std::vector<VkPhysicalDeviceGroupProperties> devgrps(devgrpcount);
+		for (auto& v : devgrps) { v.pNext = nullptr; v.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES; }
 		printf("Found %u physical device groups:\n", devgrpcount);
 		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, devgrps.data());
 		for (auto& v : devgrps)
