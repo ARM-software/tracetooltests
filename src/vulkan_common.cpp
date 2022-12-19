@@ -54,30 +54,14 @@ static VkBool32 messenger_callback(
 	return VK_TRUE;
 }
 
-static VkBool32 report_callback(
-    VkDebugReportFlagsEXT                       flags,
-    VkDebugReportObjectTypeEXT                  objectType,
-    uint64_t                                    object,
-    size_t                                      location,
-    int32_t                                     messageCode,
-    const char*                                 pLayerPrefix,
-    const char*                                 pMessage,
-    void*                                       pUserData)
-{
-	if (((flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT) || (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT)) && !is_debug()) return VK_TRUE;
-	fprintf(stderr, "report: %s\n", pMessage);
-	return VK_TRUE;
-}
-
-void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const char* name)
+void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name)
 {
 	VkDebugUtilsObjectNameInfoEXT info = {};
 	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
 	info.objectType = type;
 	info.objectHandle = handle;
 	info.pObjectName = name;
-	(void)info;
-	//vkSetDebugUtilsObjectNameEXT(device, &info);
+	if (vulkan.vkSetDebugUtilsObjectName) vulkan.vkSetDebugUtilsObjectName(vulkan.device, &info);
 }
 
 void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory)
@@ -118,6 +102,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_tooling_benchmarking = false;
+	bool has_debug_utils = false;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -170,8 +155,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		assert(result == VK_SUCCESS);
 		for (const VkExtensionProperties& s : supported_instance_extensions)
 		{
-			if (strcmp(s.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
-			else if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) enabledExtensions.push_back(s.extensionName);
+			if (strcmp(s.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
+			{
+				enabledExtensions.push_back(s.extensionName);
+				has_debug_utils = true;
+			}
 			else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
 			{
 				enabledExtensions.push_back(s.extensionName);
@@ -204,22 +192,15 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		}
 		pCreateInfo.enabledExtensionCount = enabledExtensions.size();
 
-		VkDebugReportCallbackCreateInfoEXT debugcallbackext = {};
-		debugcallbackext.pNext = nullptr;
-		debugcallbackext.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-		debugcallbackext.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT
-					| VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-		debugcallbackext.pfnCallback = report_callback;
-		debugcallbackext.pUserData = nullptr;
-
-		VkDebugUtilsMessengerCreateInfoEXT messext = {};
-		messext.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		messext.pNext = &debugcallbackext;
-		messext.flags = 0;
-		messext.pfnUserCallback = messenger_callback;
-		messext.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		messext.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		pCreateInfo.pNext = &messext;
+		if (has_debug_utils)
+		{
+			VkDebugUtilsMessengerCreateInfoEXT messext = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
+			messext.flags = 0;
+			messext.pfnUserCallback = messenger_callback;
+			messext.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			messext.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+			pCreateInfo.pNext = &messext;
+		}
 
 		result = vkCreateInstance(&pCreateInfo, NULL, &vulkan.instance);
 		check(result);
@@ -364,7 +345,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	result = vkCreateDevice(vulkan.physical, &deviceInfo, NULL, &vulkan.device);
 	check(result);
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_DEVICE, (uint64_t)vulkan.device, "Our device");
+	test_set_name(vulkan, VK_OBJECT_TYPE_DEVICE, (uint64_t)vulkan.device, "Our device");
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
@@ -380,6 +361,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (has_tooling_checksum)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
+	}
+	if (has_debug_utils)
+	{
+		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
+		if (vulkan.vkSetDebugUtilsObjectName) ILOG("Debug utils enabled");
 	}
 	if (has_tooling_obj_property)
 	{

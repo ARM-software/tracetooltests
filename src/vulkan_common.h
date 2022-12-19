@@ -42,6 +42,7 @@ struct vulkan_setup_t
 	VkPhysicalDevice physical = VK_NULL_HANDLE;
 	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
 	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
+	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 };
 
 struct vulkan_req_t
@@ -65,7 +66,7 @@ struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs);
 void test_done(vulkan_setup_t s, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
-void test_set_name(VkDevice device, VkObjectType type, uint64_t handle, const char* name);
+void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name);
 
 void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory);
 

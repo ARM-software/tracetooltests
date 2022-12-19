@@ -87,6 +87,8 @@ int main(int argc, char** argv)
 	check(result);
 	result = vkCreateCommandPool(vulkan.device, &cmdcreateinfo, nullptr, &pool2);
 	check(result);
+	test_set_name(vulkan, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)pool1, "Pool 1");
+	test_set_name(vulkan, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)pool2, "Pool 2");
 
 	VkCommandBufferAllocateInfo pAllocateInfo = {};
 	pAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

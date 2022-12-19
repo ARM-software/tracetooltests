@@ -48,7 +48,7 @@ static int test(int argc, char** argv, int iteration)
 	cmdcreateinfo.queueFamilyIndex = 0;
 	VkResult result = vkCreateCommandPool(vulkan.device, &cmdcreateinfo, nullptr, &cmdpool);
 	check(result);
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)cmdpool, "Our command pool");
+	test_set_name(vulkan, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)cmdpool, "Our command pool");
 
 	std::vector<VkCommandBuffer> cmdbuffers(10);
 	VkCommandBufferAllocateInfo pAllocateInfo = {};
@@ -85,7 +85,7 @@ static int test(int argc, char** argv, int iteration)
 
 	VkDeviceSize offset = 0;
 	vkBindBufferMemory(vulkan.device, buffer[0], memory, offset); offset += req.size;
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[0], "Very temporary buffer");
+	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[0], "Very temporary buffer");
 	vkBindBufferMemory(vulkan.device, buffer[1], memory, offset); offset += req.size;
 	vkDestroyBuffer(vulkan.device, buffer[0], nullptr); buffer[0] = VK_NULL_HANDLE;
 	vkBindBufferMemory(vulkan.device, buffer[2], memory, offset); offset += req.size;
@@ -99,7 +99,7 @@ static int test(int argc, char** argv, int iteration)
 	vkBindBufferMemory(vulkan.device, buffer[9], memory, offset); offset += req.size;
 	vkDestroyBuffer(vulkan.device, buffer[9], nullptr); buffer[9] = VK_NULL_HANDLE;
 	vkBindBufferMemory(vulkan.device, buffer[10], memory, offset); offset += req.size;
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[10], "Buffer 10");
+	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[10], "Buffer 10");
 	vkDestroyBuffer(vulkan.device, buffer[1], nullptr); buffer[1] = VK_NULL_HANDLE;
 
 	for (int i = 11; i < num_buffers; i++)

@@ -24,7 +24,7 @@ static void thread_test_stress(int tid)
 	VkResult result = vkCreateCommandPool(vulkan.device, &cmdcreateinfo, nullptr, &cmdpool);
 	check(result);
 	std::string tmpstr = "Our temporary command pool for tid " + _to_string(tid);
-	test_set_name(vulkan.device, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)cmdpool, tmpstr.c_str());
+	test_set_name(vulkan, VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)cmdpool, tmpstr.c_str());
 
 	if (random() % 5 == 1) usleep(random() % 3 * 10000); // introduce some pseudo-random timings
 
