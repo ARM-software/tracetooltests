@@ -9,9 +9,12 @@
 
 #include "vulkan_common.h"
 
-std::mutex m;
-std::condition_variable cv;
-std::atomic_bool ready{ false };
+static std::mutex m;
+static std::condition_variable cv;
+static std::atomic_bool ready{ false };
+static int variant = 0;
+static int loops = 1;
+static bool quiet = false;
 
 static vulkan_setup_t vulkan;
 static VkCommandPool pool1;
@@ -73,9 +76,38 @@ static void thread_case6()
 	for (int i = 0; i < 50; i++) dummy_cmd(cmd1);
 }
 
+static void show_usage()
+{
+	printf("-c/--case N            Choose test case (1-6, zero means all, default %d)\n", variant);
+	printf("-l/--loops N           Number of loops to run (default %d)\n", loops);
+	printf("-q/--quiet             Do less logging\n");
+}
+
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-c", "--case"))
+	{
+		variant = get_arg(argv, ++i, argc);
+		return (variant >= 1 && variant <= 6);
+	}
+	else if (match(argv[i], "-l", "--loops"))
+	{
+		loops = get_arg(argv, ++i, argc);
+		return loops > 0;
+	}
+	else if (match(argv[i], "-q", "--quiet"))
+	{
+		quiet = true;
+		return true;
+	}
+	return false;
+}
+
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
+	reqs.usage = show_usage;
+	reqs.cmdopt = test_cmdopt;
 	vulkan = test_init(argc, argv, "vulkan_thread_3", reqs);
 	std::thread* helper = nullptr;
 
@@ -110,108 +142,125 @@ int main(int argc, char** argv)
 	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	// Case #1 : Dummy (single thread)
-	result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
-	check(result);
-	dummy_cmd(cmd1);
-	dummy_cmd(cmd1);
-	dummy_cmd(cmd1);
-	result = vkEndCommandBuffer(cmd1);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
+	for (int i = 0; i < loops && (variant == 0 || variant == 1); i++)
+	{
+		if (!quiet) printf("Case 1: Dummy (single thread)\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		dummy_cmd(cmd1);
+		dummy_cmd(cmd1);
+		dummy_cmd(cmd1);
+		result = vkEndCommandBuffer(cmd1);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+	}
 
-	// Case #2 : Start here, finish in thread
-	result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
-	check(result);
-	dummy_cmd(cmd1);
-	helper = new std::thread(thread_case2);
-	helper->join();
-	delete helper;
-	helper = nullptr;
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
+	for (int i = 0; i < loops && (variant == 0 || variant == 2); i++)
+	{
+		if (!quiet) printf("Case 2: Start here, finish in thread\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		dummy_cmd(cmd1);
+		helper = new std::thread(thread_case2);
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+	}
 
-	// Case #3 : Start in thread, finish here
-	helper = new std::thread(thread_case3);
-	helper->join();
-	delete helper;
-	helper = nullptr;
-	dummy_cmd(cmd1);
-	result = vkEndCommandBuffer(cmd1);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
+	for (int i = 0; i < loops && (variant == 0 || variant == 3); i++)
+	{
+		if (!quiet) printf("Case 3: Start in thread, finish here\n");
+		helper = new std::thread(thread_case3);
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		dummy_cmd(cmd1);
+		result = vkEndCommandBuffer(cmd1);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+	}
 
-	// Case #4 : Start here, work a bit here, work rest in thread, work a bit here, then finish here
-	result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
-	check(result);
-	dummy_cmd(cmd1);
-	helper = new std::thread(thread_case4);
-	helper->join();
-	delete helper;
-	helper = nullptr;
-	dummy_cmd(cmd1);
-	result = vkEndCommandBuffer(cmd1);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
+	for (int i = 0; i < loops && (variant == 0 || variant == 4); i++)
+	{
+		if (!quiet) printf("Case 4: Start here, work a bit here, work rest in thread, work a bit here, then finish here\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		dummy_cmd(cmd1);
+		helper = new std::thread(thread_case4);
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		dummy_cmd(cmd1);
+		result = vkEndCommandBuffer(cmd1);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+	}
 
-	// Case #5 : Two racing threads
-	result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
-	check(result);
-	result = vkBeginCommandBuffer(cmd2, &command_buffer_begin_info);
-	check(result);
-	dummy_cmd(cmd1);
-	dummy_cmd(cmd2);
-	helper = new std::thread(thread_case5);
-	for (int i = 0; i < 500; i++) dummy_cmd(cmd1);
-	helper->join();
-	delete helper;
-	helper = nullptr;
-	dummy_cmd(cmd1);
-	dummy_cmd(cmd2);
-	result = vkEndCommandBuffer(cmd1);
-	check(result);
-	result = vkEndCommandBuffer(cmd2);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool2, 0);
-	check(result);
+	for (int i = 0; i < loops && (variant == 0 || variant == 5); i++)
+	{
+		if (!quiet) printf("Case 5: Two racing threads\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		result = vkBeginCommandBuffer(cmd2, &command_buffer_begin_info);
+		check(result);
+		dummy_cmd(cmd1);
+		dummy_cmd(cmd2);
+		helper = new std::thread(thread_case5);
+		for (int i = 0; i < 500; i++) dummy_cmd(cmd1);
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		dummy_cmd(cmd1);
+		dummy_cmd(cmd2);
+		result = vkEndCommandBuffer(cmd1);
+		check(result);
+		result = vkEndCommandBuffer(cmd2);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool2, 0);
+		check(result);
+	}
 
-	// Case #6 : vkCmdExecuteCommands waiting for other thread
-	result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
-	check(result);
-	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-	VkCommandBufferInheritanceInfo inhinfo = {};
-	inhinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-	command_buffer_begin_info.pInheritanceInfo = &inhinfo;
-	result = vkBeginCommandBuffer(cmd2_2, &command_buffer_begin_info);
-	check(result);
-	dummy_cmd(cmd1);
-	dummy_cmd(cmd1);
-	helper = new std::thread(thread_case6);
-	dummy_cmd(cmd2_2);
-	dummy_cmd(cmd2_2);
-	result = vkEndCommandBuffer(cmd2_2);
-	check(result);
-	m.lock();
-	ready.store(true);
-	cv.notify_one();
-	m.unlock();
-	helper->join();
-	delete helper;
-	helper = nullptr;
-	dummy_cmd(cmd1);
-	for (int i = 0; i < 50; i++) dummy_cmd(cmd1);
-	result = vkEndCommandBuffer(cmd1);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool1, 0);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool2, 0);
-	check(result);
-	return 0;
+	for (int i = 0; i < loops && (variant == 0 || variant == 6); i++)
+	{
+		if (!quiet) printf("Case 6: vkCmdExecuteCommands waiting for other thread\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		VkCommandBufferInheritanceInfo inhinfo = {};
+		inhinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+		command_buffer_begin_info.pInheritanceInfo = &inhinfo;
+		result = vkBeginCommandBuffer(cmd2_2, &command_buffer_begin_info);
+		check(result);
+		dummy_cmd(cmd1);
+		dummy_cmd(cmd1);
+		helper = new std::thread(thread_case6);
+		dummy_cmd(cmd2_2);
+		dummy_cmd(cmd2_2);
+		result = vkEndCommandBuffer(cmd2_2);
+		check(result);
+		m.lock();
+		ready.store(true);
+		cv.notify_one();
+		m.unlock();
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		dummy_cmd(cmd1);
+		for (int i = 0; i < 50; i++) dummy_cmd(cmd1);
+		result = vkEndCommandBuffer(cmd1);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
+		result = vkResetCommandPool(vulkan.device, pool2, 0);
+		check(result);
+	}
 
 	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd1);
 	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd2);

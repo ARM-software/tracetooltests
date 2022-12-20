@@ -86,7 +86,7 @@ returns an Adler32 checksum of the given buffer into the command stream. This ca
 be used to validate tools like tracers.
 vkAssertImageTRACETOOLTEST(VkDevice device, VkImage image) planned.
 
-VK_TRACETOOLTEST_object_property - defines a new command
+VK_TRACETOOLTEST_object_property - defines a new command void
 vkGetDeviceTracingObjectPropertyTRACETOOLTEST(VkDevice device, VkObjectType objectType,
 uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType) which can request
 layer internal information from the layer supporting this extension. 'valueType' can be
