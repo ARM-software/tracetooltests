@@ -4,7 +4,7 @@ REPORTDIR=reports/lavatube/samples
 
 mkdir -p traces
 mkdir -p $REPORTDIR
-#rm -f traces/sample_*.vk
+rm -f traces/sample_*.vk
 rm -f $REPORTDIR/*.png
 rm -f $REPORTDIR/*.html
 
@@ -51,7 +51,7 @@ function run
 	export VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
-	( cd external/vulkan-samples ; build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
+	( cd external/vulkan-samples ; build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=100 --force-close sample $1 )
 	mv external/vulkan-samples/sample_$1.vk traces/
 
 	echo
@@ -94,12 +94,12 @@ run separate_image_sampler
 run terrain_tessellation
 run texture_mipmap_generation
 #run buffer_device_address
-run conservative_rasterization
+( vulkaninfo | grep -e VK_EXT_conservative_rasterization > /dev/null ) && run conservative_rasterization
 run debug_utils
 run descriptor_indexing
 run dynamic_rendering
-run fragment_shading_rate
-run fragment_shading_rate_dynamic
+( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate
+( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate_dynamic
 #run open_gl_interop
 run portability
 run push_descriptors

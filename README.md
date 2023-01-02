@@ -135,6 +135,10 @@ VkTracingFlagsTRACETOOLTEST, prefixed with VK_TRACING_:
 * NO_JUST_IN_TIME_REUSE_BIT_TRACETOOLTEST - do not reuse resources as soon as possible but wait
   at least 3 frames
 
+VK_TRACETOOLTEST_frame_end - defines a frame end meant for unit testing; this will likely be
+replaced by something official from Khronos soon. The only new command is
+vkFrameEndTRACETOOLTEST(VkDevice).
+
 Private GLES extensions
 -----------------------
 

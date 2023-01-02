@@ -259,6 +259,7 @@ static void copying_2(int argc, char** argv)
 			result = vkResetFences(vulkan.device, num_buffers, fences.data());
 			check(result);
 		}
+		if (vulkan.vkFrameEnd) vulkan.vkFrameEnd(vulkan.device); // our fake extension to denote frame end for testing purposes
 	}
 
 	// Verification

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 mkdir -p traces
 rm -f traces/uvkc_*.vk

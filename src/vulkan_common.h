@@ -43,6 +43,7 @@ struct vulkan_setup_t
 	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
 	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
+	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
 };
 
 struct vulkan_req_t

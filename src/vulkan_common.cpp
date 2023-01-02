@@ -103,6 +103,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_obj_property = false;
 	bool has_tooling_benchmarking = false;
 	bool has_debug_utils = false;
+	bool has_frame_end = false;
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -322,6 +323,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_obj_property = true;
 		}
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_FRAME_END_EXTENSION_NAME) == 0)
+		{
+			has_frame_end = true;
+		}
 
 		for (const auto& str : reqs.extensions) if (str == s.extensionName)
 		{
@@ -370,6 +375,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (has_tooling_obj_property)
 	{
 		vulkan.vkGetDeviceTracingObjectProperty = (PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkGetDeviceTracingObjectPropertyTRACETOOLTEST");
+	}
+	if (has_frame_end)
+	{
+		vulkan.vkFrameEnd = (PFN_vkFrameEndTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkFrameEndTRACETOOLTEST");
 	}
 
 	return vulkan;

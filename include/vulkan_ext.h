@@ -53,3 +53,9 @@ typedef uint32_t (VKAPI_PTR *PFN_vkAssertBufferTRACETOOLTEST)(VkDevice device, V
 #define VK_TRACETOOLTEST_OBJECT_PROPERTY_EXTENSION_NAME "VK_TRACETOOLTEST_object_property"
 
 typedef uint64_t (VKAPI_PTR *PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)(VkDevice device, VkObjectType objectType, uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType);
+
+// -- VK_TRACETOOLTEST_frame_end
+
+#define VK_TRACETOOLTEST_FRAME_END_EXTENSION_NAME "VK_TRACETOOLTEST_frame_end"
+
+typedef void (VKAPI_PTR *PFN_vkFrameEndTRACETOOLTEST)(VkDevice device);
