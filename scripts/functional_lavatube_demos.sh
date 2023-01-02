@@ -130,15 +130,15 @@ demo pbrbasic
 demo pbribl
 demo pbrtexture
 demo pipelines
-demo pipelinestatistics #( vulkaninfo | grep -e pipelineStatisticsQuery | grep -e 1 > /dev/null ) && demo pipelinestatistics # turned off for Mali compat
+demo pipelinestatistics
 demo pushconstants
-#demo pushdescriptors # TBD implement support in tracer
+demo pushdescriptors # TBD implement support in tracer
 demo radialblur
-#demo rayquery
-#demo raytracingbasic
-#demo raytracingcallable
-#demo raytracingreflections
-#demo raytracingshadows
+demo rayquery
+demo raytracingbasic
+demo raytracingcallable
+demo raytracingreflections
+demo raytracingshadows
 #demo renderheadless # not non-interactive
 demo screenshot
 demo shadowmapping

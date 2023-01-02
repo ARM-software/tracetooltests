@@ -1,5 +1,5 @@
 diff --git a/client/cl_main.c b/client/cl_main.c
-index ff44868..e25c4e6 100644
+index e284026..85cda38 100644
 --- a/client/cl_main.c
 +++ b/client/cl_main.c
 @@ -660,6 +660,9 @@ void CL_Disconnect (void)
@@ -12,3 +12,16 @@ index ff44868..e25c4e6 100644
  }
  
  void CL_Disconnect_f (void)
+diff --git a/ref_vk/vk_common.c b/ref_vk/vk_common.c
+index 273f208..667e71b 100644
+--- a/ref_vk/vk_common.c
++++ b/ref_vk/vk_common.c
+@@ -1756,7 +1756,7 @@ qboolean QVk_Init()
+ 		.pRecordSettings = NULL,
+ 		.instance = vk_instance,
+ 		// VMA ignores version patch, so compare version minors (assuming major is always 1) and choose the lower (safer) one
+-		.vulkanApiVersion = VK_VERSION_MINOR(vk_device.properties.apiVersion) < VK_VERSION_MINOR(appInfo.apiVersion) ? vk_device.properties.apiVersion : appInfo.apiVersion
++		.vulkanApiVersion = VK_API_VERSION_1_2, //VK_VERSION_MINOR(vk_device.properties.apiVersion) < VK_VERSION_MINOR(appInfo.apiVersion) ? vk_device.properties.apiVersion : appInfo.apiVersion
+ 	};
+ 
+ 	res = vmaCreateAllocator(&allocInfo, &vk_malloc);

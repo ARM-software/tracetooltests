@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 #
 # This suite contains some open source games.
 #
@@ -46,59 +46,70 @@ function replay
 
 # --- vkQuake 1 ---
 
-FRAME=30
+function vkquake1
+{
+	FRAME=30
 
-echo
-echo "****** vkquake1 ******"
-echo
+	echo
+	echo "****** vkquake1 ******"
+	echo
 
-echo
-echo "** native **"
-echo
-pushd external/vkquake1/Quake
-rm -f *.ppm
-VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./vkquake -fitz
-convert -alpha off $FRAME.ppm $REPORTDIR/vkquake1_f${FRAME}_native.png
-rm -f *.ppm
+	echo
+	echo "** native **"
+	echo
+	pushd external/vkquake1/Quake
+	rm -f *.ppm
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./vkquake -fitz
+	convert -alpha off $FRAME.ppm $REPORTDIR/vkquake1_f${FRAME}_native.png
+	rm -f *.ppm
 
-echo
-echo "** trace **"
-echo
-LAVATUBE_DESTINATION=vkquake1 VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube ./vkquake -fitz
-mv vkquake1*.vk $TRACEDIR/vkquake1.vk
+	echo
+	echo "** trace **"
+	echo
+	LAVATUBE_DESTINATION=vkquake1 VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube ./vkquake -fitz
+	mv vkquake1*.vk $TRACEDIR/vkquake1.vk
 
-popd
+	popd
 
-replay vkquake1 "VkQuake 1" $FRAME
+	replay vkquake1 "VkQuake 1" $FRAME
+}
 
 # --- vkQuake 2 ---
 
-FRAME=300
+function vkquake2
+{
+	FRAME=300
 
-echo
-echo "****** vkquake2 ******"
-echo
-# other relevant options: vk_msaa 0-4, vk_mode -1 -> r_customwidth r_customheight
-QUAKE2_OPTS="+set vk_validation 0 +set vk_mode -1 +set vid_full screen 0 +set vk_strings 1 +set timedemo 1 +set map demo1.dm2"
-pushd external/vkquake2/linux/debugx64
+	echo
+	echo "****** vkquake2 ******"
+	echo
+	# other relevant options: vk_msaa 0-4, vk_mode -1 -> r_customwidth r_customheight
+	QUAKE2_OPTS="+set vk_validation 0 +set vk_mode -1 +set vid_fullscreen 0 +set vk_strings 1 +set timedemo 1 +set map demo1.dm2"
+	pushd external/vkquake2/linux/debugx64
 
-echo
-echo "** native **"
-echo
-rm -f *.ppm
-VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./quake2 $QUAKE2_OPTS
-convert -alpha off $FRAME.ppm $REPORTDIR/vkquake2_f${FRAME}_native.png
-rm -f *.ppm
+	echo
+	echo "** native **"
+	echo
+	rm -f *.ppm
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./quake2 $QUAKE2_OPTS
+	convert -alpha off $FRAME.ppm $REPORTDIR/vkquake2_f${FRAME}_native.png
+	rm -f *.ppm
 
-echo
-echo "** trace **"
-echo
-LAVATUBE_DEBUG=3 LAVATUBE_DEBUG_FILE=$REPORTDIR/vkquake2.txt LAVATUBE_DESTINATION=vkquake2 VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube ./quake2 $QUAKE2_OPTS
-mv vkquake2*.vk $TRACEDIR/vkquake2.vk
+	echo
+	echo "** trace **"
+	echo
+	LAVATUBE_DEBUG=3 LAVATUBE_DEBUG_FILE=$REPORTDIR/vkquake2.txt LAVATUBE_DESTINATION=vkquake2 VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube ./quake2 $QUAKE2_OPTS
+	mv vkquake2*.vk $TRACEDIR/vkquake2.vk
 
-popd
+	popd
 
-replay vkquake2 "VkQuake 2" $FRAME
+	replay vkquake2 "VkQuake 2" $FRAME
+}
+
+### Run list
+
+vkquake1
+vkquake2
 
 ### Epilogue
 

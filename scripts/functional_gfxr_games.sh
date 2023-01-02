@@ -59,58 +59,68 @@ function replay
 
 # --- vkQuake 1 ---
 
-FRAME=30
+function vkquake1
+{
+	FRAME=30
 
-echo
-echo "****** vkquake1 ******"
-echo
+	echo
+	echo "****** vkquake1 ******"
+	echo
 
-echo
-echo "** native **"
-echo
-pushd external/vkquake1/Quake
-rm -f *.ppm
-VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./vkquake -fitz
-convert -alpha off $FRAME.ppm $REPORTDIR/vkquake1_f${FRAME}_native.png
-rm -f *.ppm
+	echo
+	echo "** native **"
+	echo
+	pushd external/vkquake1/Quake
+	rm -f *.ppm
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./vkquake -fitz
+	convert -alpha off $FRAME.ppm $REPORTDIR/vkquake1_f${FRAME}_native.png
+	rm -f *.ppm
 
-echo
-echo "** trace **"
-echo
-gfxrecon-capture.py -o vkquake1.gfxr ./vkquake -fitz
-mv vkquake1*.gfxr $TRACEDIR/vkquake1.gfxr
+	echo
+	echo "** trace **"
+	echo
+	gfxrecon-capture.py -o vkquake1.gfxr ./vkquake -fitz
+	mv vkquake1*.gfxr $TRACEDIR/vkquake1.gfxr
 
-popd
-
-replay vkquake1 "VkQuake 1" $FRAME
+	popd
+	replay vkquake1 "VkQuake 1" $FRAME
+}
 
 # --- vkQuake 2 ---
 
-FRAME=300
+function vkquake2
+{
+	FRAME=300
 
-echo
-echo "****** vkquake2 ******"
-echo
-QUAKE2_OPTS="+set vk_validation 0 +set vid_fullscreen 0 +set vk_strings 1 +set timedemo 1 +set map demo1.dm2"
-pushd external/vkquake2/linux/debugx64
+	echo
+	echo "****** vkquake2 ******"
+	echo
+	QUAKE2_OPTS="+set vk_validation 0 +set vid_fullscreen 0 +set vk_strings 1 +set timedemo 1 +set map demo1.dm2"
+	pushd external/vkquake2/linux/debugx64
 
-echo
-echo "** native **"
-echo
-rm -f *.ppm
-VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./quake2 $QUAKE2_OPTS
-convert -alpha off $FRAME.ppm $REPORTDIR/vkquake2_f${FRAME}_native.png
-rm -f *.ppm
+	echo
+	echo "** native **"
+	echo
+	rm -f *.ppm
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME ./quake2 $QUAKE2_OPTS
+	convert -alpha off $FRAME.ppm $REPORTDIR/vkquake2_f${FRAME}_native.png
+	rm -f *.ppm
 
-echo
-echo "** trace **"
-echo
-gfxrecon-capture.py -o vkquake2.gfxr ./quake2 $QUAKE2_OPTS
-mv vkquake2*.gfxr $TRACEDIR/vkquake2.gfxr
+	echo
+	echo "** trace **"
+	echo
+	gfxrecon-capture.py -o vkquake2.gfxr ./quake2 $QUAKE2_OPTS
+	mv vkquake2*.gfxr $TRACEDIR/vkquake2.gfxr
 
-popd
+	popd
 
-replay vkquake2 "VkQuake 2" $FRAME
+	replay vkquake2 "VkQuake 2" $FRAME
+}
+
+### Run list
+
+vkquake1
+vkquake2
 
 ### Epilogue
 
