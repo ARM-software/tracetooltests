@@ -15,6 +15,7 @@ static int fence_variant = 0;
 static bool output = false;
 static bool pipelinecache = false;
 static bool indirect = false;
+static int indirectOffset = 0;
 static std::string cachefile;
 
 // these must also be changed in the shader
@@ -35,6 +36,7 @@ struct resources
 	VkBuffer buffer;
 	VkBuffer indirectBuffer;
 	VkDeviceMemory memory;
+	VkDeviceMemory indirectMemory;
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
 	VkDescriptorSetLayout descriptorSetLayout;
@@ -50,7 +52,8 @@ static void show_usage()
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - use vkWaitForFences\n");
 	printf("\t1 - use vkGetFenceStatus\n");
-	printf("-I/--indirect          Use indirect compute dispatch\n");
+	printf("-I/--indirect          Use indirect compute dispatch (default %d)\n", (int)indirect);
+	printf("  -ioff N              Use indirect compute dispatch buffer with this offset multiple (default %d)\n", indirectOffset);
 	printf("-i/--image-output      Save an image of the output to disk\n");
 	printf("-pc/--pipelinecache    Add a pipeline cache to compute pipeline. By default it is empty.\n");
 	printf("-pcf/--cachefile N     Save and restore pipeline cache to/from file N\n");
@@ -71,6 +74,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-i", "--image-output"))
 	{
 		output = true;
+		return true;
+	}
+	else if (match(argv[i], "-ioff", "--indirect-offset"))
+	{
+		indirectOffset = get_arg(argv, ++i, argc);
 		return true;
 	}
 	else if (match(argv[i], "-I", "--indirect"))
@@ -212,11 +220,36 @@ int main(int argc, char** argv)
 
 	if (indirect)
 	{
-		bufferCreateInfo.size = sizeof(VkDispatchIndirectCommand);
+		bufferCreateInfo.size = sizeof(VkDispatchIndirectCommand) * (1 + indirectOffset);
 		bufferCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &r.indirectBuffer);
 		assert(result == VK_SUCCESS);
+
+		VkMemoryRequirements memory_requirements;
+		vkGetBufferMemoryRequirements(vulkan.device, r.indirectBuffer, &memory_requirements);
+		const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
+		const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+
+		VkMemoryAllocateInfo pAllocateMemInfo = {};
+		pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
+		pAllocateMemInfo.allocationSize = aligned_size * (indirectOffset + 1);
+		result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &r.indirectMemory);
+		check(result);
+		assert(r.indirectMemory != VK_NULL_HANDLE);
+
+		result = vkBindBufferMemory(vulkan.device, r.indirectBuffer, r.indirectMemory, indirectOffset * aligned_size);
+		check(result);
+
+		uint32_t* data = nullptr;
+		result = vkMapMemory(vulkan.device, r.indirectMemory, indirectOffset * aligned_size, aligned_size, 0, (void**)&data);
+		assert(result == VK_SUCCESS);
+		data[0] = ceil(width / float(workgroup_size));
+		data[1] = ceil(height / float(workgroup_size));
+		data[2] = 1;
+		vkUnmapMemory(vulkan.device, r.indirectMemory);
 	}
 
 	VkMemoryRequirements memory_requirements;
@@ -228,26 +261,14 @@ int main(int argc, char** argv)
 	VkMemoryAllocateInfo pAllocateMemInfo = {};
 	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = aligned_size + sizeof(VkDispatchIndirectCommand);
+	pAllocateMemInfo.allocationSize = aligned_size;
+	if (indirect) pAllocateMemInfo.allocationSize += sizeof(VkDispatchIndirectCommand) * (1 + indirectOffset);
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &r.memory);
 	check(result);
 	assert(r.memory != VK_NULL_HANDLE);
 
 	result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
 	check(result);
-	if (indirect)
-	{
-		result = vkBindBufferMemory(vulkan.device, r.indirectBuffer, r.memory, aligned_size);
-		check(result);
-
-		uint32_t* data = nullptr;
-		result = vkMapMemory(vulkan.device, r.memory, aligned_size, sizeof(VkDispatchIndirectCommand), 0, (void**)&data);
-		assert(result == VK_SUCCESS);
-		data[0] = ceil(width / float(workgroup_size));
-		data[1] = ceil(height / float(workgroup_size));
-		data[2] = 1;
-		vkUnmapMemory(vulkan.device, r.memory);
-	}
 
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
 	descriptorSetLayoutBinding.binding = 0;
@@ -319,7 +340,7 @@ int main(int argc, char** argv)
 	vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
 	if (indirect)
 	{
-		vkCmdDispatchIndirect(r.commandBuffer, r.indirectBuffer, 0);
+		vkCmdDispatchIndirect(r.commandBuffer, r.indirectBuffer, indirectOffset * sizeof(VkDispatchIndirectCommand));
 	}
 	else
 	{
@@ -363,6 +384,7 @@ int main(int argc, char** argv)
 	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
 	if (indirect) vkDestroyBuffer(vulkan.device, r.indirectBuffer, NULL);
 	testFreeMemory(vulkan, r.memory);
+	if (indirect) testFreeMemory(vulkan, r.indirectMemory);
 	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
 	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
