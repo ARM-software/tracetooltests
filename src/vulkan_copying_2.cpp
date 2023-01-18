@@ -3,6 +3,7 @@
 #include "vulkan_common.h"
 
 static int fence_variant = 0;
+static int flush_variant = 0;
 static int map_variant = 0;
 static int queue_variant = 0;
 static unsigned buffer_size = (32 * 1024);
@@ -21,6 +22,9 @@ static void show_usage()
 	printf("\t1 - put all jobs on one queue\n");
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - wait for fences each loop\n");
+	printf("-F/--flush-variant N   Set memory flush variant (default %d)\n", flush_variant);
+	printf("\t0 - use coherent memory, no explicit flushing\n");
+	printf("\t1 - use any memory, explicit flushing\n");
 	printf("-m/--map-variant N     Set map variant (default %d)\n", map_variant);
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
@@ -62,6 +66,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	{
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant == 0);
+	}
+	else if (match(argv[i], "-F", "--flush-variant"))
+	{
+		flush_variant = get_arg(argv, ++i, argc);
+		return (map_variant >= 0 && map_variant <= 1);
 	}
 	else if (match(argv[i], "-V", "--vulkan-variant"))
 	{
@@ -113,7 +122,12 @@ static void copying_2(int argc, char** argv)
 
 	VkMemoryRequirements memory_requirements;
 	vkGetBufferMemoryRequirements(vulkan.device, origin_buffers.at(0), &memory_requirements);
-	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkMemoryPropertyFlagBits memoryflags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	if (flush_variant == 0)
+	{
+		memoryflags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	}
+	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memoryflags);
 	const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
 	const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
 
@@ -149,6 +163,16 @@ static void copying_2(int argc, char** argv)
 	{
 		memset(data + offset, i, aligned_size);
 		offset += aligned_size;
+	}
+	if (flush_variant == 1)
+	{
+		VkMappedMemoryRange range = {};
+		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+		range.memory = origin_memory;
+		range.size = num_buffers * aligned_size;
+		range.offset = 0;
+		result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
+		check(result);
 	}
 	if (map_variant == 1 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
 	if (map_variant == 2) vkMapMemory(vulkan.device, origin_memory, 10, 20, 0, (void**)&data);
@@ -207,7 +231,7 @@ static void copying_2(int argc, char** argv)
 	{
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			if (map_variant == 0)
+			if (flush_variant == 1)
 			{
 				VkMappedMemoryRange range = {};
 				range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
