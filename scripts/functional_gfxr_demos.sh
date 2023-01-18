@@ -111,7 +111,7 @@ demo indirectdraw
 ( vulkaninfo | grep -e VK_EXT_inline_uniform_block > /dev/null ) && demo inlineuniformblocks
 demo inputattachments
 demo instancing
-demo mesh
+( vulkaninfo | grep -e VK_EXT_mesh_shader > /dev/null ) && demo mesh
 demo multisampling
 demo multithreading
 ( vulkaninfo | grep -e VK_KHR_multiview > /dev/null ) && demo multiview
@@ -129,11 +129,12 @@ demo pipelinestatistics
 demo pushconstants
 demo pushdescriptors
 demo radialblur
-demo rayquery
-demo raytracingbasic
-demo raytracingcallable
-demo raytracingreflections
-demo raytracingshadows
+( vulkaninfo | grep -e VK_KHR_ray_query > /dev/null ) && demo rayquery
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingbasic
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingcallable
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingreflections
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo demo raytracingshadows
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingsbtdata
 #demo renderheadless # not non-interactive
 demo screenshot
 demo shadowmapping
@@ -160,5 +161,6 @@ demo viewportarray
 demo vulkanscene
 demo occlusionquery
 ( vulkaninfo | grep -e VK_EXT_descriptor_buffer > /dev/null ) && demo descriptorbuffer
+( vulkaninfo | grep -e VK_EXT_dynamic_state > /dev/null ) && demo dynamicstate
 
 echo "</table></body></html>" >> $REPORT
