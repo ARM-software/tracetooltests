@@ -173,6 +173,8 @@ add_custom_command(TARGET vulkan_compute_1 PRE_BUILD COMMAND rm -f test.bin)
 add_test(NAME vulkan_compute_1_test_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc) # pipelinecache, only use
 add_test(NAME vulkan_compute_1_test_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc -pcf test.bin) # +save
 add_test(NAME vulkan_compute_1_test_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -pc -pcf test.bin) # +read
+add_test(NAME vulkan_compute_1_test_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -I) # indirect
+add_test(NAME vulkan_compute_1_test_4 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_1 -I -ioff 7) # indirect
 
 vulkan_test(compute_2)
 add_test(NAME vulkan_compute_2_test_0 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_compute_2 -q 1 -s 1) # single queue version
