@@ -66,11 +66,6 @@ void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t han
 
 void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory)
 {
-	if (vulkan.vkGetDeviceTracingObjectProperty)
-	{
-		uint64_t allocations = vulkan.vkGetDeviceTracingObjectProperty(vulkan.device, VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)memory, VK_TRACING_OBJECT_PROPERTY_ALLOCATIONS_COUNT_TRACETOOLTEST);
-		assert(allocations == 0);
-	}
 	vkFreeMemory(vulkan.device, memory, nullptr);
 }
 

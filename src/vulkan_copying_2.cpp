@@ -169,7 +169,7 @@ static void copying_2(int argc, char** argv)
 		VkMappedMemoryRange range = {};
 		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 		range.memory = origin_memory;
-		range.size = num_buffers * aligned_size;
+		range.size = VK_WHOLE_SIZE;
 		range.offset = 0;
 		result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
 		check(result);
