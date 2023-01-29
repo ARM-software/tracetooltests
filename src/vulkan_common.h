@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 #ifdef NDEBUG
 #ifdef __clang__
@@ -44,6 +45,8 @@ struct vulkan_setup_t
 	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
+	uint32_t apiVersion = VK_API_VERSION_1_1;
+	std::unordered_set<std::string> device_extensions;
 };
 
 struct vulkan_req_t
@@ -69,6 +72,8 @@ void test_done(vulkan_setup_t s, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name);
 
+void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, VkDeviceMemory memory, VkDeviceSize offset, const char* name = nullptr);
+void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size);
 void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory);
 
 /// Get default number of repeated loops to be done, taken from an environment variable if available.

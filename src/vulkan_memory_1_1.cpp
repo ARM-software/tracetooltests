@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 	result = vkAllocateCommandBuffers(vulkan.device, &pAllocateInfo, cmdbuffers.data());
 	check(result);
 
-	VkBuffer buffer[NUM_BUFFERS];
+	std::vector<VkBuffer> buffer(NUM_BUFFERS);
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.size = 1024 * 1024;
@@ -65,19 +65,7 @@ int main(int argc, char** argv)
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
 
-	std::vector<VkBindBufferMemoryInfo> infos(NUM_BUFFERS);
-	uint32_t offset = 0;
-	for (unsigned i = 0; i < NUM_BUFFERS; i++)
-	{
-		infos.at(i).sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
-		infos.at(i).pNext = nullptr;
-		infos.at(i).buffer = buffer[i];
-		infos.at(i).memory = memory;
-		infos.at(i).memoryOffset = offset;
-		offset += req.memoryRequirements.size;
-	}
-	result = vkBindBufferMemory2(vulkan.device, infos.size(), infos.data());
-	assert(result == VK_SUCCESS);
+	testBindBufferMemory(vulkan, buffer, memory, req.memoryRequirements.size);
 
 	VkDescriptorSetLayoutCreateInfo cdslayout = {};
 	cdslayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

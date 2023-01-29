@@ -6,7 +6,6 @@
 static int queue_variant = 0;
 static int map_variant = 0;
 static int fence_variant = 0;
-static int vulkan_variant = 1;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
 static vulkan_req_t reqs;
@@ -29,11 +28,6 @@ static void show_usage()
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
-	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
-	printf("\t0 - Vulkan 1.0\n");
-	printf("\t1 - Vulkan 1.1\n");
-	printf("\t2 - Vulkan 1.2\n");
-	printf("\t3 - Vulkan 1.3\n");
 }
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
@@ -82,15 +76,6 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	{
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant >= 0 && fence_variant <= 1);
-	}
-	else if (match(argv[i], "-V", "--vulkan-variant"))
-	{
-		vulkan_variant = get_arg(argv, ++i, argc);
-		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
-		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
-		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
-		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
-		return (vulkan_variant >= 0 && vulkan_variant <= 3);
 	}
 	return false;
 }
@@ -143,18 +128,13 @@ static void copying_1(int argc, char** argv)
 	assert(result == VK_SUCCESS);
 	assert(target_memory != VK_NULL_HANDLE);
 
-	VkDeviceSize offset = 0;
-	for (unsigned i = 0; i < num_buffers; i++)
-	{
-		vkBindBufferMemory(vulkan.device, origin_buffers.at(i), origin_memory, offset);
-		vkBindBufferMemory(vulkan.device, target_buffers.at(i), target_memory, offset);
-		offset += aligned_size;
-	}
+	testBindBufferMemory(vulkan, origin_buffers, origin_memory, aligned_size);
+	testBindBufferMemory(vulkan, target_buffers, target_memory, aligned_size);
 
 	char* data = nullptr;
 	result = vkMapMemory(vulkan.device, origin_memory, 0, num_buffers * aligned_size, 0, (void**)&data);
 	assert(result == VK_SUCCESS);
-	offset = 0;
+	VkDeviceSize offset = 0;
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
 		memset(data + offset, i, aligned_size);
@@ -187,36 +167,19 @@ static void copying_1(int argc, char** argv)
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(result);
-	VkMemoryBarrier memory_barrier = {};
-	memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 	// Many commands
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
 		result = vkBeginCommandBuffer(command_buffers[i], &command_buffer_begin_info);
 		check(result);
-		VkBufferCopy region;
-		region.srcOffset = 0;
-		region.dstOffset = 0;
-		region.size = buffer_size;
-		vkCmdCopyBuffer(command_buffers[i], origin_buffers[i], target_buffers[i], 1, &region);
-		vkCmdPipelineBarrier(command_buffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memory_barrier, 0, NULL, 0, NULL);
+		testCmdCopyBuffer(vulkan, command_buffers.at(i), std::vector<VkBuffer>{ origin_buffers.at(i) }, std::vector<VkBuffer>{ target_buffers.at(i) }, buffer_size);
 		result = vkEndCommandBuffer(command_buffers[i]);
 		check(result);
 	}
 	// Single command
 	result = vkBeginCommandBuffer(command_buffers.at(num_buffers), &command_buffer_begin_info);
 	check(result);
-	for (unsigned i = 0; i < num_buffers; i++)
-	{
-		VkBufferCopy region;
-		region.srcOffset = 0;
-		region.dstOffset = 0;
-		region.size = buffer_size;
-		vkCmdCopyBuffer(command_buffers.at(num_buffers), origin_buffers[i], target_buffers[i], 1, &region);
-	}
-	vkCmdPipelineBarrier(command_buffers.at(num_buffers), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memory_barrier, 0, NULL, 0, NULL);
+	testCmdCopyBuffer(vulkan, command_buffers.at(num_buffers), origin_buffers, target_buffers, buffer_size);
 	result = vkEndCommandBuffer(command_buffers.at(num_buffers));
 	check(result);
 	if (queue_variant == 0 || queue_variant == 4 || queue_variant == 5)

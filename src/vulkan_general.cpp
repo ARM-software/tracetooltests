@@ -3,7 +3,6 @@
 
 static int fence_variant = 0;
 static bool ugly_exit = false;
-static int vulkan_variant = 1;
 static vulkan_req_t reqs;
 
 static void show_usage()
@@ -12,11 +11,6 @@ static void show_usage()
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - normal run\n");
 	printf("\t1 - expect induced fence delay\n");
-	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
-	printf("\t0 - Vulkan 1.0\n");
-	printf("\t1 - Vulkan 1.1\n");
-	printf("\t2 - Vulkan 1.2\n");
-	printf("\t3 - Vulkan 1.3\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -31,15 +25,6 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant >= 0 && fence_variant <= 1);
 	}
-	else if (match(argv[i], "-V", "--vulkan-variant"))
-	{
-		vulkan_variant = get_arg(argv, ++i, argc);
-		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
-		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
-		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
-		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
-		return (vulkan_variant >= 0 && vulkan_variant <= 3);
-	}
 	return false;
 }
 
@@ -52,7 +37,7 @@ int main(int argc, char** argv)
 
 	// Test vkEnumerateInstanceVersion
 
-	if (vulkan_variant >= 1)
+	if (reqs.apiVersion >= VK_API_VERSION_1_1)
 	{
 		uint32_t pApiVersion = 0;
 		r = vkEnumerateInstanceVersion(&pApiVersion); // new in Vulkan 1.1
@@ -78,7 +63,7 @@ int main(int argc, char** argv)
 	assert(goodptr);
 	goodptr = vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties");
 	assert(goodptr);
-	if (vulkan_variant >= 2)
+	if (reqs.apiVersion >= VK_API_VERSION_1_2)
 	{
 		goodptr = vkGetInstanceProcAddr(nullptr, "vkGetInstanceProcAddr"); // Valid starting with Vulkan 1.2
 		assert(goodptr);
@@ -86,7 +71,7 @@ int main(int argc, char** argv)
 	goodptr = vkGetInstanceProcAddr(vulkan.instance, "vkGetInstanceProcAddr");
 	assert(goodptr);
 
-	if (vulkan_variant >= 1)
+	if (reqs.apiVersion >= VK_API_VERSION_1_1)
 	{
 		uint32_t devgrpcount = 0;
 		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, nullptr);
@@ -140,7 +125,7 @@ int main(int argc, char** argv)
 
 	// Test private data
 	bool private_data_support = false;
-	if (vulkan_variant >= 3)
+	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
 		VkPhysicalDevicePrivateDataFeatures pFeat = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES, nullptr };
 		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &pFeat };
@@ -148,7 +133,7 @@ int main(int argc, char** argv)
 		private_data_support = pFeat.privateData;
 		if (!private_data_support) ILOG("Private data feature not supported!");
 	}
-	if (vulkan_variant >= 3 && private_data_support)
+	if (reqs.apiVersion >= VK_API_VERSION_1_3 && private_data_support)
 	{
 		VkPrivateDataSlotCreateInfo pdinfo = { VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO, nullptr, 0 };
 		VkPrivateDataSlot pdslot;
@@ -185,12 +170,12 @@ int main(int argc, char** argv)
 	vkDestroyFramebuffer(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroyRenderPass(vulkan.device, VK_NULL_HANDLE, nullptr);
 	vkDestroyCommandPool(vulkan.device, VK_NULL_HANDLE, nullptr);
-	if (vulkan_variant >= 1)
+	if (reqs.apiVersion >= VK_API_VERSION_1_1)
 	{
 		vkDestroySamplerYcbcrConversion(vulkan.device, VK_NULL_HANDLE, nullptr);
 		vkDestroyDescriptorUpdateTemplate(vulkan.device, VK_NULL_HANDLE, nullptr);
 	}
-	if (vulkan_variant >= 3)
+	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
 		vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);
 	}

@@ -9,7 +9,6 @@ static int queue_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
 static int times = repeats();
-static int vulkan_variant = 0;
 static PFN_vkQueueSubmit2 fpQueueSubmit2 = nullptr;
 
 static void show_usage()
@@ -29,9 +28,6 @@ static void show_usage()
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
-	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
-	printf("\t0 - Vulkan 1.1\n");
-	printf("\t1 - Vulkan 1.3\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -72,12 +68,6 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		flush_variant = get_arg(argv, ++i, argc);
 		return (map_variant >= 0 && map_variant <= 1);
 	}
-	else if (match(argv[i], "-V", "--vulkan-variant"))
-	{
-		vulkan_variant = get_arg(argv, ++i, argc);
-		if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_3;
-		return (vulkan_variant >= 0 && vulkan_variant <= 1);
-	}
 	return false;
 }
 
@@ -90,7 +80,7 @@ static void copying_2(int argc, char** argv)
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_2", reqs);
 	VkResult result;
 
-	if (vulkan_variant == 1)
+	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
 		fpQueueSubmit2 = (PFN_vkQueueSubmit2)vkGetDeviceProcAddr(vulkan.device, "vkQueueSubmit2");
 		assert(fpQueueSubmit2);
@@ -144,21 +134,13 @@ static void copying_2(int argc, char** argv)
 	assert(result == VK_SUCCESS);
 	assert(target_memory != VK_NULL_HANDLE);
 
-	VkDeviceSize offset = 0;
-	for (unsigned i = 0; i < num_buffers; i++)
-	{
-		std::vector<VkBindBufferMemoryInfo> bufinfos {
-			{ VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, origin_buffers.at(i), origin_memory, offset },
-			{ VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, target_buffers.at(i), target_memory, offset },
-		};
-		vkBindBufferMemory2(vulkan.device, bufinfos.size(), bufinfos.data());
-		offset += aligned_size;
-	}
+	testBindBufferMemory(vulkan, origin_buffers, origin_memory, aligned_size);
+	testBindBufferMemory(vulkan, target_buffers, origin_memory, aligned_size);
 
 	char* data = nullptr;
 	result = vkMapMemory(vulkan.device, origin_memory, 0, num_buffers * aligned_size, 0, (void**)&data);
 	assert(result == VK_SUCCESS);
-	offset = 0;
+	VkDeviceSize offset = 0;
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
 		memset(data + offset, i, aligned_size);
@@ -196,22 +178,13 @@ static void copying_2(int argc, char** argv)
 	VkCommandBufferBeginInfo command_buffer_begin_info = {};
 	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	command_buffer_begin_info.flags = 0;
-	VkMemoryBarrier memory_barrier = {};
-	memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 	std::vector<VkSemaphore> semaphores(num_buffers);
 	std::vector<VkFence> fences(num_buffers);
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
 		result = vkBeginCommandBuffer(command_buffers[i], &command_buffer_begin_info);
 		check(result);
-		VkBufferCopy region;
-		region.srcOffset = 0;
-		region.dstOffset = 0;
-		region.size = buffer_size;
-		vkCmdCopyBuffer(command_buffers[i], origin_buffers[i], target_buffers[i], 1, &region);
-		vkCmdPipelineBarrier(command_buffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memory_barrier, 0, NULL, 0, NULL);
+		testCmdCopyBuffer(vulkan, command_buffers.at(i), std::vector<VkBuffer>{ origin_buffers.at(i) }, std::vector<VkBuffer>{ target_buffers.at(i) }, buffer_size);
 		result = vkEndCommandBuffer(command_buffers[i]);
 		check(result);
 
@@ -220,6 +193,14 @@ static void copying_2(int argc, char** argv)
 		seminfo.pNext = nullptr;
 		seminfo.flags = 0;
 		result = vkCreateSemaphore(vulkan.device, &seminfo, nullptr, &semaphores.at(i));
+
+		if (reqs.apiVersion >= VK_API_VERSION_1_2)
+		{
+			uint64_t value = 0;
+			result = vkGetSemaphoreCounterValue(vulkan.device, semaphores.at(i), &value);
+			check(result);
+			assert(value == 0);
+		}
 
 		VkFenceCreateInfo fence_create_info = {};
 		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -259,14 +240,13 @@ static void copying_2(int argc, char** argv)
 			}
 			VkQueue q = queue1;
 			if (queue_variant == 0 && i % 2 == 1) q = queue2; // interleave mode
-			if (vulkan_variant == 0)
+			if (reqs.apiVersion < VK_API_VERSION_1_3)
 			{
 				result = vkQueueSubmit(q, 1, &submit_info, fences[i]);
 				check(result);
 			}
 			else
 			{
-				assert(vulkan_variant == 1);
 				VkSemaphore waitsema = (i > 0) ? semaphores.at(i - 1) : VK_NULL_HANDLE;
 				VkSemaphoreSubmitInfo s1 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, waitsema, VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // wait semaphore
 				VkSemaphoreSubmitInfo s2 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, semaphores[i], VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // signal semaphore

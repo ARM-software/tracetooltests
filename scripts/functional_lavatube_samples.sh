@@ -17,15 +17,10 @@ unset VK_LAYER_PATH
 export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-samples with lavatube</h1><table><tr><th>Name</th><th>Original</th><th>Replay original swapchain</th><th>Replay virtual swapchain</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-samples with lavatube</h1><table><tr><th>Name</th><th>Original</th><th>Replay virtual swapchain</th></tr>" >> $REPORT
 
 function run
 {
-	if [ -f traces/sample_$1.vk ]; then
-		echo "Skipping sample_$1"
-		return
-	fi
-
 	echo
 	echo "****** $1 ******"
 	echo
@@ -55,18 +50,6 @@ function run
 	mv external/vulkan-samples/sample_$1.vk traces/
 
 	echo
-	echo "** replay $1 **"
-	echo
-
-	# Replay
-	unset VK_INSTANCE_LAYERS
-	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay traces/sample_$1.vk
-	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay.png
-	rm -f *.ppm
-	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay.png $REPORTDIR/sample_$1_f3_compare.png || true
-
-	echo
 	echo "** replay $1 virtual **"
 	echo
 
@@ -80,8 +63,24 @@ function run
 
 	echo "<tr><td>$1</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_native.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare.png" /></td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_virtual.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare_virtual.png" /></td></tr>" >> $REPORT
+}
+
+function run_hpp_tests
+{
+	run hpp_compute_nbody
+	run hpp_dynamic_uniform_buffers
+	run hpp_hdr
+	run hpp_hello_triangle
+	run hpp_hlsl_shaders
+	run hpp_instancing
+	run hpp_separate_image_sampler
+	run hpp_terrain_tessellation
+	run hpp_texture_loading
+	run hpp_texture_mipmap_generation
+	run hpp_timestamp_queries
+	run hpp_pipeline_cache
+	run hpp_swapchain_images
 }
 
 run hello_triangle
@@ -119,7 +118,6 @@ run descriptor_management
 run layout_transitions
 run msaa
 run multi_draw_indirect
-run multithreading_render_passes
 run pipeline_barriers
 run pipeline_cache
 run render_passes
@@ -131,5 +129,12 @@ run texture_compression_basisu
 run texture_compression_comparison
 run wait_idle
 run profiles
+run multithreading_render_passes
+run timestamp_queries
+run conditional_rendering
+( vulkaninfo | grep -e VK_KHR_pipeline_library > /dev/null ) && run graphics_pipeline_library
+( vulkaninfo | grep -e VK_EXT_vertex_input_dynamic_state > /dev/null ) && run vertex_dynamic_state
+
+run_hpp_tests # mostly duplicates of the above, API-wise
 
 echo "</table></body></html>" >> $REPORT

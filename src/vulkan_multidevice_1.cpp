@@ -1,28 +1,14 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static int vulkan_variant = 1;
 static vulkan_req_t reqs;
 
 static void show_usage()
 {
-	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", vulkan_variant);
-	printf("\t1 - Vulkan 1.1\n");
-	printf("\t2 - Vulkan 1.2\n");
-	printf("\t3 - Vulkan 1.3\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-V", "--vulkan-variant"))
-	{
-		vulkan_variant = get_arg(argv, ++i, argc);
-		if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
-		else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
-		else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
-		else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
-		return (vulkan_variant >= 1 && vulkan_variant <= 3);
-	}
 	return false;
 }
 
@@ -34,7 +20,7 @@ int main(int argc, char** argv)
 	reqs.instance = vulkan1.instance;
 	vulkan_setup_t vulkan2 = test_init(argc, argv, "vulkan_multidevice", reqs);
 
-	if (vulkan_variant >= 1)
+	if (reqs.apiVersion >= VK_API_VERSION_1_1)
 	{
 		uint32_t devgrpcount = 0;
 		VkResult r = vkEnumeratePhysicalDeviceGroups(vulkan1.instance, &devgrpcount, nullptr);
