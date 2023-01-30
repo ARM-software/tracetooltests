@@ -194,14 +194,6 @@ static void copying_2(int argc, char** argv)
 		seminfo.flags = 0;
 		result = vkCreateSemaphore(vulkan.device, &seminfo, nullptr, &semaphores.at(i));
 
-		if (reqs.apiVersion >= VK_API_VERSION_1_2)
-		{
-			uint64_t value = 0;
-			result = vkGetSemaphoreCounterValue(vulkan.device, semaphores.at(i), &value);
-			check(result);
-			assert(value == 0);
-		}
-
 		VkFenceCreateInfo fence_create_info = {};
 		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fences[i]);
@@ -248,10 +240,11 @@ static void copying_2(int argc, char** argv)
 			else
 			{
 				VkSemaphore waitsema = (i > 0) ? semaphores.at(i - 1) : VK_NULL_HANDLE;
-				VkSemaphoreSubmitInfo s1 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, waitsema, VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // wait semaphore
-				VkSemaphoreSubmitInfo s2 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, semaphores[i], VK_PIPELINE_STAGE_TRANSFER_BIT, 0 }; // signal semaphore
+				VkSemaphore signalsema = (i != num_buffers - 1) ? semaphores.at(i) : VK_NULL_HANDLE;
+				VkSemaphoreSubmitInfo s1 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, waitsema, VK_PIPELINE_STAGE_2_COPY_BIT, 0 }; // wait semaphore
+				VkSemaphoreSubmitInfo s2 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, signalsema, VK_PIPELINE_STAGE_2_COPY_BIT, 0 }; // signal semaphore
 				VkCommandBufferSubmitInfo csi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, command_buffers[i], 0 };
-				VkSubmitInfo2 submit_info2 = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, (i > 0), &s1, 1, &csi, 1, &s2 };
+				VkSubmitInfo2 submit_info2 = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, (i > 0), &s1, 1, &csi, (i != num_buffers - 1), &s2 };
 				result = fpQueueSubmit2(q, 1, &submit_info2, fences[i]);
 				check(result);
 			}

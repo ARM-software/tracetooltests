@@ -235,6 +235,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 
 	// Create logical device
+	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
+	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
+	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t num_devices = 0;
 	VkResult result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);
 	check(result);
@@ -279,7 +283,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
 		VkBenchmarkingTRACETOOLTEST benchmarking = { VK_STRUCTURE_TYPE_BENCHMARKING_TRACETOOLTEST, nullptr };
-		VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+		VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
 		if (has_tooling_benchmarking) feat13.pNext = &benchmarking;
 		VkPhysicalDeviceVulkan12Features feat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &feat13 };
 		VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &feat12 };
@@ -297,6 +301,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			printf("\tscenario = %u\n", benchmarking.scenario);
 			printf("\tloopTime = %u\n", benchmarking.loopTime);
 		}
+		if (feat13.synchronization2 == VK_TRUE) reqfeat13.synchronization2 = VK_TRUE;
 	}
 	else // vulkan 1.0 mode
 	{
@@ -321,9 +326,15 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	deviceInfo.pQueueCreateInfos = &queueCreateInfo;
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
-	VkPhysicalDeviceFeatures features = {};
-	if (reqs.samplerAnisotropy) features.samplerAnisotropy = VK_TRUE;
-	deviceInfo.pEnabledFeatures = &features;
+	if (reqs.samplerAnisotropy) reqfeat2.features.samplerAnisotropy = VK_TRUE;
+	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
+	{
+		deviceInfo.pNext = &reqfeat2;
+	}
+	else
+	{
+		deviceInfo.pEnabledFeatures = &reqfeat2.features;
+	}
 
 	std::vector<const char*> enabledExtensions;
 	uint32_t propertyCount = 0;
