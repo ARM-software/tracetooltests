@@ -1,11 +1,12 @@
 #!/bin/bash -x
 
-REPORTDIR=reports/lavatube/demos
 DEMO_PARAMS="--benchmark -bfs 10"
+REPORTDIR=reports/lavatube/demos
+TRACEDIR=traces
 
-mkdir -p traces
+mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
-rm -f traces/demo_*.vk
+rm -f $TRACEDIR/demo_*.vk
 rm -f $REPORTDIR/*.png
 rm -f $REPORTDIR/*.html
 
@@ -51,7 +52,7 @@ function demo
 	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
 	( cd external/vulkan-demos/build/bin ; ./$1 $DEMO_PARAMS )
-	mv external/vulkan-demos/build/bin/demo_$1.vk traces/
+	mv external/vulkan-demos/build/bin/demo_$1.vk $TRACEDIR/
 
 	echo
 	echo "** replay $1 **"
@@ -60,7 +61,7 @@ function demo
 	# Replay
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay traces/demo_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay $TRACEDIR/demo_$1.vk
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay.png
 	rm -f *.ppm
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
@@ -72,7 +73,7 @@ function demo
 	# Replay
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay -v traces/demo_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay -v $TRACEDIR/demo_$1.vk
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_virtual.png
 	rm -f *.ppm
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_virtual.png $REPORTDIR/$1_f3_compare_virtual.png || true

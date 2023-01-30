@@ -135,7 +135,7 @@ static void copying_2(int argc, char** argv)
 	assert(target_memory != VK_NULL_HANDLE);
 
 	testBindBufferMemory(vulkan, origin_buffers, origin_memory, aligned_size);
-	testBindBufferMemory(vulkan, target_buffers, origin_memory, aligned_size);
+	testBindBufferMemory(vulkan, target_buffers, target_memory, aligned_size);
 
 	char* data = nullptr;
 	result = vkMapMemory(vulkan.device, origin_memory, 0, num_buffers * aligned_size, 0, (void**)&data);

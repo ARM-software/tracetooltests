@@ -501,8 +501,7 @@ void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, con
 			region.size = size;
 			vkCmdCopyBuffer(cmdbuf, origin.at(i), target.at(i), 1, &region);
 		}
-		VkMemoryBarrier memory_barrier = {};
-		memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+		VkMemoryBarrier memory_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
 		memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 		vkCmdPipelineBarrier(cmdbuf, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memory_barrier, 0, NULL, 0, NULL);
@@ -523,7 +522,6 @@ void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, con
 			vkCmdCopyBuffer2(cmdbuf, &info);
 		}
 		VkMemoryBarrier2 memory_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr };
-		memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 		memory_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
 		memory_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
 		memory_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;

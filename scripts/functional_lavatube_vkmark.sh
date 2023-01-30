@@ -8,7 +8,7 @@ FRAME=30
 
 mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
-rm -f traces/vkmark_*.vk
+rm -f $TRACEDIR/vkmark_*.vk
 rm -f $REPORTDIR/*.png
 rm -f $REPORTDIR/*.html
 
@@ -51,7 +51,7 @@ function vkmark
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
 	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME $LAVATUBE_PATH/replay traces/vkmark_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME $LAVATUBE_PATH/replay $TRACEDIR/vkmark_$1.vk
 	convert -alpha off $FRAME.ppm $REPORTDIR/vkmark_$1_f${FRAME}_replay.png
 	compare -alpha off $REPORTDIR/vkmark_$1_f${FRAME}_native.png $REPORTDIR/vkmark_$1_f${FRAME}_replay.png $REPORTDIR/vkmark_$1_f${FRAME}_compare.png || true
 	rm -f *.ppm
@@ -62,7 +62,7 @@ function vkmark
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
 	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME $LAVATUBE_PATH/replay -v traces/vkmark_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$FRAME $LAVATUBE_PATH/replay -v $TRACEDIR/vkmark_$1.vk
 	convert -alpha off $FRAME.ppm $REPORTDIR/vkmark_$1_f${FRAME}_replay_virtual.png
 	compare -alpha off $REPORTDIR/vkmark_$1_f${FRAME}_native.png $REPORTDIR/vkmark_$1_f${FRAME}_replay_virtual.png $REPORTDIR/vkmark_$1_f${FRAME}_compare_virtual.png || true
 	rm -f *.ppm
