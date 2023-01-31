@@ -237,6 +237,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	// Create logical device
 	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
 	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
+	if (reqs.apiVersion < VK_API_VERSION_1_3) reqfeat12.pNext = nullptr;
 	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t num_devices = 0;
@@ -314,20 +315,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	std::vector<VkLayerProperties> layer_info(layer_count);
 	vkEnumerateInstanceLayerProperties(&layer_count, layer_info.data());
 
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	VkDeviceQueueCreateInfo queueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, nullptr };
 	queueCreateInfo.queueFamilyIndex = 0; // just grab first one
 	queueCreateInfo.queueCount = reqs.queues;
 	float queuePriorities[] = { 1.0f, 0.5f };
 	queueCreateInfo.pQueuePriorities = queuePriorities;
-	VkDeviceCreateInfo deviceInfo = {};
-	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	VkDeviceCreateInfo deviceInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, nullptr };
 	deviceInfo.queueCreateInfoCount = 1;
 	deviceInfo.pQueueCreateInfos = &queueCreateInfo;
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
 	if (reqs.samplerAnisotropy) reqfeat2.features.samplerAnisotropy = VK_TRUE;
-	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
+	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 2)
 	{
 		deviceInfo.pNext = &reqfeat2;
 	}
@@ -541,10 +540,6 @@ void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, con
 		info.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 		info.memoryBarrierCount = 1;
 		info.pMemoryBarriers = &memory_barrier;
-		info.bufferMemoryBarrierCount = 0; // TBD
-		info.pBufferMemoryBarriers = nullptr;
-		info.imageMemoryBarrierCount = 0;
-		info.pImageMemoryBarriers = nullptr;
 		vkCmdPipelineBarrier2(cmdbuf, &info);
 	}
 }
