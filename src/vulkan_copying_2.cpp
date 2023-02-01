@@ -13,8 +13,8 @@ static PFN_vkQueueSubmit2 fpQueueSubmit2 = nullptr;
 
 static void show_usage()
 {
-	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
-	printf("-c/--buffer-count N    Set buffer count (default %d)\n", num_buffers);
+	printf("-b/--buffer-size N     Set buffer size (default %u)\n", buffer_size);
+	printf("-c/--buffer-count N    Set buffer count (default %u)\n", num_buffers);
 	printf("-t/--times N           Times to repeat (default %d)\n", times);
 	printf("-q/--queue-variant N   Set queue variant (default %d)\n", queue_variant);
 	printf("\t0 - ping-pong between two queues\n");

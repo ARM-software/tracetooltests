@@ -12,8 +12,8 @@ static vulkan_req_t reqs;
 
 static void show_usage()
 {
-	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
-	printf("-c/--buffer-count N    Set buffer count (default %d)\n", num_buffers);
+	printf("-b/--buffer-size N     Set buffer size (default %u)\n", buffer_size);
+	printf("-c/--buffer-count N    Set buffer count (default %u)\n", num_buffers);
 	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
 	printf("\t0 - use vkWaitForFences\n");
 	printf("\t1 - use vkGetFenceStatus\n");

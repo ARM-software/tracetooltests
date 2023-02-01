@@ -8,7 +8,7 @@ static int times = repeats();
 
 static void show_usage()
 {
-	printf("-b/--buffer-size N     Set buffer size (default %d)\n", buffer_size);
+	printf("-b/--buffer-size N     Set buffer size (default %u)\n", buffer_size);
 	printf("-c/--copy-method N     Set copy method (default %d)\n", method);
 	printf("\t0 - memset\n");
 	printf("\t1 - memcpy\n");

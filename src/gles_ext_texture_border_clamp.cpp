@@ -93,11 +93,6 @@ static const GLfloat gTriangleVertices[triangle_num][9] =
 	{ 0.5f, -0.125f, 0, 0.125f, -0.875f, 0, 0.875f, -0.875f, 0 }
 };
 
-static const int multisample_mask[triangle_num]
-{
-	0x1, 0x3, 0x7, 0xf
-};
-
 static void callback_draw(TOOLSTEST *handle)
 {
 	glClearColor(0.0f, 0.5f, 0.5f, 1.0f);

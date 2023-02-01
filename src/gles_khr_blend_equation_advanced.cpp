@@ -22,27 +22,6 @@ const char *fragment_shader_source[] = GLSL_FS(
 	}
 );
 
-const float triangleVertices[] =
-{
-	-0.5f, 0.5f, 0.0f,
-	    -0.5f, -0.5f, 0.0f,
-	    0.5f, -0.5f, 0.0f,
-};
-
-const float triangleColors[] =
-{
-	1.0, 0.0, 0.0, 1.0,
-	0.0, 1.0, 0.0, 1.0,
-	0.0, 1.0, 0.0, 1.0,
-};
-
-const float triangleTextureCoordinates[] =
-{
-	0.0f, 0.0f,
-	0.0f, 1.0f,
-	1.0f, 1.0f
-};
-
 static GLuint vs, fs, draw_program;
 
 static int setupGraphics(TOOLSTEST *handle)

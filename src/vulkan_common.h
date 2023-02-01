@@ -62,8 +62,6 @@ struct vulkan_req_t
 
 const char* errorString(const VkResult errorCode);
 
-void check_retval(VkResult stored_retval, VkResult retval);
-
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 

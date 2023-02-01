@@ -18,10 +18,6 @@
 /// Implement support for naming threads, missing from c++11
 void set_thread_name(const char* name);
 
-template <typename T, unsigned N>
-char (&ComputeArraySize(T (&)[N]))[N];
-#define ARRAY_SIZE(Array) sizeof(ComputeArraySize(Array))
-
 extern uint_fast8_t p__debug_level;
 extern uint_fast8_t p__validation;
 

@@ -255,7 +255,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		VkPhysicalDeviceProperties device_properties = {};
 		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
-		printf("\t%d : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
+		printf("\t%u : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
 		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion));
 		if (i == (unsigned)gpu() && device_properties.apiVersion < reqs.apiVersion)
 		{
@@ -277,7 +277,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, familyprops.data());
 	if (familyprops[0].queueCount < reqs.queues)
 	{
-		printf("Vulkan implementation does not have sufficient queues (only %d, need %d) for this test\n", familyprops[0].queueCount, reqs.queues);
+		printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueCount, reqs.queues);
 		exit(77);
 	}
 
@@ -468,16 +468,6 @@ const char* errorString(const VkResult errorCode)
 #undef STR
 	default:
 		return "UNKNOWN_ERROR";
-	}
-}
-
-void check_retval(VkResult stored_retval, VkResult retval)
-{
-	if (stored_retval == VK_SUCCESS && retval != VK_SUCCESS)
-	{
-		const char* err = errorString(retval);
-		FELOG("TOOLSTEST ERROR: Returncode does not match stored value, got error: %s (code %u)", err, (unsigned)retval);
-		assert(false);
 	}
 }
 

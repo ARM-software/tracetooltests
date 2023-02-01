@@ -46,8 +46,8 @@ struct pixel
 
 static void show_usage()
 {
-	printf("-t/--times N           Times to repeat (default %d)\n", times);
-	printf("-n/--nodes N           Job nodes to chain (default %d)\n", nodes);
+	printf("-t/--times N           Times to repeat (default %u)\n", times);
+	printf("-n/--nodes N           Job nodes to chain (default %u)\n", nodes);
 	printf("-q/--queue-variant N   Set queue variant (default %d)\n", queue_variant);
 	printf("\t0 - use two queues\n");
 	printf("\t1 - use a single queue\n");
