@@ -103,10 +103,10 @@ run dynamic_rendering
 #run open_gl_interop
 run portability
 run push_descriptors
-#run ray_queries
-#run ray_tracing_reflection
-#run raytracing_basic
-#run raytracing_extended
+run ray_queries
+run ray_tracing_reflection
+run raytracing_basic
+run raytracing_extended
 run synchronization_2
 #run timeline_semaphore
 run 16bit_arithmetic
