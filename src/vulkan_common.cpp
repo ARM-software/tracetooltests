@@ -108,14 +108,15 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
-	std::unordered_set<std::string> required(reqs.extensions.begin(), reqs.extensions.end()); // temp copy
+	std::unordered_set<std::string> instance_required(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // temp copy
+	std::unordered_set<std::string> device_required(reqs.device_extensions.begin(), reqs.device_extensions.end()); // temp copy
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_tooling_benchmarking = false;
 	bool has_debug_utils = false;
 	bool has_frame_end = false;
 
-	vulkan.device_extensions.insert(reqs.extensions.begin(), reqs.extensions.end()); // permanent copy
+	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -189,6 +190,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				enabledExtensions.push_back(s.extensionName);
 				has_tooling_benchmarking = true;
 			}
+
+			for (const auto& str : reqs.instance_extensions) if (str == s.extensionName)
+			{
+				enabledExtensions.push_back(str.c_str());
+				instance_required.erase(str);
+			}
+		}
+		if (instance_required.size() > 0)
+		{
+			printf("Missing required instance extensions:\n");
+			for (auto str : instance_required) printf("\t%s\n", str.c_str());
+			exit(77);
 		}
 		if (wsi && strcmp(wsi, "headless") == 0)
 		{
@@ -361,18 +374,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			has_frame_end = true;
 		}
 
-		for (const auto& str : reqs.extensions) if (str == s.extensionName)
+		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
 		{
 			enabledExtensions.push_back(str.c_str());
-			required.erase(str);
+			device_required.erase(str);
 		}
 	}
 	if (enabledExtensions.size() > 0) printf("Required device extensions:\n");
 	for (auto str : enabledExtensions) printf("\t%s\n", str);
-	if (required.size() > 0)
+	if (device_required.size() > 0)
 	{
 		printf("Missing required device extensions:\n");
-		for (auto str : required) printf("\t%s\n", str.c_str());
+		for (auto str : device_required) printf("\t%s\n", str.c_str());
 		exit(77);
 	}
 	deviceInfo.enabledExtensionCount = enabledExtensions.size();

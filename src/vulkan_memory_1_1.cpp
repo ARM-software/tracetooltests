@@ -7,7 +7,7 @@ int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
 	reqs.apiVersion = VK_API_VERSION_1_1;
-	reqs.extensions.push_back("VK_KHR_get_memory_requirements2");
+	reqs.device_extensions.push_back("VK_KHR_get_memory_requirements2");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_memory_1_1", reqs);
 
 	VkCommandPool cmdpool;

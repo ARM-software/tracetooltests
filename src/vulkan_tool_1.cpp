@@ -3,7 +3,7 @@
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
-	reqs.extensions.push_back("VK_EXT_tooling_info");
+	reqs.device_extensions.push_back("VK_EXT_tooling_info");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_tool_1", reqs);
 	VkResult result;
 

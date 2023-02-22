@@ -49,11 +49,12 @@ struct vulkan_setup_t
 	std::unordered_set<std::string> device_extensions;
 };
 
-struct vulkan_req_t
+struct vulkan_req_t // Vulkan context requirements
 {
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	uint32_t queues = 1;
-	std::vector<std::string> extensions; // required device extensions
+	std::vector<std::string> instance_extensions;
+	std::vector<std::string> device_extensions;
 	bool samplerAnisotropy = false;
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;

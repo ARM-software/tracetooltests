@@ -16,7 +16,7 @@ int main(int argc, char** argv)
 {
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
-	reqs.extensions.push_back("VK_EXT_mesh_shader");
+	reqs.device_extensions.push_back("VK_EXT_mesh_shader");
 	reqs.apiVersion = VK_API_VERSION_1_1;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_mesh", reqs);
 
