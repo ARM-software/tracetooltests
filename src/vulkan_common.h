@@ -46,6 +46,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;
+	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
 };
 
@@ -56,6 +57,7 @@ struct vulkan_req_t // Vulkan context requirements
 	std::vector<std::string> instance_extensions;
 	std::vector<std::string> device_extensions;
 	bool samplerAnisotropy = false;
+	bool bufferDeviceAddress = false;
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
@@ -71,9 +73,10 @@ void test_done(vulkan_setup_t s, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name);
 
+uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, std::vector<VkDeviceMemory>& memory, bool deviceaddress, bool dedicated, bool pattern, const char* name);
 void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, VkDeviceMemory memory, VkDeviceSize offset, const char* name = nullptr);
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size);
-void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory);
+void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory);
 
 /// Get default number of repeated loops to be done, taken from an environment variable if available.
 int repeats();

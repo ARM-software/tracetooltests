@@ -204,7 +204,7 @@ static void copying_2(int argc, char** argv)
 	{
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			if (flush_variant == 1)
+			if (flush_variant == 1) // add useless flush
 			{
 				VkMappedMemoryRange range = {};
 				range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;

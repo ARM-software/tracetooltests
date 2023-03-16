@@ -139,7 +139,7 @@ demo radialblur
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingbasic
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingcallable
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingreflections
-( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo demo raytracingshadows
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingshadows
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingsbtdata
 #demo renderheadless # not non-interactive
 demo screenshot

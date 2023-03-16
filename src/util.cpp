@@ -72,7 +72,7 @@ char keypress()
 
 bool match(const char* in, const char* short_form, const char* long_form)
 {
-	if (strcmp(in, short_form) == 0 || strcmp(in, long_form) == 0)
+	if ((short_form && strcmp(in, short_form) == 0) || (long_form && strcmp(in, long_form) == 0))
 	{
 		return true;
 	}

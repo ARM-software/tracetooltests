@@ -9,6 +9,7 @@ static int fence_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
 static vulkan_req_t reqs;
+static bool dedicated_allocation = false;
 
 static void show_usage()
 {
@@ -18,16 +19,18 @@ static void show_usage()
 	printf("\t0 - use vkWaitForFences\n");
 	printf("\t1 - use vkGetFenceStatus\n");
 	printf("-q/--queue-variant N   Set queue variant (default %d)\n", queue_variant);
-	printf("\t0 - many commandbuffers, many queue submit calls, many flushes\n");
-	printf("\t1 - many commandbuffers, one queue submit call with many submits, one flush\n");
-	printf("\t2 - many commandbuffers, one queue submit, one flush\n");
-	printf("\t3 - one commandbuffer, one queue submit, no flush\n");
-	printf("\t4 - many commandbuffers, many queue submit calls, no flush\n");
-	printf("\t5 - many commandbuffers, many queue submit calls, no flush, two queues\n");
+	printf("\t0 - many commandbuffers, many queue submit calls\n");
+	printf("\t1 - many commandbuffers, one queue submit call with many submits\n");
+	printf("\t2 - many commandbuffers, one queue submit\n");
+	printf("\t3 - one commandbuffer, one queue submit\n");
+	printf("\t4 - many commandbuffers, many queue submit calls\n");
+	printf("\t5 - many commandbuffers, many queue submit calls, two queues\n");
 	printf("-m/--map-variant N     Set map variant (default %d)\n", map_variant);
 	printf("\t0 - memory map kept open\n");
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
+	printf("-B/--bufferdeviceaddress Create buffers with known buffer device addresses (requires Vulkan 1.2)\n");
+	printf("-D/--dedicatedallocation Create one device memory for each buffer\n");
 }
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
@@ -77,6 +80,16 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		fence_variant = get_arg(argv, ++i, argc);
 		return (fence_variant >= 0 && fence_variant <= 1);
 	}
+	else if (match(argv[i], "-B", "--bufferdeviceaddress"))
+	{
+		reqs.bufferDeviceAddress = true;
+		return true;
+	}
+	else if (match(argv[i], "-D", "--dedicatedallocation"))
+	{
+		dedicated_allocation = true;
+		return true;
+	}
 	return false;
 }
 
@@ -99,6 +112,10 @@ static void copying_1(int argc, char** argv)
 	bufferCreateInfo.size = buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (reqs.bufferDeviceAddress)
+	{
+		bufferCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR;
+	}
 	VkBufferCreateInfo bufferCreateInfo2 = bufferCreateInfo;
 	bufferCreateInfo2.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	for (unsigned i = 0; i < num_buffers; i++)
@@ -109,39 +126,34 @@ static void copying_1(int argc, char** argv)
 		assert(result == VK_SUCCESS);
 	}
 
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(vulkan.device, origin_buffers.at(0), &memory_requirements);
-	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
-	const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+	std::vector<VkDeviceMemory> origin_memory;
+	std::vector<VkDeviceMemory> target_memory;
+	uint32_t origin_aligned_size = testAllocateBufferMemory(vulkan, origin_buffers, origin_memory, reqs.bufferDeviceAddress, dedicated_allocation, true, "origin");
+	uint32_t target_aligned_size = testAllocateBufferMemory(vulkan, target_buffers, target_memory, reqs.bufferDeviceAddress, dedicated_allocation, false, "target");
+	assert(origin_aligned_size == target_aligned_size);
 
-	VkMemoryAllocateInfo pAllocateMemInfo = {};
-	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = aligned_size * num_buffers;
-	VkDeviceMemory origin_memory = VK_NULL_HANDLE;
-	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &origin_memory);
-	assert(result == VK_SUCCESS);
-	assert(origin_memory != VK_NULL_HANDLE);
-	VkDeviceMemory target_memory = VK_NULL_HANDLE;
-	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &target_memory);
-	assert(result == VK_SUCCESS);
-	assert(target_memory != VK_NULL_HANDLE);
-
-	testBindBufferMemory(vulkan, origin_buffers, origin_memory, aligned_size);
-	testBindBufferMemory(vulkan, target_buffers, target_memory, aligned_size);
-
-	char* data = nullptr;
-	result = vkMapMemory(vulkan.device, origin_memory, 0, num_buffers * aligned_size, 0, (void**)&data);
-	assert(result == VK_SUCCESS);
-	VkDeviceSize offset = 0;
-	for (unsigned i = 0; i < num_buffers; i++)
+	if (dedicated_allocation && (map_variant == 0 || map_variant == 2))
 	{
-		memset(data + offset, i, aligned_size);
-		offset += aligned_size;
+		char* data = nullptr;
+		for (unsigned i = 0; i < origin_buffers.size(); i++)
+		{
+			result = vkMapMemory(vulkan.device, origin_memory[i], (map_variant == 2) ? 10 : 0, (map_variant == 2) ? 20 : origin_aligned_size, 0, (void**)&data);
+			assert(result == VK_SUCCESS);
+		}
 	}
-	if (map_variant == 1 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
-	if (map_variant == 2) vkMapMemory(vulkan.device, origin_memory, 10, 20, 0, (void**)&data);
+	else if (map_variant == 0 || map_variant == 2)
+	{
+		char* data = nullptr;
+		result = vkMapMemory(vulkan.device, origin_memory[0], (map_variant == 2) ? 10 : 0, (map_variant == 2) ? 20 : num_buffers * origin_aligned_size, 0, (void**)&data);
+		assert(result == VK_SUCCESS);
+	}
+
+	for (unsigned i = 0; i < num_buffers && reqs.bufferDeviceAddress; i++)
+	{
+		VkBufferDeviceAddressInfo info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr, origin_buffers[i] };
+		VkDeviceAddress a = vkGetBufferDeviceAddress(vulkan.device, &info);
+		assert(a != 0);
+	}
 
 	VkCommandPoolCreateInfo command_pool_create_info = {};
 	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -192,16 +204,6 @@ static void copying_1(int argc, char** argv)
 		}
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			if (queue_variant == 0 && map_variant == 0)
-			{
-				VkMappedMemoryRange range = {};
-				range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-				range.memory = origin_memory;
-				range.size = aligned_size;
-				range.offset = aligned_size * i;
-				result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
-				check(result);
-			}
 			VkSubmitInfo submit_info = {};
 			submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			submit_info.commandBufferCount = 1;
@@ -231,15 +233,6 @@ static void copying_1(int argc, char** argv)
 			submit_info[i].commandBufferCount = 1;
 			submit_info[i].pCommandBuffers = &command_buffers[i];
 		}
-		if (map_variant != 1)
-		{
-			VkMappedMemoryRange range = {}; // and only one flush call!
-			range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-			range.memory = origin_memory;
-			range.size = VK_WHOLE_SIZE;
-			result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
-			check(result);
-		}
 		result = vkQueueSubmit(queue1, num_buffers, submit_info.data(), fence);
 		check(result);
 		waitfence(vulkan, fence); // only one fence...
@@ -250,15 +243,6 @@ static void copying_1(int argc, char** argv)
 		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submit_info.commandBufferCount = num_buffers;
 		submit_info.pCommandBuffers = command_buffers.data(); // ... and only one submission of N command buffers
-		if (map_variant != 1)
-		{
-			VkMappedMemoryRange range = {}; // and only one flush call! not N calls to flush the entire memory area...
-			range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-			range.memory = origin_memory;
-			range.size = VK_WHOLE_SIZE;
-			result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
-			check(result);
-		}
 		result = vkQueueSubmit(queue1, 1, &submit_info, fence);
 		check(result);
 		waitfence(vulkan, fence); // only one fence...
@@ -286,7 +270,7 @@ static void copying_1(int argc, char** argv)
 	}
 
 	// Cleanup...
-	if (map_variant == 0 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
+	if (map_variant == 0 || map_variant == 2) for (unsigned i = 0; i < origin_memory.size(); i++) vkUnmapMemory(vulkan.device, origin_memory[i]);
 	vkDestroyFence(vulkan.device, fence, nullptr);
 	for (unsigned i = 0; i < num_buffers; i++)
 	{
@@ -294,8 +278,8 @@ static void copying_1(int argc, char** argv)
 		vkDestroyBuffer(vulkan.device, target_buffers.at(i), nullptr);
 	}
 
-	testFreeMemory(vulkan, origin_memory);
-	testFreeMemory(vulkan, target_memory);
+	for (unsigned i = 0; i < origin_memory.size(); i++) testFreeMemory(vulkan, origin_memory[i]);
+	for (unsigned i = 0; i < target_memory.size(); i++) testFreeMemory(vulkan, target_memory[i]);
 	vkFreeCommandBuffers(vulkan.device, command_pool, num_buffers + 1, command_buffers.data());
 	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 	test_done(vulkan);

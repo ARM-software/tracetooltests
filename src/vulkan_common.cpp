@@ -62,7 +62,7 @@ void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t han
 	if (vulkan.vkSetDebugUtilsObjectName) vulkan.vkSetDebugUtilsObjectName(vulkan.device, &info);
 }
 
-void testFreeMemory(vulkan_setup_t vulkan, VkDeviceMemory memory)
+void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory)
 {
 	vkFreeMemory(vulkan.device, memory, nullptr);
 }
@@ -116,6 +116,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_debug_utils = false;
 	bool has_frame_end = false;
 
+	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
 	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
 
 	for (int i = 1; i < argc; i++)
@@ -252,6 +253,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
 	if (reqs.apiVersion < VK_API_VERSION_1_3) reqfeat12.pNext = nullptr;
 	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
+	if (reqs.apiVersion < VK_API_VERSION_1_2) reqfeat11.pNext = nullptr;
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t num_devices = 0;
 	VkResult result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);
@@ -294,6 +296,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		exit(77);
 	}
 
+	if (reqs.bufferDeviceAddress && reqs.apiVersion < VK_API_VERSION_1_2)
+	{
+		printf("Buffer device address feature requires at least Vulkan 1.2 - set the Vulkan version with the -V parameter\n");
+		exit(78);
+	}
+
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
 		VkBenchmarkingTRACETOOLTEST benchmarking = { VK_STRUCTURE_TYPE_BENCHMARKING_TRACETOOLTEST, nullptr };
@@ -304,6 +312,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &feat11 };
 		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
 		if (reqs.samplerAnisotropy) assert(feat2.features.samplerAnisotropy);
+		if (reqs.bufferDeviceAddress) assert(feat12.bufferDeviceAddress);
 		if (has_tooling_benchmarking)
 		{
 			printf("Benchmarking mode requested:\n");
@@ -319,8 +328,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 	else // vulkan 1.0 mode
 	{
+		assert(!reqs.bufferDeviceAddress);
 		VkPhysicalDeviceFeatures feat = {};
 		vkGetPhysicalDeviceFeatures(vulkan.physical, &feat);
+		if (reqs.samplerAnisotropy) assert(feat.samplerAnisotropy);
 	}
 
 	uint32_t layer_count = 0;
@@ -339,6 +350,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
 	if (reqs.samplerAnisotropy) reqfeat2.features.samplerAnisotropy = VK_TRUE;
+	if (reqs.bufferDeviceAddress)
+	{
+		reqfeat12.bufferDeviceAddress = VK_TRUE;
+	}
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 2)
 	{
 		deviceInfo.pNext = &reqfeat2;
@@ -584,4 +599,87 @@ void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuff
 		test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffers.at(i), bufname.c_str());
 		offset += stride;
 	}
+}
+
+uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, std::vector<VkDeviceMemory>& memory, bool deviceaddress, bool dedicated, bool pattern, const char* name)
+{
+	// Allocate
+	const unsigned count = dedicated ? buffers.size() : 1;
+	uint32_t aligned_size = 0;
+	for (unsigned i = 0; i < count; i++)
+	{
+		VkMemoryRequirements memory_requirements;
+		vkGetBufferMemoryRequirements(vulkan.device, buffers.at(i), &memory_requirements);
+		const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
+		const uint32_t new_aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+		assert(i == 0 || new_aligned_size == aligned_size);
+		aligned_size = new_aligned_size;
+
+		VkMemoryAllocateFlagsInfo flaginfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr, 0, 0 };
+		VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
+		if (vulkan.apiVersion >= VK_API_VERSION_1_1)
+		{
+			pAllocateMemInfo.pNext = &flaginfo;
+		}
+		pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
+		pAllocateMemInfo.allocationSize = dedicated ? aligned_size : aligned_size * buffers.size();
+		if (deviceaddress)
+		{
+			if (!dedicated) printf("We're binding multiple bufferdeviceaddress buffers to a single device memory here in violation of VUID-VkBufferDeviceAddressInfo-buffer-02600\n");
+			flaginfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+		}
+		memory.push_back(VK_NULL_HANDLE);
+		VkResult result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory.back());
+		assert(result == VK_SUCCESS);
+		assert(memory.back() != VK_NULL_HANDLE);
+	}
+	// Bind
+	if (vulkan.apiVersion < VK_API_VERSION_1_1)
+	{
+		VkDeviceSize offset = 0;
+		for (unsigned i = 0; i < buffers.size(); i++)
+		{
+			const unsigned memidx = dedicated ? i : 0;
+			VkResult result = vkBindBufferMemory(vulkan.device, buffers[i], memory[memidx], dedicated ? 0 : offset);
+			check(result);
+			offset += aligned_size;
+		}
+	}
+	else // vulkan 1.3+
+	{
+		std::vector<VkBindBufferMemoryInfo> info(buffers.size());
+		VkDeviceSize offset = 0;
+		for (unsigned i = 0; i < buffers.size(); i++)
+		{
+			VkBindBufferMemoryInfo& v = info.at(i);
+			v.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
+			v.pNext = nullptr;
+			v.buffer = buffers.at(i);
+			v.memory = dedicated ? memory[i] : memory[0];
+			v.memoryOffset = dedicated ? 0 : offset;
+			offset += aligned_size;
+		}
+		VkResult result = vkBindBufferMemory2(vulkan.device, buffers.size(), info.data());
+		check(result);
+	}
+	// Fill
+	for (unsigned i = 0; i < buffers.size(); i++)
+	{
+		const VkDeviceSize offset = dedicated ? 0 : i * aligned_size;
+		uint8_t* data = nullptr;
+		VkResult result = vkMapMemory(vulkan.device, memory[dedicated ? i : 0], offset, aligned_size, 0, (void**)&data);
+		assert(result == VK_SUCCESS);
+		memset(data, pattern ? i : 0, aligned_size);
+		vkUnmapMemory(vulkan.device, memory[dedicated ? i : 0]);
+	}
+	// Label
+	for (unsigned i = 0; i < buffers.size() && name; i++)
+	{
+		VkDeviceSize offset = 0;
+		std::string bufname = std::string(name) + "_" + std::to_string(i) + "_offset=" + std::to_string(offset);
+		test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffers.at(i), bufname.c_str());
+		offset += aligned_size;
+	}
+	return aligned_size;
 }
