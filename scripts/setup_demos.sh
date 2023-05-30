@@ -2,7 +2,6 @@
 
 git clone https://github.com/SaschaWillems/Vulkan.git external/vulkan-demos
 pushd external/vulkan-demos
-./download_assets.py
 git submodule update --init --recursive
 mkdir -p build
 ln -s "$(pwd)/data" "$(pwd)/build/data"

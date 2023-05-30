@@ -1,15 +1,16 @@
 #!/bin/bash
 
-REPORTDIR=reports/gfxr/demos
+REPORTDIR=reports/gfxr/demos${TAG}
 REPORT=$REPORTDIR/report.html
 DEMO_PARAMS="--benchmark -bfs 10"
+TRACEDIR=traces${TAG}
+REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
 
-mkdir -p traces
+rm -rf external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
+mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
-rm -f external/vulkan-demos/*.ppm *.ppm traces/demo_*.gfxr
 
 unset VK_INSTANCE_LAYERS
-unset VK_LAYER_PATH
 export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 HTMLIMGOPTS="width=200 height=200"
@@ -27,45 +28,45 @@ function demo
 	echo "** native **"
 	echo
 
-	rm -f vulkan-demos/*.ppm *.ppm
+	rm -f external/vulkan-demos/*.ppm *.ppm
 
 	# Native run
 	( cd external/vulkan-demos ; VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 build/bin/$1 $DEMO_PARAMS )
 	convert -alpha off external/vulkan-demos/3.ppm $REPORTDIR/$1_f3_native.png
-	rm -f external/vulkan-demos/*.ppm
+	rm -f external/vulkan-demos/*.ppm *.ppm
 
 	echo
 	echo "** trace **"
 	echo
 
 	# Make trace
-	( cd external/vulkan-demos ; gfxrecon-capture.py -o demo_$1.gfxr build/bin/$1 $DEMO_PARAMS )
-	mv external/vulkan-demos/demo_$1*.gfxr traces/demo_$1.gfxr
+	( cd external/vulkan-demos ; gfxrecon-capture-vulkan.py -o demo_$1.gfxr build/bin/$1 $DEMO_PARAMS )
+	mv external/vulkan-demos/demo_$1*.gfxr $TRACEDIR/demo_$1.gfxr
 
 	echo
-	echo "** replay **"
+	echo "** replay using $REPLAYER **"
 	echo
 
 	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay traces/demo_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER $TRACEDIR/demo_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay.png
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
 	rm -f *.ppm
 
 	# Replay -m remap
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m remap traces/demo_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m remap $TRACEDIR/demo_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_remap.png
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_remap.png $REPORTDIR/$1_f3_compare_remap.png || true
 	rm -f *.ppm
 
 	# Replay -m realign
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m realign traces/demo_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m realign $TRACEDIR/demo_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_realign.png
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_realign.png $REPORTDIR/$1_f3_compare_realign.png || true
 	rm -f *.ppm
 
 	# Replay -m rebind
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m rebind traces/demo_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m rebind $TRACEDIR/demo_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_rebind.png
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_rebind.png $REPORTDIR/$1_f3_compare_rebind.png || true
 	rm -f *.ppm
@@ -133,8 +134,10 @@ demo radialblur
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingbasic
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingcallable
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingreflections
-( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo demo raytracingshadows
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingshadows
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingsbtdata
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingintersection
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingtextures
 #demo renderheadless # not non-interactive
 demo screenshot
 demo shadowmapping

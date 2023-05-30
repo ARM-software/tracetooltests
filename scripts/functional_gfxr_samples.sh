@@ -1,15 +1,16 @@
 #!/bin/bash
 
-REPORTDIR=reports/gfxr/samples
+REPORTDIR=reports/gfxr/samples${TAG}
+REPORT=$REPORTDIR/report.html
+TRACEDIR=traces${TAG}
+REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
 
-mkdir -p traces
+rm -rf external/vulkan-samples/*.ppm *.ppm $TRACEDIR/sample_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
+mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
-rm -f external/vulkan-samples/*.ppm *.ppm traces/sample_*.gfxr
 
 unset VK_INSTANCE_LAYERS
-unset VK_LAYER_PATH
 
-REPORT=$REPORTDIR/report.html
 HTMLIMGOPTS="width=200 height=200"
 export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
@@ -39,33 +40,33 @@ function run
 	# Make trace
 	rm -f external/vulkan-samples/*.gfxr
 	( cd external/vulkan-samples ; gfxrecon-capture.py -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
-	mv external/vulkan-samples/sample_$1*.gfxr traces/sample_$1.gfxr
+	mv external/vulkan-samples/sample_$1*.gfxr $TRACEDIR/sample_$1.gfxr
 
 	echo
-	echo "** replay **"
+	echo "** replay using $REPLAYER **"
 	echo
 
 
 	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay traces/sample_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER $TRACEDIR/sample_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay.png
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay.png $REPORTDIR/sample_$1_f3_compare.png || true
 	rm -f *.ppm
 
 	# Replay -m remap
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m remap traces/sample_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m remap $TRACEDIR/sample_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay_remap.png
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay_remap.png $REPORTDIR/sample_$1_f3_compare_remap.png || true
 	rm -f *.ppm
 
 	# Replay -m realign
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m realigntraces/sample_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m realign $TRACEDIR/sample_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay_realign.png
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay_realign.png $REPORTDIR/sample_$1_f3_compare_realign.png || true
 	rm -f *.ppm
 
 	# Replay -m rebind
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 gfxrecon-replay -m rebind traces/sample_$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m rebind $TRACEDIR/sample_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay_rebind.png
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay_rebind.png $REPORTDIR/sample_$1_f3_compare_rebind.png || true
 	rm -f *.ppm
@@ -87,7 +88,7 @@ run instancing
 run separate_image_sampler
 run terrain_tessellation
 run texture_mipmap_generation
-#run buffer_device_address # '-m rebind' may not support the replay of captured device addresses
+run buffer_device_address # '-m rebind' may not support the replay of captured device addresses
 run conservative_rasterization
 run debug_utils
 run descriptor_indexing
@@ -97,11 +98,11 @@ run fragment_shading_rate_dynamic
 #run open_gl_interop # hangs
 #run portability
 run push_descriptors
-#run ray_queries
-#run ray_tracing_reflection
-#run raytracing_basic
-#run raytracing_extended
-#run synchronization_2
+run ray_queries
+run ray_tracing_reflection
+run raytracing_basic
+run raytracing_extended
+run synchronization_2
 run timeline_semaphore
 run 16bit_arithmetic
 run 16bit_storage_input_output
@@ -125,5 +126,18 @@ run texture_compression_basisu
 run texture_compression_comparison
 run wait_idle
 run profiles
+run timestamp_queries
+run calibrated_timestamps
+run conditional_rendering
+run descriptor_buffer_basic
+run extended_dynamic_state2
+run hlsl_shaders
+run fragment_shader_barycentric
+run graphics_pipeline_library
+run logic_op_dynamic_state
+run memory_budget
+#run mesh_shader_culling
+#run mesh_shading
+run vertex_dynamic_state
 
 echo "</table></body></html>" >> $REPORT
