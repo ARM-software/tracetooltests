@@ -1,12 +1,10 @@
 #pragma once
 
-#define USE_XCB 1
+#include "vulkan_common.h"
 
-#if USE_XCB
-#define VK_USE_PLATFORM_XCB_KHR
+#if VK_USE_PLATFORM_XCB_KHR
 #include <xcb/xcb.h>
 #include <xcb/randr.h>
-#include "vulkan_common.h"
 
 struct testwindow
 {
@@ -22,8 +20,7 @@ struct testwindow
 	bool fullscreen = false;
 };
 
-#elif USE_HEADLESS
-#include "vulkan_common.h"
+#else
 
 struct testwindow
 {

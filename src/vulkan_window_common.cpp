@@ -4,7 +4,7 @@
 #include <string>
 #include <cstring>
 
-#if USE_XCB
+#if VK_USE_PLATFORM_XCB_KHR
 #include <xcb/xcb.h>
 #include <xcb/randr.h>
 
@@ -64,7 +64,7 @@ static bool lavaxcb_wait(xcb_connection_t* connection, uint32_t type)
 
 static void window_fullscreen(testwindow& w, bool value)
 {
-#ifdef USE_XCB
+#ifdef VK_USE_PLATFORM_XCB_KHR
 	if (value != w.fullscreen)
 	{
 		if (value) ILOG("Entering fullscreen mode");
@@ -98,7 +98,7 @@ static void window_fullscreen(testwindow& w, bool value)
 
 testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y, int32_t width, int32_t height, bool fullscreen)
 {
-#if USE_XCB
+#if VK_USE_PLATFORM_XCB_KHR
 	testwindow xcb = {};
 	int scr = 0;
 	xcb.connection = xcb_connect(nullptr, &scr);
@@ -197,7 +197,8 @@ testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y
 	{
 		ABORT("Failed to create headless surface");
 	}
-
+#else
+	testwindow ret = {};
 	return ret;
 #endif
 }
@@ -205,7 +206,7 @@ testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y
 void test_window_destroy(const vulkan_setup_t& vulkan, testwindow &w)
 {
 	window_fullscreen(w, false);
-#ifdef USE_XCB
+#ifdef VK_USE_PLATFORM_XCB_KHR
 	if (w.window != 0)
 	{
 		xcb_destroy_window(w.connection, w.window);
