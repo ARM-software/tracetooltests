@@ -54,7 +54,7 @@ function(gles_test test_name)
 	add_test(NAME gles_test_${ARGV0} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gles_${ARGV0})
 endfunction()
 
-function(vulkan_test test_name)
+function(vulkan_test_build test_name)
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h
 		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
@@ -63,6 +63,10 @@ function(vulkan_test test_name)
 	set_target_properties(vulkan_${ARGV0} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${VULKAN_HEADERS})
 	install(TARGETS vulkan_${ARGV0} DESTINATION tests)
+endfunction()
+
+function(vulkan_test test_name)
+	vulkan_test_build(${ARGV0})
 	add_test(NAME vulkan_${ARGV0} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_${ARGV0})
 	set_tests_properties(vulkan_${ARGV0} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation)
 endfunction()
@@ -141,7 +145,6 @@ vulkan_test(thread_3)
 vulkan_test(memory_1)
 vulkan_test(memory_1_1)
 vulkan_test(as_1)
-#vulkan_test(mesh_1)
 
 vulkan_test(copying_2)
 vulkan_test_extra(copying_2_test_0_0_0 copying_2 -q 0 -f 0 -m 0 -t 3)
@@ -175,5 +178,10 @@ vulkan_test(pipelinecache_1)
 vulkan_test(multidevice_1)
 vulkan_test(multiinstance)
 vulkan_test(stress_1)
+
+# These are only built, not automatically run as part of the test suite
+vulkan_test_build(window_1)
+vulkan_test_build(memory_mprotect)
+vulkan_test_build(mesh_1)
 
 endif()
