@@ -334,6 +334,14 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		if (reqs.samplerAnisotropy) assert(feat.samplerAnisotropy);
 	}
 
+	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
+	{
+		VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, nullptr };
+		vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
+		vulkan.device_properties = properties.properties;
+	}
+	else vkGetPhysicalDeviceProperties(vulkan.physical, &vulkan.device_properties); // 1.0 version
+
 	uint32_t layer_count = 0;
 	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 	std::vector<VkLayerProperties> layer_info(layer_count);

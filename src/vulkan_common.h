@@ -48,6 +48,7 @@ struct vulkan_setup_t
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
+	VkPhysicalDeviceProperties device_properties = {};
 };
 
 struct vulkan_req_t // Vulkan context requirements
