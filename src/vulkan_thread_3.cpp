@@ -263,8 +263,8 @@ int main(int argc, char** argv)
 	}
 
 	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd1);
-	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd2);
-	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd2_2);
+	vkFreeCommandBuffers(vulkan.device, pool2, 1, &cmd2);
+	vkFreeCommandBuffers(vulkan.device, pool2, 1, &cmd2_2);
 	vkDestroyCommandPool(vulkan.device, pool1, nullptr);
 	vkDestroyCommandPool(vulkan.device, pool2, nullptr);
 	test_done(vulkan);
