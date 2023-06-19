@@ -62,6 +62,7 @@ struct vulkan_req_t // Vulkan context requirements
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
+	VkBaseInStructure* extension_features = nullptr;
 };
 
 const char* errorString(const VkResult errorCode);

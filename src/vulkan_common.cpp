@@ -249,11 +249,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 
 	// Create logical device
-	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, reqs.extension_features };
 	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
-	if (reqs.apiVersion < VK_API_VERSION_1_3) reqfeat12.pNext = nullptr;
+	if (reqs.apiVersion < VK_API_VERSION_1_3) reqfeat12.pNext = reqs.extension_features;
 	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
-	if (reqs.apiVersion < VK_API_VERSION_1_2) reqfeat11.pNext = nullptr;
+	if (reqs.apiVersion < VK_API_VERSION_1_2) reqfeat11.pNext = reqs.extension_features;
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t num_devices = 0;
 	VkResult result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);

@@ -3,7 +3,10 @@
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");
+	reqs.device_extensions.push_back("VK_KHR_deferred_host_operations");
+	reqs.extension_features = (VkBaseInStructure*)&accfeats;
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_1", reqs);
 	VkResult result;
