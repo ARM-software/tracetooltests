@@ -5,10 +5,6 @@ enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Vulkan-Headers/.git")
-	message(SEND_ERROR "git submodules not available. Please run: git submodule update --init --recursive")
-endif()
-
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
 	set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffer x11)
