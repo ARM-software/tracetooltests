@@ -290,7 +290,7 @@ int main(int argc, char** argv)
 			if (queue_variant == 1) queue = r.queue1;
 
 			if (sync_variant == 2) result = vkQueueSubmit(queue, 1, &submit, fences.at(node));
-			else result = vkQueueSubmit(queue, 1, &submit, nullptr);
+			else result = vkQueueSubmit(queue, 1, &submit, VK_NULL_HANDLE);
 
 			check(result);
 		}
