@@ -5,7 +5,7 @@ enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/Vulkan-Headers/.git")
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Vulkan-Headers/.git")
 	message(SEND_ERROR "git submodules not available. Please run: git submodule update --init --recursive")
 endif()
 
