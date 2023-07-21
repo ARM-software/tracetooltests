@@ -5,6 +5,10 @@ enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/external/Vulkan-Headers/.git")
+	message(SEND_ERROR "git submodules not available. Please run: git submodule update --init --recursive")
+endif()
+
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
 	set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffer x11)
@@ -61,7 +65,7 @@ function(vulkan_test_build test_name)
 	target_link_directories(vulkan_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
 	set_target_properties(vulkan_${ARGV0} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
-	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${VULKAN_HEADERS})
+	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
 	install(TARGETS vulkan_${ARGV0} DESTINATION tests)
 endfunction()
 
