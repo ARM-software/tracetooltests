@@ -6,7 +6,7 @@ import re
 INSTANCE_CHAIN_PARAMETERS = ["VkInstance", "VkPhysicalDevice"]
 DEVICE_CHAIN_PARAMETERS = ["VkDevice", "VkQueue", "VkCommandBuffer"]
 
-tree = ET.parse('external/vulkan-headers/registry/vk.xml')
+tree = ET.parse('external/Vulkan-Headers/registry/vk.xml')
 root = tree.getroot()
 disabled = set()
 disabled_functions = set()
