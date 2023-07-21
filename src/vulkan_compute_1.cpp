@@ -217,8 +217,12 @@ int main(int argc, char** argv)
 		const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
 		const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
 
-		VkMemoryAllocateInfo pAllocateMemInfo = {};
-		pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		VkMemoryAllocateFlagsInfo flaginfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr, 0, 0 };
+		VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
+		if (vulkan.apiVersion >= VK_API_VERSION_1_1)
+		{
+			pAllocateMemInfo.pNext = &flaginfo;
+		}
 		pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
 		pAllocateMemInfo.allocationSize = aligned_size * (indirectOffset + 1);
 		result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &r.indirectMemory);

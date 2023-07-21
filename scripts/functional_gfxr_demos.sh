@@ -7,8 +7,7 @@ TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
 
 rm -rf external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
-mkdir -p $TRACEDIR
-mkdir -p $REPORTDIR
+mkdir -p $TRACEDIR $REPORTDIR
 
 unset VK_INSTANCE_LAYERS
 export MESA_VK_ABORT_ON_DEVICE_LOSS=1
@@ -25,7 +24,7 @@ function demo
 	echo
 
 	echo
-	echo "** native **"
+	echo "** native $1 **"
 	echo
 
 	rm -f external/vulkan-demos/*.ppm *.ppm
@@ -36,7 +35,7 @@ function demo
 	rm -f external/vulkan-demos/*.ppm *.ppm
 
 	echo
-	echo "** trace **"
+	echo "** trace $1 **"
 	echo
 
 	# Make trace
@@ -44,7 +43,7 @@ function demo
 	mv external/vulkan-demos/demo_$1*.gfxr $TRACEDIR/demo_$1.gfxr
 
 	echo
-	echo "** replay using $REPLAYER **"
+	echo "** replay $1 using $REPLAYER **"
 	echo
 
 	# Replay

@@ -1,25 +1,18 @@
-#!/bin/bash -x
+#!/bin/bash
 
+REPORTDIR=reports/lavatube/demos${TAG}
+REPORT=$REPORTDIR/report.html
 DEMO_PARAMS="--benchmark -bfs 10"
-REPORTDIR=reports/lavatube/demos
-TRACEDIR=traces
+TRACEDIR=traces${TAG}
 
-mkdir -p $TRACEDIR
-mkdir -p $REPORTDIR
-rm -f $TRACEDIR/demo_*.vk
-rm -f $REPORTDIR/*.png
-rm -f $REPORTDIR/*.html
+rm -f external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.vk $REPORTDIR/*.png $REPORTDIR/*.html
+mkdir -p $TRACEDIR $REPORTDIR
 
 unset VK_INSTANCE_LAYERS
-unset VK_LAYER_PATH
+export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
-REPORT=$REPORTDIR/report.html
 LAVATUBE_PATH=/work/lava/build
 HTMLIMGOPTS="width=200 height=200"
-
-unset VK_INSTANCE_LAYERS
-unset VK_LAYER_PATH
-export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
 echo "<body><h1>Comparison for vulkan-demos with lavatube</h1><table><tr><th>Name</th><th>Original</th><th>Replay original swapchain</th><th>Replay virtual swapchain</th></tr>" >> $REPORT
@@ -34,7 +27,7 @@ function demo
 	echo "** native $1 **"
 	echo
 
-	rm -f external/vulkan-demos/build/bin/*.ppm
+	rm -f external/vulkan-demos/build/bin/*.ppm *.ppm external/vulkan-demos/*.ppm
 
 	# Native run
 	rm -f external/vulkan-demos/build/bin/*.ppm
@@ -133,7 +126,7 @@ demo pbrtexture
 demo pipelines
 demo pipelinestatistics
 demo pushconstants
-demo pushdescriptors # TBD implement support in tracer
+demo pushdescriptors
 demo radialblur
 ( vulkaninfo | grep -e VK_KHR_ray_query > /dev/null ) && demo rayquery
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingbasic
@@ -141,6 +134,8 @@ demo radialblur
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingreflections
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingshadows
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingsbtdata
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingintersection
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingtextures
 #demo renderheadless # not non-interactive
 demo screenshot
 demo shadowmapping
