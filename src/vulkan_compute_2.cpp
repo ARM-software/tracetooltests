@@ -288,7 +288,10 @@ int main(int argc, char** argv)
 			}
 			VkQueue queue = ((node % 2) == 0) ? r.queue1 : r.queue2;
 			if (queue_variant == 1) queue = r.queue1;
-			result = vkQueueSubmit(queue, 1, &submit, (sync_variant == 2) ? fences.at(node) : nullptr);
+
+			if (sync_variant == 2) result = vkQueueSubmit(queue, 1, &submit, fences.at(node));
+			else result = vkQueueSubmit(queue, 1, &submit, nullptr);
+
 			check(result);
 		}
 		if (sync_variant == 0) vkDeviceWaitIdle(vulkan.device);
