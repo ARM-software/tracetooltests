@@ -76,6 +76,7 @@ static void copying_2(int argc, char** argv)
 	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
+	reqs.apiVersion = VK_API_VERSION_1_1;
 	reqs.queues = 2;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_2", reqs);
 	VkResult result;
