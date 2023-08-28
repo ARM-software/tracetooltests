@@ -63,7 +63,17 @@ static void show_usage()
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-j", "--job-variant"))
+	if (match(argv[i], "-t", "--times"))
+	{
+		times = get_arg(argv, ++i, argc);
+		return (times >= 1);
+	}
+	else if (match(argv[i], "-n", "--nodes"))
+	{
+		nodes = get_arg(argv, ++i, argc);
+		return (nodes >= 1);
+	}
+	else if (match(argv[i], "-j", "--job-variant"))
 	{
 		job_variant = get_arg(argv, ++i, argc);
 		return (job_variant >= 0 && job_variant <= 1);
