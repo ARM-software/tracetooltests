@@ -15,7 +15,7 @@ export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th><th>Replay trim</th></tr>" >> $REPORT
 
 function demo
 {
@@ -46,8 +46,8 @@ function demo
 	echo "** replay $1 using $REPLAYER **"
 	echo
 
-	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER $TRACEDIR/demo_$1.gfxr
+	# Replay -m none
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m none $TRACEDIR/demo_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay.png
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
 	rm -f *.ppm
@@ -70,12 +70,23 @@ function demo
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_rebind.png $REPORTDIR/$1_f3_compare_rebind.png || true
 	rm -f *.ppm
 
+	# Make fastforwarded traces
+	gfxrecon-capture-vulkan.py -f 3-5 -o demo_$1_ff.gfxr $REPLAYER -m none $TRACEDIR/demo_$1.gfxr
+	mv demo_$1_ff* $TRACEDIR/demo_$1_ff_frame3.gfxr
+
+	# Run the fastforwarded trace
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $REPLAYER -m none $TRACEDIR/demo_$1_ff_frame3.gfxr
+	convert -alpha off 1.ppm $REPORTDIR/$1_f3_ff_replay.png
+	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_ff_replay.png $REPORTDIR/$1_f3_compare_ff.png || true
+
 	echo "<tr><td>$1</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_native.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><img $HTMLIMGOPTS src="$1_f3_compare.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_remap.png" /><img $HTMLIMGOPTS src="$1_f3_compare_remap.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_realign.png" /><img $HTMLIMGOPTS src="$1_f3_compare_realign.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_rebind.png" /><img $HTMLIMGOPTS src="$1_f3_compare_rebind.png" /></td></tr>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_remap.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_remap.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_realign.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_realign.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_rebind.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="$1_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_ff.png" /></td>" >> $REPORT
+	echo "</tr>" >> $REPORT
 }
 
 demo triangle

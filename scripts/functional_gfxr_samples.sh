@@ -15,7 +15,7 @@ HTMLIMGOPTS="width=200 height=200"
 export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-samples with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-samples with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th><th>Replay trim</th></tr>" >> $REPORT
 
 function run
 {
@@ -39,7 +39,7 @@ function run
 
 	# Make trace
 	rm -f external/vulkan-samples/*.gfxr
-	( cd external/vulkan-samples ; gfxrecon-capture.py -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
+	( cd external/vulkan-samples ; gfxrecon-capture-vulkan.py -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
 	mv external/vulkan-samples/sample_$1*.gfxr $TRACEDIR/sample_$1.gfxr
 
 	echo
@@ -47,8 +47,8 @@ function run
 	echo
 
 
-	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER $TRACEDIR/sample_$1.gfxr
+	# Replay -m none
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m none $TRACEDIR/sample_$1.gfxr
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay.png
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay.png $REPORTDIR/sample_$1_f3_compare.png || true
 	rm -f *.ppm
@@ -71,12 +71,22 @@ function run
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay_rebind.png $REPORTDIR/sample_$1_f3_compare_rebind.png || true
 	rm -f *.ppm
 
+	# Make fastforwarded trace
+	gfxrecon-capture-vulkan.py -f 3-5 -o sample_$1_ff.gfxr $REPLAYER -m none $TRACEDIR/sample_$1.gfxr
+	mv sample_$1_ff* $TRACEDIR/sample_$1_ff_frame3.gfxr
+
+	# Run the fastforwarded trace
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $REPLAYER -m none $TRACEDIR/sample_$1_ff_frame3.gfxr
+	convert -alpha off 1.ppm $REPORTDIR/sample_$1_f3_ff_replay.png
+	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_ff_replay.png $REPORTDIR/sample_$1_f3_compare_ff.png || true
+
 	echo "<tr><td>$1</td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_native.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_remap.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare_remap.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_realign.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare_realign.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_rebind.png" /><img $HTMLIMGOPTS src="sample_$1_f3_compare_rebind.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_native.png" /><br></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay.png" /><br><img $HTMLIMGOPTS src="sample_$1_f3_compare.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_remap.png" /><br><img $HTMLIMGOPTS src="sample_$1_f3_compare_remap.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_realign.png" /><br><img $HTMLIMGOPTS src="sample_$1_f3_compare_realign.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="sample_$1_f3_compare_rebind.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="sample_$1_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="sample_$1_f3_compare_ff.png" /></td>" >> $REPORT
 }
 
 run hello_triangle
