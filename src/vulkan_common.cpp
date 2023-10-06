@@ -439,7 +439,9 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (has_debug_utils)
 	{
 		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
-		if (vulkan.vkSetDebugUtilsObjectName) ILOG("Debug utils enabled");
+		vulkan.vkCmdInsertDebugUtilsLabel = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdInsertDebugUtilsLabelEXT");
+		
+		if (vulkan.vkSetDebugUtilsObjectName && vulkan.vkCmdInsertDebugUtilsLabel) ILOG("Debug utils enabled");
 	}
 	if (has_tooling_obj_property)
 	{

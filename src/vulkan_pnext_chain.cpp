@@ -66,9 +66,7 @@ int main(int argc, char** argv)
 	debugLabel.color[2] = 0.f;
 	debugLabel.color[3] = 1.f;
 
-	PFN_vkCmdInsertDebugUtilsLabelEXT pfnVkCmdInsertDebugUtilsLabelEXT = (PFN_vkCmdInsertDebugUtilsLabelEXT) vkGetInstanceProcAddr(vulkan.instance, "vkCmdInsertDebugUtilsLabelEXT");
-	assert(pfnVkCmdInsertDebugUtilsLabelEXT != nullptr);
-	(*pfnVkCmdInsertDebugUtilsLabelEXT)(commandBuffer, &debugLabel);
+	vulkan.vkCmdInsertDebugUtilsLabel(commandBuffer, &debugLabel);
 
 	result = vkEndCommandBuffer(commandBuffer);
 	assert(result == VK_SUCCESS);
@@ -134,9 +132,9 @@ int main(int argc, char** argv)
 
 	/* Where the magic happens...
 
-	Those lines check that the trace tool does not save and reuse application owned memory
-	after the vulkan call. In particular, this test triggers a segfault when replaying a fast
-	forwarded capture on GFXReconstruct. */
+	Those lines check that the trace tool does not save and reuse application owned pointers
+	after the vulkan call. So we allocate and free a pointer before/after EACH call. If the
+	trace tool tries to re-use it, hopefully, it will trigger a SEGFAULT. */
 
 	VkBindImageMemoryDeviceGroupInfo deviceGroupInfo;
 	deviceGroupInfo.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_DEVICE_GROUP_INFO;
