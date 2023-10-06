@@ -44,6 +44,7 @@ struct vulkan_setup_t
 	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
 	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
+	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
