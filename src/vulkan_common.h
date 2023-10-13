@@ -25,12 +25,16 @@
 
 // ---- Common code ----
 
-#define check(result) \
-	if (result != VK_SUCCESS) \
-	{ \
-		fprintf(stderr, "Error 0x%04x: %s\n", result, errorString(result)); \
-	} \
+const char* errorString(const VkResult errorCode);
+
+inline void check(VkResult result)
+{
+	if (result != VK_SUCCESS) 
+	{ 
+		fprintf(stderr, "Error 0x%04x: %s\n", result, errorString(result));
+	} 
 	assert(result == VK_SUCCESS);
+}
 
 struct vulkan_req_t;
 typedef void (*TOOLSTEST_CALLBACK_USAGE)();
@@ -65,8 +69,6 @@ struct vulkan_req_t // Vulkan context requirements
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
 	VkBaseInStructure* extension_features = nullptr;
 };
-
-const char* errorString(const VkResult errorCode);
 
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
