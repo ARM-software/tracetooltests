@@ -1,4 +1,4 @@
-// Unit test to try out async vulkan compute chains
+// Unit test to try out async vulkan compute
 // Based on https://github.com/Erkaman/vulkan_minimal_compute
 
 #include "vulkan_common.h"
@@ -10,13 +10,13 @@
 
 #include <cmath>
 
-static int queue_variant = 0;
+static int queues = 2;
 static int job_variant = 0;
-static int sync_variant = 0;
 static bool output = false;
 static unsigned times = repeats();
 static unsigned nodes = 10;
 static vulkan_req_t req;
+static int sync_variant = 0;
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
@@ -25,8 +25,7 @@ static int height = 48;
 
 struct resources
 {
-	VkQueue queue1;
-	VkQueue queue2;
+	std::vector<VkQueue> queues;
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
 	VkShaderModule computeShaderModule;
@@ -47,10 +46,8 @@ struct pixel
 static void show_usage()
 {
 	printf("-t/--times N           Times to repeat (default %u)\n", times);
-	printf("-n/--nodes N           Job nodes to chain (default %u)\n", nodes);
-	printf("-q/--queue-variant N   Set queue variant (default %d)\n", queue_variant);
-	printf("\t0 - use two queues\n");
-	printf("\t1 - use a single queue\n");
+	printf("-n/--nodes N           Job nodes to process (default %u)\n", nodes);
+	printf("-q/--queues N          Set queues to use (default %d)\n", queues);
 	printf("-j/--job-variant N     Set cross-job synchronization variant (default %d)\n", job_variant);
 	printf("\t0 - synchronized with semaphores\n");
 	printf("\t1 - no synchronization\n");
@@ -83,11 +80,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		sync_variant = get_arg(argv, ++i, argc);
 		return (sync_variant >= 0 && sync_variant <= 2);
 	}
-	else if (match(argv[i], "-q", "--queue-variant"))
+	else if (match(argv[i], "-q", "--queues"))
 	{
-		queue_variant = get_arg(argv, ++i, argc);
-		req.queues = (queue_variant == 0) ? 2 : 1;
-		return (queue_variant >= 0 && queue_variant <= 1);
+		queues = get_arg(argv, ++i, argc);
+		req.queues = queues;
+		return (queues >= 1);
 	}
 	else if (match(argv[i], "-i", "--image-output"))
 	{
@@ -136,7 +133,7 @@ int main(int argc, char** argv)
 {
 	req.usage = show_usage;
 	req.cmdopt = test_cmdopt;
-	req.queues = 2;
+	req.queues = queues;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_2", req);
 	VkResult result;
 	resources r;
@@ -146,11 +143,8 @@ int main(int argc, char** argv)
 	r.commandBuffer.resize(nodes);
 	r.descriptorSet.resize(nodes);
 
-	vkGetDeviceQueue(vulkan.device, 0, 0, &r.queue1);
-	if (queue_variant == 0)
-	{
-		vkGetDeviceQueue(vulkan.device, 0, 1, &r.queue2);
-	}
+	r.queues.resize(queues);
+	for (uint32_t i = 0; i < (unsigned)queues; i++) vkGetDeviceQueue(vulkan.device, 0, 0, &r.queues.at(i));
 
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -261,17 +255,6 @@ int main(int argc, char** argv)
 		check(result);
 	}
 
-	std::vector<VkSemaphore> semaphores(nodes);
-	VkSemaphoreCreateInfo seminfo = {};
-	seminfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	seminfo.pNext = nullptr;
-	seminfo.flags = 0;
-	for (unsigned i = 0; i < nodes; i++)
-	{
-		result = vkCreateSemaphore(vulkan.device, &seminfo, nullptr, &semaphores.at(i));
-		check(result);
-	}
-
 	std::vector<VkFence> fences(nodes);
 	VkFenceCreateInfo fenceCreateInfo = {};
 	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -283,21 +266,12 @@ int main(int argc, char** argv)
 	{
 		for (unsigned node = 0; node < nodes; node++)
 		{
-			VkSubmitInfo submit = {};
-			submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			VkPipelineStageFlags flag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			VkSubmitInfo submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
 			submit.commandBufferCount = 1;
 			submit.pCommandBuffers = &r.commandBuffer.at(node);
-			if (job_variant == 0)
-			{
-				submit.waitSemaphoreCount = (node > 0) ? 1 : 0;
-				submit.pWaitSemaphores = (node > 0) ? &semaphores.at(node - 1) : nullptr;
-				VkPipelineStageFlags flag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-				submit.pWaitDstStageMask = &flag;
-				submit.signalSemaphoreCount = (node != nodes - 1) ? 1 : 0;
-				submit.pSignalSemaphores = (node != nodes - 1) ? &semaphores.at(node) : nullptr;
-			}
-			VkQueue queue = ((node % 2) == 0) ? r.queue1 : r.queue2;
-			if (queue_variant == 1) queue = r.queue1;
+			submit.pWaitDstStageMask = &flag;
+			VkQueue queue = r.queues.at(node % queues);
 
 			if (sync_variant == 2) result = vkQueueSubmit(queue, 1, &submit, fences.at(node));
 			else result = vkQueueSubmit(queue, 1, &submit, VK_NULL_HANDLE);
@@ -305,11 +279,7 @@ int main(int argc, char** argv)
 			check(result);
 		}
 		if (sync_variant == 0) vkDeviceWaitIdle(vulkan.device);
-		else if (sync_variant == 1)
-		{
-			vkQueueWaitIdle(r.queue1);
-			if (queue_variant == 0) vkQueueWaitIdle(r.queue2);
-		}
+		else if (sync_variant == 1) { for (VkQueue q : r.queues) vkQueueWaitIdle(q); }
 		else if (sync_variant == 2)
 		{
 			result = vkWaitForFences(vulkan.device, nodes, fences.data(), VK_TRUE, UINT32_MAX);
@@ -319,10 +289,11 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// TBD : hash and verify each image by checksumming it
+
 	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, buffer_size, width, height);
 
 	for (unsigned i = 0; i < nodes; i++) vkDestroyFence(vulkan.device, fences.at(i), NULL);
-	for (unsigned i = 0; i < nodes; i++) vkDestroySemaphore(vulkan.device, semaphores.at(i), NULL);
 	for (unsigned i = 0; i < nodes; i++) vkDestroyBuffer(vulkan.device, r.buffer.at(i), NULL);
 	testFreeMemory(vulkan, r.memory);
 	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);

@@ -151,7 +151,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		{
 			if (!reqs.cmdopt || !reqs.cmdopt(i, argc, argv, reqs))
 			{
-				ELOG("Unrecognized cmd line parameter: %s", argv[i]);
+				ELOG("Unrecognized or invalid cmd line parameter: %s", argv[i]);
 				print_usage(reqs);
 			}
 		}
@@ -350,8 +350,9 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	VkDeviceQueueCreateInfo queueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, nullptr };
 	queueCreateInfo.queueFamilyIndex = 0; // just grab first one
 	queueCreateInfo.queueCount = reqs.queues;
-	float queuePriorities[] = { 1.0f, 0.5f };
-	queueCreateInfo.pQueuePriorities = queuePriorities;
+	std::vector<float> queuePriorities(reqs.queues);
+	std::fill(queuePriorities.begin(), queuePriorities.end(), 1.0f);
+	queueCreateInfo.pQueuePriorities = queuePriorities.data();
 	VkDeviceCreateInfo deviceInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, nullptr };
 	deviceInfo.queueCreateInfoCount = 1;
 	deviceInfo.pQueueCreateInfos = &queueCreateInfo;
@@ -432,7 +433,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
 	}
 
-	if (has_tooling_checksum)
+	if (has_tooling_checksum && get_env_int("TOOLSTEST_SANITY", 1) > 0)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
 	}

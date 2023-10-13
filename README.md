@@ -62,7 +62,6 @@ These environment variables can be set to modify the tests:
 
 * TOOLSTEST_TIMES    - the number of frames or loops to run
 * TOOLSTEST_SANITY   - whether or not to inject sanity checking assert calls
-  (GLES only for now)
 * TOOLSTEST_NULL_RUN - if set, we will skip testing whether results make sense;
   useful for generating test runs on fake drivers (GLES only for now)
 * TOOLSTEST_STEP     - enter step mode where we wait for keypress to proceed to
