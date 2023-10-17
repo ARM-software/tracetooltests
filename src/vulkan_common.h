@@ -75,12 +75,16 @@ namespace acceleration_structures{
 
 	struct functions
 	{
-		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-		PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-		PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-		PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-		PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
-		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure;
+		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
+		PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
+		PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = nullptr;
+		PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR = nullptr;
+		PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR = nullptr;
+		PFN_vkWriteAccelerationStructuresPropertiesKHR vkWriteAccelerationStructuresPropertiesKHR = nullptr;
+		PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
+		PFN_vkCopyAccelerationStructureKHR vkCopyAccelerationStructureKHR = nullptr;
+		PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
+		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure = nullptr;
 	};
 
 	functions query_acceleration_structure_functions(VkDevice device);

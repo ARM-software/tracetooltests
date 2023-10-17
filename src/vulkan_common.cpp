@@ -464,7 +464,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 acceleration_structures::functions  acceleration_structures::query_acceleration_structure_functions(VkDevice device)
 {
 	acceleration_structures::functions functions{};
-    functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+	functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
 	assert(functions.vkCreateAccelerationStructureKHR);
 
 	functions.vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
@@ -472,6 +472,21 @@ acceleration_structures::functions  acceleration_structures::query_acceleration_
 	
 	functions.vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
 	assert(functions.vkCmdBuildAccelerationStructuresKHR);
+
+	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+	assert(functions.vkBuildAccelerationStructuresKHR);
+
+	functions.vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(device, "vkCmdWriteAccelerationStructuresPropertiesKHR"));
+	assert(functions.vkCmdWriteAccelerationStructuresPropertiesKHR);
+
+	functions.vkWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(device, "vkWriteAccelerationStructuresPropertiesKHR"));
+	assert(functions.vkCmdWriteAccelerationStructuresPropertiesKHR);
+
+	functions.vkCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCopyAccelerationStructureKHR"));
+	assert(functions.vkCopyAccelerationStructureKHR);
+
+	functions.vkCmdCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCmdCopyAccelerationStructureKHR"));
+	assert(functions.vkCmdCopyAccelerationStructureKHR);
 
 	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
 	assert(functions.vkBuildAccelerationStructuresKHR);
