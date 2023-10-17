@@ -452,8 +452,84 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		vulkan.vkFrameEnd = (PFN_vkFrameEndTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkFrameEndTRACETOOLTEST");
 	}
+	if(reqs.bufferDeviceAddress)
+	{
+		vulkan.vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(vulkan.device, "vkGetBufferDeviceAddress"));
+		assert(vulkan.vkGetBufferDeviceAddress);
+	}
 
 	return vulkan;
+}
+
+acceleration_structures::functions  acceleration_structures::query_acceleration_structure_functions(VkDevice device)
+{
+	acceleration_structures::functions functions{};
+    functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+	assert(functions.vkCreateAccelerationStructureKHR);
+
+	functions.vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+	assert(functions.vkGetAccelerationStructureBuildSizesKHR);
+	
+	functions.vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+	assert(functions.vkCmdBuildAccelerationStructuresKHR);
+
+	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+	assert(functions.vkBuildAccelerationStructuresKHR);
+
+	functions.vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+	assert(functions.vkGetAccelerationStructureDeviceAddressKHR);
+	
+	functions.vkDestroyAccelerationStructure = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+	assert(functions.vkDestroyAccelerationStructure);
+	return functions;
+}
+
+acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties)
+{
+    VkBufferCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	create_info.pNext = nullptr;
+	create_info.usage = usage;
+	create_info.size = size;
+	acceleration_structures::Buffer buffer { };
+
+	check(vkCreateBuffer(vulkan.device, &create_info, nullptr, &buffer.handle));
+
+	VkMemoryRequirements memory_requirements{};
+	vkGetBufferMemoryRequirements(vulkan.device, buffer.handle, &memory_requirements);
+	VkMemoryAllocateInfo memory_allocate_info{};
+	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memory_allocate_info.allocationSize = memory_requirements.size;
+	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
+	
+	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) 
+	{
+		VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
+		allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+		allocation_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
+		memory_allocate_info.pNext = &allocation_flags_info;
+	}
+
+	check(vkAllocateMemory(vulkan.device, &memory_allocate_info, nullptr, &buffer.memory));
+
+	if (data)
+	{
+		void *mapped;
+		check(vkMapMemory(vulkan.device, buffer.memory, 0, size, 0, &mapped));
+		memcpy(mapped, data, size);
+		vkUnmapMemory(vulkan.device, buffer.memory);
+	}
+	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
+	return buffer;
+}
+
+VkDeviceAddress acceleration_structures::get_buffer_device_address(const vulkan_setup_t &vulkan, VkBuffer buffer)
+{
+    VkBufferDeviceAddressInfo buffer_device_adress_info{};
+	buffer_device_adress_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	buffer_device_adress_info.pNext = nullptr;
+	buffer_device_adress_info.buffer = buffer;
+	return vulkan.vkGetBufferDeviceAddress(vulkan.device, &buffer_device_adress_info);
 }
 
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties)

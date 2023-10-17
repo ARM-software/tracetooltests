@@ -50,6 +50,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
+	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr; 
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
@@ -68,6 +69,38 @@ struct vulkan_req_t // Vulkan context requirements
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
 	VkBaseInStructure* extension_features = nullptr;
+};
+
+namespace acceleration_structures{
+
+	struct functions
+	{
+		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+		PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+		PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+		PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+		PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
+		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure;
+	};
+
+	functions query_acceleration_structure_functions(VkDevice device);
+
+	struct Buffer
+	{
+		VkBuffer handle{ VK_NULL_HANDLE };
+		VkDeviceMemory memory{ VK_NULL_HANDLE };
+		VkDeviceOrHostAddressConstKHR address{};
+	};
+
+	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties);
+	VkDeviceAddress get_buffer_device_address(const vulkan_setup_t& vulkan, VkBuffer buffer);
+
+	struct BLAS
+	{
+		VkAccelerationStructureKHR handle{ VK_NULL_HANDLE};
+		VkDeviceOrHostAddressConstKHR address{};
+	};
+
 };
 
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
