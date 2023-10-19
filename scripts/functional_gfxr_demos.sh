@@ -15,23 +15,22 @@ export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th><th>Replay trim</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th>" >> $REPORT
+echo "<th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th><th>Replay offscreen</th><th>Replay trim</th></tr>" >> $REPORT
 
-function demo
+function demo_runner
 {
-	echo
-	echo "****** $1 ******"
-	echo
+	NAME="demo_$1_$3"
 
 	echo
 	echo "** native $1 **"
 	echo
 
-	rm -f external/vulkan-demos/*.ppm *.ppm
+	rm -f external/vulkan-demos/*.ppm external/vulkan-demos/*.gfxr *.ppm
 
 	# Native run
 	( cd external/vulkan-demos ; VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 build/bin/$1 $DEMO_PARAMS )
-	convert -alpha off external/vulkan-demos/3.ppm $REPORTDIR/$1_f3_native.png
+	convert -alpha off external/vulkan-demos/3.ppm $REPORTDIR/${NAME}_f3_native.png
 	rm -f external/vulkan-demos/*.ppm *.ppm
 
 	echo
@@ -39,54 +38,70 @@ function demo
 	echo
 
 	# Make trace
-	( cd external/vulkan-demos ; gfxrecon-capture-vulkan.py -o demo_$1.gfxr build/bin/$1 $DEMO_PARAMS )
-	mv external/vulkan-demos/demo_$1*.gfxr $TRACEDIR/demo_$1.gfxr
+	( cd external/vulkan-demos ; gfxrecon-capture-vulkan.py -o ${NAME}.gfxr build/bin/$1 $DEMO_PARAMS )
+	mv external/vulkan-demos/${NAME}*.gfxr $TRACEDIR/${NAME}.gfxr
 
 	echo
 	echo "** replay $1 using $REPLAYER **"
 	echo
 
 	# Replay -m none
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m none $TRACEDIR/demo_$1.gfxr
-	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay.png
-	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m none $TRACEDIR/${NAME}.gfxr
+	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay.png $REPORTDIR/${NAME}_f3_compare.png || true
 	rm -f *.ppm
 
 	# Replay -m remap
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m remap $TRACEDIR/demo_$1.gfxr
-	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_remap.png
-	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_remap.png $REPORTDIR/$1_f3_compare_remap.png || true
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m remap $TRACEDIR/${NAME}.gfxr
+	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay_remap.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_remap.png $REPORTDIR/${NAME}_f3_compare_remap.png || true
 	rm -f *.ppm
 
 	# Replay -m realign
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m realign $TRACEDIR/demo_$1.gfxr
-	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_realign.png
-	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_realign.png $REPORTDIR/$1_f3_compare_realign.png || true
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m realign $TRACEDIR/${NAME}.gfxr
+	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay_realign.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_realign.png $REPORTDIR/${NAME}_f3_compare_realign.png || true
 	rm -f *.ppm
 
 	# Replay -m rebind
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m rebind $TRACEDIR/demo_$1.gfxr
-	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_rebind.png
-	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay_rebind.png $REPORTDIR/$1_f3_compare_rebind.png || true
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $REPLAYER -m rebind $TRACEDIR/${NAME}.gfxr
+	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay_rebind.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_rebind.png $REPORTDIR/${NAME}_f3_compare_rebind.png || true
 	rm -f *.ppm
 
+	# Replay --swapchain offscreen
+	$REPLAYER --swapchain offscreen --screenshots 4 --screenshot-format png -m none $TRACEDIR/${NAME}.gfxr
+	convert -alpha off screenshot_frame_4.png $REPORTDIR/${NAME}_f3_replay_offscreen.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_offscreen.png $REPORTDIR/${NAME}_f3_compare_offscreen.png || true
+	rm -f *.png
+
 	# Make fastforwarded traces
-	gfxrecon-capture-vulkan.py -f 3-5 -o demo_$1_ff.gfxr $REPLAYER -m none $TRACEDIR/demo_$1.gfxr
-	mv demo_$1_ff* $TRACEDIR/demo_$1_ff_frame3.gfxr
+	gfxrecon-capture-vulkan.py -f 3-5 -o ${NAME}_ff.gfxr $REPLAYER -m none $TRACEDIR/$NAME.gfxr
+	mv ${NAME}_ff* $TRACEDIR/${NAME}_ff_frame3.gfxr
 
 	# Run the fastforwarded trace
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $REPLAYER -m none $TRACEDIR/demo_$1_ff_frame3.gfxr
-	convert -alpha off 1.ppm $REPORTDIR/$1_f3_ff_replay.png
-	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_ff_replay.png $REPORTDIR/$1_f3_compare_ff.png || true
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $REPLAYER -m none $TRACEDIR/${NAME}_ff_frame3.gfxr
+	convert -alpha off 1.ppm $REPORTDIR/${NAME}_f3_ff_replay.png
+	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_ff_replay.png $REPORTDIR/${NAME}_f3_compare_ff.png || true
 
-	echo "<tr><td>$1</td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_native.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_remap.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_remap.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_realign.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_realign.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_rebind.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="$1_f3_compare_ff.png" /></td>" >> $REPORT
+	echo "<tr><td>$1 $3</td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_native.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_remap.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_remap.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_realign.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_realign.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_rebind.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_offscreen.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_offscreen.png" /></td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_ff.png" /></td>" >> $REPORT
 	echo "</tr>" >> $REPORT
+}
+
+function demo
+{
+	echo
+	echo "****** $1 ******"
+	echo
+
+	demo_runner $1 "" "default"
 }
 
 demo triangle
