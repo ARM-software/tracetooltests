@@ -26,8 +26,8 @@ static int get_env_int(const char* name, int fallback)
 	return v;
 }
 
-uint_fast8_t p__debug_level = get_env_int("TOOLSTEST_VALIDATION", 0);
-uint_fast8_t p__validation = 0;
+uint_fast8_t p__debug_level = get_env_int("TOOLSTEST_DEBUG", 0);
+uint_fast8_t p__validation = get_env_int("TOOLSTEST_VALIDATION", 0);
 
 void set_thread_name(const char* name)
 {

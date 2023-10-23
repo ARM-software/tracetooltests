@@ -68,7 +68,7 @@ These environment variables can be set to modify the tests:
   the next frame; while 'q' will exit immediately (GLES only for now)
 * TOOLSTEST_WINSYS   - change Vulkan winsys; only valid value for now is "headless",
   which will force the headless extension to be used (Vulkan only for now)
-* TOOLSTEST_GPU      - select which physical device to use by index value
+* TOOLSTEST_GPU      - select which physical device to use by index value (Vulkan only)
 * TOOLSTEST_VALIDATION - enable validation layer (Vulkan only)
 
 Note that for fake driver runs where TOOLSTEST_NULL_RUN is required and traces are

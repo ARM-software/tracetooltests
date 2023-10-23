@@ -115,6 +115,7 @@ endif()
 
 if (NOT NO_VULKAN MATCHES "1")
 vulkan_test(general)
+vulkan_test(init)
 vulkan_test(copying_1)
 vulkan_test_extra(copying_1_test_0_0 copying_1 -q 0 -m 0)
 vulkan_test_extra(copying_1_test_1_0 copying_1 -q 1 -m 0 -c 5)
