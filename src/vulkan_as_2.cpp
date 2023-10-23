@@ -15,8 +15,8 @@ struct Vertex
 };
 
 static std::vector<Vertex> vertices = {
-	{{1.0f, 1.0f, 0.0f}}, 
-	{{-1.0f, 1.0f, 0.0f}}, 
+	{{1.0f, 1.0f, 0.0f}},
+	{{-1.0f, 1.0f, 0.0f}},
 	{{0.0f, -1.0f, 0.0f}}
 };
 
@@ -34,7 +34,7 @@ struct Resources
 	VkCommandPool command_pool{ VK_NULL_HANDLE };
 };
 
-static void show_usage() 
+static void show_usage()
 {
 	printf("Test the building of bottom level acceleration structures\n");
 	printf("-c/--count N           Build N acceleration structures, default is %u\n", as_build_count);
@@ -71,7 +71,7 @@ static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
 void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 {
 	resources.functions = acceleration_structures::query_acceleration_structure_functions(vulkan.device);
-	
+
 	VkCommandPoolCreateInfo command_pool_create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr};
 	command_pool_create_info.queueFamilyIndex = 0; // TODO Make sure that this points to compute
 	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -86,19 +86,19 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 	for(std::size_t index = 0; index < as_build_count; ++index)
 	{
 		resources.vertex_buffers[index] = acceleration_structures::prepare_buffer(
-			vulkan, 
-			vertices.size() * sizeof(Vertex), 
-			vertices.data(), 
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, 
+			vulkan,
+			vertices.size() * sizeof(Vertex),
+			vertices.data(),
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		);
 		resources.vertex_buffers[index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.vertex_buffers[index].handle);
 
 		resources.index_buffers[index] = acceleration_structures::prepare_buffer(
-			vulkan, 
-			indices.size() * sizeof(uint32_t), 
-			indices.data(), 
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, 
+			vulkan,
+			indices.size() * sizeof(uint32_t),
+			indices.data(),
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		);
 		resources.index_buffers[index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.index_buffers[index].handle);
@@ -107,24 +107,24 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 
 void free_test_resources(const vulkan_setup_t& vulkan, Resources & resources){
 	vkDestroyCommandPool(vulkan.device, resources.command_pool, nullptr);
-	
+
 	for(BLAS & blas : resources.bl_acc_structures)
 	{
 		resources.functions.vkDestroyAccelerationStructure(vulkan.device, blas.handle, nullptr);
 	}
-	
+
 	for(auto & buffer: resources.buffers)
 	{
 		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
 		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
 	}
-	
+
 	for(auto & buffer: resources.vertex_buffers)
 	{
 		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
 		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
 	}
-	
+
 	for(auto & buffer: resources.index_buffers)
 	{
 		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
@@ -139,7 +139,7 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 	std::vector<VkAccelerationStructureGeometryKHR> as_geometries(as_build_count);
 	std::vector<VkAccelerationStructureBuildSizesInfoKHR> as_build_size_infos(as_build_count);
 	std::vector<VkAccelerationStructureBuildGeometryInfoKHR> as_build_geometry_infos(as_build_count);
-	
+
 	// Record the build sizes for acceleration structures
 	for(uint32_t as_index = 0; as_index < as_build_count; ++as_index)
 	{
@@ -160,7 +160,7 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 		as_build_geometry_infos[as_index].flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 		as_build_geometry_infos[as_index].geometryCount = 1;
 		as_build_geometry_infos[as_index].pGeometries = &as_geometries[as_index];
-		
+
 		as_build_size_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
 		resources.functions.vkGetAccelerationStructureBuildSizesKHR(
@@ -170,7 +170,7 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 
 	std::vector<VkAccelerationStructureCreateInfoKHR> as_create_infos(as_build_count);
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> as_build_range_infos(as_build_count);
-	
+
 	// If building acceleration structures tightly packed, allocate one buffer and calculate offsets for structures
 	// Record the creation information
 	if(as_packed)
@@ -220,10 +220,10 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 			as_create_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
 			as_create_infos[as_index].buffer = resources.buffers[as_index].handle;
 			as_create_infos[as_index].size = as_build_size_infos[as_index].accelerationStructureSize;
-			as_create_infos[as_index].type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;			
+			as_create_infos[as_index].type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 		}
 	}
-	
+
 	// Actually create acceleration structures and allocate scratch buffer for build
 	for(uint32_t as_index = 0; as_index < as_build_count; ++as_index)
 	{
@@ -237,11 +237,11 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 		as_scratch_buffers[as_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, as_scratch_buffers[as_index].handle);
-	
+
 		as_build_geometry_infos[as_index].mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		as_build_geometry_infos[as_index].dstAccelerationStructure = resources.bl_acc_structures[as_index].handle;
 		as_build_geometry_infos[as_index].scratchData.deviceAddress = as_scratch_buffers[as_index].address.deviceAddress;
-	
+
 		auto as_build_range_info = new VkAccelerationStructureBuildRangeInfoKHR();
 		as_build_range_info->primitiveCount = num_triangles;
 		as_build_range_info->primitiveOffset = 0;
@@ -272,7 +272,7 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 			}
 		}
 
-		check(vkEndCommandBuffer(command_buffer));	
+		check(vkEndCommandBuffer(command_buffer));
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &command_buffer;
@@ -293,16 +293,16 @@ void build_acceleration_structures(const vulkan_setup_t &vulkan, Resources & res
 			}
 		}
 	}
-	
+
 	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{};
 	blas_device_adress_info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-	
+
 	for(uint32_t as_index = 0; as_index < as_build_count; ++as_index)
 	{
 		blas_device_adress_info.accelerationStructure = resources.bl_acc_structures[as_index].handle;
 		resources.bl_acc_structures[as_index].address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
 	}
-	
+
 	for(uint32_t as_index = 0; as_index < as_build_count; ++as_index)
 	{
 		delete as_build_range_infos[as_index];
@@ -335,7 +335,7 @@ int main(int argc, char **argv)
 	prepare_test_resources(vulkan, resources);
 	build_acceleration_structures(vulkan, resources);
 	free_test_resources(vulkan, resources);
-	
+
 	test_done(vulkan);
 	return 0;
 }

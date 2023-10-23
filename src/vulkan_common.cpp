@@ -441,7 +441,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
 		vulkan.vkCmdInsertDebugUtilsLabel = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdInsertDebugUtilsLabelEXT");
-		
+
 		if (vulkan.vkSetDebugUtilsObjectName && vulkan.vkCmdInsertDebugUtilsLabel) ILOG("Debug utils enabled");
 	}
 	if (has_tooling_obj_property)
@@ -469,7 +469,7 @@ acceleration_structures::functions  acceleration_structures::query_acceleration_
 
 	functions.vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
 	assert(functions.vkGetAccelerationStructureBuildSizesKHR);
-	
+
 	functions.vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
 	assert(functions.vkCmdBuildAccelerationStructuresKHR);
 
@@ -493,7 +493,7 @@ acceleration_structures::functions  acceleration_structures::query_acceleration_
 
 	functions.vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
 	assert(functions.vkGetAccelerationStructureDeviceAddressKHR);
-	
+
 	functions.vkDestroyAccelerationStructure = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
 	assert(functions.vkDestroyAccelerationStructure);
 	return functions;
@@ -516,8 +516,8 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memory_allocate_info.allocationSize = memory_requirements.size;
 	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
-	
-	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) 
+
+	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 	{
 		VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
 		allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;

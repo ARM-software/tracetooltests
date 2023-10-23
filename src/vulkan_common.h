@@ -29,10 +29,10 @@ const char* errorString(const VkResult errorCode);
 
 inline void check(VkResult result)
 {
-	if (result != VK_SUCCESS) 
-	{ 
+	if (result != VK_SUCCESS)
+	{
 		fprintf(stderr, "Error 0x%04x: %s\n", result, errorString(result));
-	} 
+	}
 	assert(result == VK_SUCCESS);
 }
 
@@ -50,7 +50,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
-	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr; 
+	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;

@@ -13,8 +13,8 @@ struct Vertex
 };
 
 static std::vector<Vertex> vertices = {
-	{{1.0f, 1.0f, 0.0f}}, 
-	{{-1.0f, 1.0f, 0.0f}}, 
+	{{1.0f, 1.0f, 0.0f}},
+	{{-1.0f, 1.0f, 0.0f}},
 	{{0.0f, -1.0f, 0.0f}}
 };
 
@@ -84,19 +84,19 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 	for(uint32_t as_index = 0; as_index < as_build_count; ++as_index)
 	{
 		resources.vertex_buffers[as_index] = acceleration_structures::prepare_buffer(
-			vulkan, 
-			vertices.size() * sizeof(Vertex), 
-			vertices.data(), 
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, 
+			vulkan,
+			vertices.size() * sizeof(Vertex),
+			vertices.data(),
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		);
 		resources.vertex_buffers[as_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.vertex_buffers[as_index].handle);
 
 		resources.index_buffers[as_index] =  acceleration_structures::prepare_buffer(
-			vulkan, 
-			indices.size() * sizeof(uint32_t), 
-			indices.data(), 
-			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, 
+			vulkan,
+			indices.size() * sizeof(uint32_t),
+			indices.data(),
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 		);
 		resources.index_buffers[as_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.index_buffers[as_index].handle);
@@ -106,19 +106,19 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 void free_test_resources(const vulkan_setup_t& vulkan, Resources & resources){
     vkDestroyQueryPool(vulkan.device, resources.query_pool, nullptr);
 	vkDestroyCommandPool(vulkan.device, resources.command_pool, nullptr);
-	
+
     for(uint32_t as_index = 0; as_index < as_build_count; ++as_index){
         resources.functions.vkDestroyAccelerationStructure(vulkan.device, resources.bl_acc_structures[as_index].handle, nullptr);
         vkFreeMemory(vulkan.device, resources.original_blas_buffers[as_index].memory, nullptr);
         vkDestroyBuffer(vulkan.device, resources.original_blas_buffers[as_index].handle, nullptr);
-    
+
         resources.functions.vkDestroyAccelerationStructure(vulkan.device, resources.opt_bl_acc_structures[as_index].handle, nullptr);
 	    vkFreeMemory(vulkan.device, resources.optimized_blas_buffers[as_index].memory, nullptr);
 	    vkDestroyBuffer(vulkan.device, resources.optimized_blas_buffers[as_index].handle, nullptr);
-	
+
 	    vkFreeMemory(vulkan.device, resources.vertex_buffers[as_index].memory, nullptr);
 	    vkDestroyBuffer(vulkan.device, resources.vertex_buffers[as_index].handle, nullptr);
-	
+
 	    vkFreeMemory(vulkan.device, resources.index_buffers[as_index].memory, nullptr);
 	    vkDestroyBuffer(vulkan.device, resources.index_buffers[as_index].handle, nullptr);
     }
@@ -226,7 +226,7 @@ void optimize_acceleration_structure(const vulkan_setup_t& vulkan, Resources & r
 
 		resources.functions.vkCmdWriteAccelerationStructuresPropertiesKHR(command_buffer, as_build_count, as_handles.data(), VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, resources.query_pool , 0);
 
-		check(vkEndCommandBuffer(command_buffer));	
+		check(vkEndCommandBuffer(command_buffer));
 
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
@@ -292,7 +292,7 @@ void optimize_acceleration_structure(const vulkan_setup_t& vulkan, Resources & r
 			resources.functions.vkCmdCopyAccelerationStructureKHR(command_buffer, &copy_infos[as_index]);
 		}
 
-		check(vkEndCommandBuffer(command_buffer));	
+		check(vkEndCommandBuffer(command_buffer));
 
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
