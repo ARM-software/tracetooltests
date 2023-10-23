@@ -34,7 +34,7 @@ struct Resources
 	VkCommandPool command_pool{ VK_NULL_HANDLE };
 };
 
-static void show_usage() 
+static void show_usage()
 {
 	printf("Test the building of bottom level acceleration structures\n");
 	printf("-c/--count N           Build N acceleration structures, default is %u\n", as_build_count);

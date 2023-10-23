@@ -29,10 +29,10 @@ const char* errorString(const VkResult errorCode);
 
 inline void check(VkResult result)
 {
-	if (result != VK_SUCCESS) 
-	{ 
+	if (result != VK_SUCCESS)
+	{
 		fprintf(stderr, "Error 0x%04x: %s\n", result, errorString(result));
-	} 
+	}
 	assert(result == VK_SUCCESS);
 }
 
@@ -50,7 +50,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkFrameEndTRACETOOLTEST vkFrameEnd = nullptr;
-	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr; 
+	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
@@ -75,12 +75,16 @@ namespace acceleration_structures{
 
 	struct functions
 	{
-		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-		PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-		PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-		PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-		PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
-		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure;
+		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
+		PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR = nullptr;
+		PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR = nullptr;
+		PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR = nullptr;
+		PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR = nullptr;
+		PFN_vkWriteAccelerationStructuresPropertiesKHR vkWriteAccelerationStructuresPropertiesKHR = nullptr;
+		PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
+		PFN_vkCopyAccelerationStructureKHR vkCopyAccelerationStructureKHR = nullptr;
+		PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
+		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure = nullptr;
 	};
 
 	functions query_acceleration_structure_functions(VkDevice device);
