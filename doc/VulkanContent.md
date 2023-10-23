@@ -2,7 +2,7 @@ Open source Vulkan content
 ==========================
 
 This is a list of publicly available Vulkan content that is freely redistributable
-and comes with c or c++ source code.
+that comes with c or c++ source code and runs on Linux.
 
 Not listing Vulkan game engines, as many other people are making lists for that.
 
@@ -16,8 +16,8 @@ Open source Vulkan games
 * [vkquake2](https://github.com/kondrak/vkQuake2) - requires non-free demo data from ID Software
 * [Quake2 RTX](https://github.com/NVIDIA/Q2RTX) - requires non-free data files from ID Software
 
-Open source Vulkan samples and demos
-------------------------------------
+Open source Vulkan samples, demos and benchmarks
+------------------------------------------------
 
 * [Khronos Vulkan-Samples](https://github.com/khronosGroup/Vulkan-samples)
 * [Sascha Willems' Vulkan demos](https://github.com/SaschaWillems/Vulkan)
@@ -27,3 +27,11 @@ Open source Vulkan samples and demos
 * [NVIDIA donut examples](https://github.com/NVIDIAGameWorks/donut_examples)
 * [vkmark](https://github.com/vkmark/vkmark)
 * [VFPR - a Vulkan Forward Plus Renderer](https://github.com/WindyDarian/Vulkan-Forward-Plus-Renderer)
+* [VkPolyBench](https://github.com/ElsevierSoftwareX/SOFTX_2020_86)
+* [VkPeak](https://github.com/nihui/vkpeak)
+* [uVkCompute](https://github.com/google/uVkCompute)
+
+Free Vulkan content (not open source)
+-------------------------------------
+
+* Basemark benchmarks - Sacred Path, Relic of Life
