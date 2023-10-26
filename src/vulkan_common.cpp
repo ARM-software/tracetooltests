@@ -494,8 +494,8 @@ acceleration_structures::functions  acceleration_structures::query_acceleration_
 	functions.vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
 	assert(functions.vkGetAccelerationStructureDeviceAddressKHR);
 
-	functions.vkDestroyAccelerationStructure = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-	assert(functions.vkDestroyAccelerationStructure);
+	functions.vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+	assert(functions.vkDestroyAccelerationStructureKHR);
 	return functions;
 }
 
