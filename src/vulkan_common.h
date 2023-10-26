@@ -84,7 +84,7 @@ namespace acceleration_structures{
 		PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR = nullptr;
 		PFN_vkCopyAccelerationStructureKHR vkCopyAccelerationStructureKHR = nullptr;
 		PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
-		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructure = nullptr;
+		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
 	};
 
 	functions query_acceleration_structure_functions(VkDevice device);
@@ -99,7 +99,7 @@ namespace acceleration_structures{
 	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties);
 	VkDeviceAddress get_buffer_device_address(const vulkan_setup_t& vulkan, VkBuffer buffer);
 
-	struct BLAS
+	struct AccelerationStructure
 	{
 		VkAccelerationStructureKHR handle{ VK_NULL_HANDLE};
 		VkDeviceOrHostAddressConstKHR address{};
