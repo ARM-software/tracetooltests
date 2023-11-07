@@ -321,6 +321,16 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 		vkFreeCommandBuffers(vulkan.device, resources.command_pool, 1, &command_buffer);
 	}
 
+	// After copying the compacted acceleration structures, record their device addresses for next test stage
+	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
+
+	for(uint32_t as_index = 0; as_index <bl_as_build_count; ++as_index)
+	{
+		blas_device_adress_info.accelerationStructure = resources.opt_bl_acc_structures[as_index].handle;
+		resources.opt_bl_acc_structures[as_index].address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
+		assert(resources.opt_bl_acc_structures[as_index].address.deviceAddress);
+	}
+
 	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		delete as_build_range_infos[as_index];

@@ -203,7 +203,11 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
 	check(vkQueueWaitIdle(resources.queue));
 
-	// Build top level acceleration structure
+	// Record device adress for next test stage
+	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
+	blas_device_adress_info.accelerationStructure = resources.blas.handle;
+	resources.blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
+
 	vkFreeMemory(vulkan.device, scratch_bottom.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_bottom.handle, nullptr);
 
@@ -213,6 +217,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			0.0f, 0.0f, 1.0f, 0.0f
 	};
 
+	// Build top level acceleration structure
 	VkAccelerationStructureInstanceKHR instance;
 	instance.transform = identity;
 	instance.instanceCustomIndex = 0;
