@@ -74,7 +74,7 @@ static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
 
 void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 {
-	resources.functions = acceleration_structures::query_acceleration_structure_functions(vulkan.device);
+	resources.functions = acceleration_structures::query_acceleration_structure_functions(vulkan);
 
 	VkCommandPoolCreateInfo command_pool_create_info{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
 	command_pool_create_info.queueFamilyIndex = 0; // TODO Make sure that this points to compute

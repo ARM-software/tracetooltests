@@ -1,9 +1,10 @@
 #include "vulkan_common.h"
 
 //	Contains the shader, generated with:
-//	glslangValidator -V vulkan_as_4.comp -o vulkan_as_4.spirv --target-env vulkan1.2
-//	xxd -i vulkan_as_4.spirv > vulkan_as_4.inc
-#include "vulkan_as_4.inc"
+//	glslangValidator -V vulkan_as_5.rgen -o vulkan_as_5.rgen.spirv
+//	xxd -i vulkan_as_5.rgen.spirv > vulkan_as_5.rgen.inc
+#include "vulkan_as_5.rgen.inc"
+
 #include <cstdint>
 
 using Buffer = acceleration_structures::Buffer;
@@ -22,6 +23,10 @@ static std::vector<Vertex> vertices = {
 
 static std::vector<uint32_t> indices = {0, 1, 2};
 static uint32_t index_count = static_cast<uint32_t>(indices.size());
+
+static uint32_t handle_size;
+static uint32_t handle_alignment;
+static uint32_t handle_size_aligned;
 
 struct Resources
 {
@@ -43,8 +48,11 @@ struct Resources
 	VkDescriptorSet descriptor_set { VK_NULL_HANDLE };
 
 	VkPipelineShaderStageCreateInfo shader_stage;
+	VkRayTracingShaderGroupCreateInfoKHR shader_group;
 	VkPipeline pipeline{ VK_NULL_HANDLE };
 	VkPipelineLayout pipeline_layout { VK_NULL_HANDLE };
+
+	Buffer ray_gen_shader_binding_table;
 
 	VkQueue queue{ VK_NULL_HANDLE };
 	VkCommandPool command_pool{ VK_NULL_HANDLE};
@@ -53,7 +61,7 @@ struct Resources
 
 static void show_usage()
 {
-	printf("Test the binding of the acceleration structure to compute pipeline\n");
+	printf("Test the binding of the acceleration structure to ray tracing pipeline\n");
 }
 
 static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
@@ -104,6 +112,9 @@ void free_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
 	vkDestroyDescriptorSetLayout(vulkan.device, resources.descriptor_set_layout, nullptr);
 	vkFreeDescriptorSets(vulkan.device, resources.descriptor_pool, 1, &resources.descriptor_set);
 	vkDestroyDescriptorPool(vulkan.device, resources.descriptor_pool, nullptr);
+
+	vkFreeMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, nullptr);
+	vkDestroyBuffer(vulkan.device, resources.ray_gen_shader_binding_table.handle, nullptr);
 
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
 	vkFreeMemory(vulkan.device, resources.blas_buffer.memory, nullptr);
@@ -316,38 +327,59 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	vkDestroyBuffer(vulkan.device, scratch_buffer.handle, nullptr);
 }
 
-void prepare_compute_pipeline(const vulkan_setup_t & vulkan, Resources & resources)
+void prepare_ray_tracing_pipeline(const vulkan_setup_t & vulkan, Resources & resources)
 {
+	VkDescriptorSetLayoutBinding layout_binding{};
+	layout_binding.binding         = 0;
+	layout_binding.descriptorType  = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+	layout_binding.descriptorCount = 1;
+	layout_binding.stageFlags      = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-	VkDescriptorSetLayoutBinding as_binding{};
-	as_binding.binding = 0;
-	as_binding.descriptorCount = 1;
-	as_binding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-	as_binding.stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT;
-
-	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
-	descriptor_set_layout_create_info.bindingCount = 1;
-	descriptor_set_layout_create_info.pBindings = &as_binding;
-
-	check(vkCreateDescriptorSetLayout(vulkan.device, &descriptor_set_layout_create_info, nullptr, &resources.descriptor_set_layout));
+	VkDescriptorSetLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
+	layout_info.bindingCount = 1;
+	layout_info.pBindings    = &layout_binding;
+	check(vkCreateDescriptorSetLayout(vulkan.device, &layout_info, nullptr, &resources.descriptor_set_layout));
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr};
 	pipeline_layout_create_info.setLayoutCount = 1;
-	pipeline_layout_create_info.pSetLayouts = &resources.descriptor_set_layout;
-	pipeline_layout_create_info.pushConstantRangeCount = 0;
-	pipeline_layout_create_info.pPushConstantRanges = nullptr;
-
+	pipeline_layout_create_info.pSetLayouts    = &resources.descriptor_set_layout;
 	check(vkCreatePipelineLayout(vulkan.device, &pipeline_layout_create_info, nullptr, &resources.pipeline_layout));
 
-	resources.shader_stage = acceleration_structures::prepare_shader_stage_create_info(vulkan, vulkan_as_4_spirv, vulkan_as_4_spirv_len, VK_SHADER_STAGE_COMPUTE_BIT);
+	resources.shader_stage = acceleration_structures::prepare_shader_stage_create_info(vulkan, vulkan_as_5_rgen_spirv, vulkan_as_5_rgen_spirv_len, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	resources.shader_group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+	resources.shader_group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	resources.shader_group.generalShader = 0;
+	resources.shader_group.closestHitShader = VK_SHADER_UNUSED_KHR;
+	resources.shader_group.anyHitShader = VK_SHADER_UNUSED_KHR;
+	resources.shader_group.intersectionShader = VK_SHADER_UNUSED_KHR;
 
-	VkComputePipelineCreateInfo compute_pipeline_create_info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr};
-	compute_pipeline_create_info.stage = resources.shader_stage;
-	compute_pipeline_create_info.layout = resources.pipeline_layout;
-	compute_pipeline_create_info.basePipelineHandle = 0;
-	compute_pipeline_create_info.basePipelineIndex = -1;
+	VkRayTracingPipelineCreateInfoKHR pipeline_create_info{VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR, nullptr};
+	pipeline_create_info.stageCount = 1;
+	pipeline_create_info.pStages = &resources.shader_stage;
+	pipeline_create_info.groupCount = 1;
+	pipeline_create_info.pGroups = &resources.shader_group;
+	pipeline_create_info.maxPipelineRayRecursionDepth = 1;
+	pipeline_create_info.layout = resources.pipeline_layout;
 
-	check(vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &resources.pipeline));
+	check(resources.functions.vkCreateRayTracingPipelinesKHR(vulkan.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_create_info, nullptr, &resources.pipeline));
+}
+
+void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & resources)
+{
+	const uint32_t group_count = 1;
+	const uint32_t sbt_size = group_count * handle_size_aligned;
+
+	std::vector<uint8_t> shader_handle_storage(sbt_size);
+	check(resources.functions.vkGetRayTracingShaderGroupHandlesKHR(vulkan.device, resources.pipeline, 0, group_count, sbt_size, shader_handle_storage.data()));
+
+	const VkBufferUsageFlags buffer_usage_flags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	const VkMemoryPropertyFlags memory_usage_flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	resources.ray_gen_shader_binding_table = acceleration_structures::prepare_buffer(vulkan, handle_size, nullptr, buffer_usage_flags, memory_usage_flags);
+
+	void * mapped = nullptr;
+	vkMapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, 0, handle_size, 0, &mapped);
+	memcpy(mapped, shader_handle_storage.data(), handle_size);
+	vkUnmapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory);
 }
 
 void prepare_descriptor_set(const vulkan_setup_t &vulkan, Resources & resources)
@@ -372,7 +404,7 @@ void prepare_descriptor_set(const vulkan_setup_t &vulkan, Resources & resources)
 	check(vkAllocateDescriptorSets(vulkan.device, &allocate_info, &resources.descriptor_set));
 }
 
-void bind_and_dispatch(const vulkan_setup_t & vulkan, Resources & resources)
+void bind_and_trace(const vulkan_setup_t & vulkan, Resources & resources)
 {
 	VkDescriptorUpdateTemplateEntry descriptor_update_template_entry{};
 	descriptor_update_template_entry.dstBinding = 0;
@@ -395,13 +427,31 @@ void bind_and_dispatch(const vulkan_setup_t & vulkan, Resources & resources)
 
 	vkUpdateDescriptorSetWithTemplate(vulkan.device, resources.descriptor_set, resources.descriptor_update_template, &resources.tlas.handle);
 
+	VkStridedDeviceAddressRegionKHR ray_get_sbt_entry{};
+	ray_get_sbt_entry.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.ray_gen_shader_binding_table.handle);
+	ray_get_sbt_entry.stride = handle_size;
+	ray_get_sbt_entry.size = handle_size;
+
+	VkStridedDeviceAddressRegionKHR ray_miss_shader_sbt_entry{};
+	VkStridedDeviceAddressRegionKHR ray_hit_sbt_entry{};
+	VkStridedDeviceAddressRegionKHR callable_sbt_entry{};
+
 	VkCommandBufferBeginInfo command_buffer_begin_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
 	check(vkResetCommandBuffer(resources.command_buffer, 0));
 	check(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
 
-	vkCmdBindPipeline(resources.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, resources.pipeline);
-	vkCmdBindDescriptorSets(resources.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, resources.pipeline_layout, 0, 1, &resources.descriptor_set, 0, nullptr);
-	vkCmdDispatch(resources.command_buffer, 1, 1, 1);
+	vkCmdBindPipeline(resources.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, resources.pipeline);
+	vkCmdBindDescriptorSets(resources.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, resources.pipeline_layout, 0, 1, &resources.descriptor_set, 0, 0);
+
+	resources.functions.vkCmdTraceRaysKHR(
+				resources.command_buffer,
+				&ray_get_sbt_entry,
+				&ray_miss_shader_sbt_entry,
+				&ray_hit_sbt_entry,
+				&callable_sbt_entry,
+				1,
+				1,
+				1);
 
 	check(vkEndCommandBuffer(resources.command_buffer));
 
@@ -415,31 +465,36 @@ void bind_and_dispatch(const vulkan_setup_t & vulkan, Resources & resources)
 
 int main(int argc, char** argv)
 {
-    vulkan_req_t reqs;
-	VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr, VK_TRUE};
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_query_features, VK_TRUE };
+	vulkan_req_t reqs;
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_tracing_features, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");
 	reqs.device_extensions.push_back("VK_KHR_deferred_host_operations");
-	reqs.device_extensions.push_back("VK_KHR_ray_query");
+	reqs.device_extensions.push_back("VK_KHR_ray_tracing_pipeline");
 	reqs.bufferDeviceAddress = true;
 	reqs.extension_features = (VkBaseInStructure*)&accfeats;
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	reqs.queues = 1;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_4", reqs);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_5", reqs);
+
+	handle_size = vulkan.device_ray_tracing_pipeline_properties.shaderGroupHandleSize;
+	handle_alignment = vulkan.device_ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
+	handle_size_aligned = (handle_size + handle_alignment - 1) & ~(handle_alignment - 1);
 
 	Resources resources{};
 
 	prepare_test_resources(vulkan, resources);
 	prepare_acceleration_structures(vulkan, resources);
-	prepare_compute_pipeline(vulkan, resources);
+	prepare_ray_tracing_pipeline(vulkan, resources);
+	prepare_shader_binding_table(vulkan, resources);
 	prepare_descriptor_set(vulkan, resources);
 
-	bind_and_dispatch(vulkan, resources);
+	bind_and_trace(vulkan, resources);
 
 	free_test_resources(vulkan, resources);
 
-    test_done(vulkan);
-    return 0;
+	test_done(vulkan);
+	return 0;
 }
