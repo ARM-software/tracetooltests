@@ -533,10 +533,10 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	memory_allocate_info.allocationSize = memory_requirements.size;
 	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
 
+	VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
+	allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
 	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 	{
-		VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
-		allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
 		allocation_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
 		memory_allocate_info.pNext = &allocation_flags_info;
 	}

@@ -347,6 +347,7 @@ void prepare_ray_tracing_pipeline(const vulkan_setup_t & vulkan, Resources & res
 
 	resources.shader_stage = acceleration_structures::prepare_shader_stage_create_info(vulkan, vulkan_as_5_rgen_spirv, vulkan_as_5_rgen_spirv_len, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 	resources.shader_group.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+	resources.shader_group.pNext = nullptr;
 	resources.shader_group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
 	resources.shader_group.generalShader = 0;
 	resources.shader_group.closestHitShader = VK_SHADER_UNUSED_KHR;
