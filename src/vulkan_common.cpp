@@ -337,6 +337,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
 		VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, nullptr };
+		vulkan.device_ray_tracing_pipeline_properties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, nullptr};
+		properties.pNext = &vulkan.device_ray_tracing_pipeline_properties;
 		vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
 		vulkan.device_properties = properties.properties;
 	}
@@ -461,41 +463,55 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	return vulkan;
 }
 
-acceleration_structures::functions  acceleration_structures::query_acceleration_structure_functions(VkDevice device)
+acceleration_structures::functions  acceleration_structures::query_acceleration_structure_functions(const vulkan_setup_t& vulkan)
 {
 	acceleration_structures::functions functions{};
-	functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+	functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCreateAccelerationStructureKHR"));
 	assert(functions.vkCreateAccelerationStructureKHR);
 
-	functions.vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+	functions.vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetAccelerationStructureBuildSizesKHR"));
 	assert(functions.vkGetAccelerationStructureBuildSizesKHR);
 
-	functions.vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+	functions.vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdBuildAccelerationStructuresKHR"));
 	assert(functions.vkCmdBuildAccelerationStructuresKHR);
 
-	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(vulkan.device, "vkBuildAccelerationStructuresKHR"));
 	assert(functions.vkBuildAccelerationStructuresKHR);
 
-	functions.vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(device, "vkCmdWriteAccelerationStructuresPropertiesKHR"));
+	functions.vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdWriteAccelerationStructuresPropertiesKHR"));
 	assert(functions.vkCmdWriteAccelerationStructuresPropertiesKHR);
 
-	functions.vkWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(device, "vkWriteAccelerationStructuresPropertiesKHR"));
+	functions.vkWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkWriteAccelerationStructuresPropertiesKHR"));
 	assert(functions.vkCmdWriteAccelerationStructuresPropertiesKHR);
 
-	functions.vkCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCopyAccelerationStructureKHR"));
+	functions.vkCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCopyAccelerationStructureKHR"));
 	assert(functions.vkCopyAccelerationStructureKHR);
 
-	functions.vkCmdCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCmdCopyAccelerationStructureKHR"));
+	functions.vkCmdCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdCopyAccelerationStructureKHR"));
 	assert(functions.vkCmdCopyAccelerationStructureKHR);
 
-	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+	functions.vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(vulkan.device, "vkBuildAccelerationStructuresKHR"));
 	assert(functions.vkBuildAccelerationStructuresKHR);
 
-	functions.vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+	functions.vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetAccelerationStructureDeviceAddressKHR"));
 	assert(functions.vkGetAccelerationStructureDeviceAddressKHR);
 
-	functions.vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+	functions.vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(vulkan.device, "vkDestroyAccelerationStructureKHR"));
 	assert(functions.vkDestroyAccelerationStructureKHR);
+
+	// Query those functions only for the tests that want to use ray tracing pipeline extension
+	if(vulkan.device_extensions.count(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != 0)
+	{
+		functions.vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCreateRayTracingPipelinesKHR"));
+		assert(functions.vkCreateRayTracingPipelinesKHR);
+
+		functions.vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdTraceRaysKHR"));
+		assert(functions.vkCmdTraceRaysKHR);
+
+		functions.vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		assert(functions.vkGetRayTracingShaderGroupHandlesKHR);
+	}
+
 	return functions;
 }
 
@@ -517,10 +533,10 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	memory_allocate_info.allocationSize = memory_requirements.size;
 	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
 
+	VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
+	allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
 	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 	{
-		VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
-		allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
 		allocation_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
 		memory_allocate_info.pNext = &allocation_flags_info;
 	}
@@ -545,6 +561,27 @@ VkDeviceAddress acceleration_structures::get_buffer_device_address(const vulkan_
 	buffer_device_adress_info.pNext = nullptr;
 	buffer_device_adress_info.buffer = buffer;
 	return vulkan.vkGetBufferDeviceAddress(vulkan.device, &buffer_device_adress_info);
+}
+
+VkPipelineShaderStageCreateInfo acceleration_structures::prepare_shader_stage_create_info(const vulkan_setup_t &vulkan, const uint8_t *spirv, uint32_t spirv_length, VkShaderStageFlagBits stage)
+{
+	std::vector<uint32_t> code(spirv_length);
+	memcpy(code.data(), spirv, spirv_length);
+
+	VkShaderModuleCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.pCode = code.data();
+	createInfo.codeSize = spirv_length;
+	VkShaderModule shader_module;
+ 	check(vkCreateShaderModule(vulkan.device, &createInfo, NULL, &shader_module));
+
+	VkPipelineShaderStageCreateInfo shader_stage_create_info = {};
+	shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shader_stage_create_info.stage = stage;
+	shader_stage_create_info.module = shader_module;
+	shader_stage_create_info.pName = "main";
+
+	return shader_stage_create_info;
 }
 
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties)

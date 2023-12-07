@@ -55,6 +55,7 @@ struct vulkan_setup_t
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
 	VkPhysicalDeviceProperties device_properties = {};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 };
 
 struct vulkan_req_t // Vulkan context requirements
@@ -85,9 +86,13 @@ namespace acceleration_structures{
 		PFN_vkCopyAccelerationStructureKHR vkCopyAccelerationStructureKHR = nullptr;
 		PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR = nullptr;
 		PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR = nullptr;
+
+		PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
+		PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
+		PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
 	};
 
-	functions query_acceleration_structure_functions(VkDevice device);
+	functions query_acceleration_structure_functions(const vulkan_setup_t & vulkan);
 
 	struct Buffer
 	{
@@ -98,6 +103,8 @@ namespace acceleration_structures{
 
 	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties);
 	VkDeviceAddress get_buffer_device_address(const vulkan_setup_t& vulkan, VkBuffer buffer);
+
+	VkPipelineShaderStageCreateInfo prepare_shader_stage_create_info(const vulkan_setup_t & vulkan, const uint8_t * spirv, uint32_t spirv_length, VkShaderStageFlagBits shader_stage);
 
 	struct AccelerationStructure
 	{
