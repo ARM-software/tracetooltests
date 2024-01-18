@@ -144,7 +144,7 @@ int main(int argc, char** argv)
 	r.descriptorSet.resize(nodes);
 
 	r.queues.resize(queues);
-	for (uint32_t i = 0; i < (unsigned)queues; i++) vkGetDeviceQueue(vulkan.device, 0, 0, &r.queues.at(i));
+	for (uint32_t i = 0; i < (unsigned)queues; i++) vkGetDeviceQueue(vulkan.device, 0, i, &r.queues.at(i));
 
 	VkBufferCreateInfo bufferCreateInfo = {};
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

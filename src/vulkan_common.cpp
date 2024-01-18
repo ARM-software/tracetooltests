@@ -114,7 +114,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_obj_property = false;
 	bool has_tooling_benchmarking = false;
 	bool has_debug_utils = false;
-	bool has_frame_end = false;
 
 	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
 	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
@@ -185,11 +184,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			{
 				enabledExtensions.push_back(s.extensionName);
 				has_debug_utils = true;
+				vulkan.instance_extensions.insert(s.extensionName);
 			}
 			else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
 			{
 				enabledExtensions.push_back(s.extensionName);
 				has_tooling_benchmarking = true;
+				vulkan.instance_extensions.insert(s.extensionName);
 			}
 
 			for (const auto& str : reqs.instance_extensions) if (str == s.extensionName)
@@ -381,23 +382,31 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);
 	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
 	assert(result == VK_SUCCESS);
+	VkPhysicalDeviceFrameBoundaryFeaturesEXT pdfbfinfo = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr };
 
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
-		// These are fake extensions used for testing, see README.md for documentation
+		// The following two are fake extensions used for testing, see README.md for documentation
 		if (strcmp(s.extensionName, VK_TRACETOOLTEST_CHECKSUM_VALIDATION_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_checksum = true;
+			vulkan.device_extensions.insert(s.extensionName);
 		}
 		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_OBJECT_PROPERTY_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			has_tooling_obj_property = true;
+			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_FRAME_END_EXTENSION_NAME) == 0)
+		// Official frame boundary extension
+		else if (strcmp(s.extensionName, VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME) == 0)
 		{
-			has_frame_end = true;
+			enabledExtensions.push_back(s.extensionName);
+			pdfbfinfo.pNext = (void*)deviceInfo.pNext;
+			pdfbfinfo.frameBoundary = VK_TRUE;
+			deviceInfo.pNext = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)&pdfbfinfo;
+			vulkan.device_extensions.insert(s.extensionName);
 		}
 
 		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
@@ -449,10 +458,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (has_tooling_obj_property)
 	{
 		vulkan.vkGetDeviceTracingObjectProperty = (PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkGetDeviceTracingObjectPropertyTRACETOOLTEST");
-	}
-	if (has_frame_end)
-	{
-		vulkan.vkFrameEnd = (PFN_vkFrameEndTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkFrameEndTRACETOOLTEST");
 	}
 	if(reqs.bufferDeviceAddress)
 	{

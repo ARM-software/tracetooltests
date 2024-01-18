@@ -83,7 +83,7 @@ VK_TRACETOOLTEST_checksum_validation - defines a new command
 vkAssertBufferTRACETOOLTEST(VkDevice device, VkBuffer buffer) which injects and
 returns an Adler32 checksum of the given buffer into the command stream. This can
 be used to validate tools like tracers.
-vkAssertImageTRACETOOLTEST(VkDevice device, VkImage image) planned.
+vkAssertImageTRACETOOLTEST(VkDevice device, VkImage image) planned for later.
 
 VK_TRACETOOLTEST_layer_object_property - defines a new command void
 vkGetLayerObjectPropertyTRACETOOLTEST(VkInstance instance, VkObjectType objectType,
@@ -128,10 +128,6 @@ VkTracingFlagsTRACETOOLTEST, prefixed with VK_TRACING_:
   pointers from GetDeviceBufferAddress()
 * NO_JUST_IN_TIME_REUSE_BIT_TRACETOOLTEST - do not reuse resources as soon as possible but wait
   at least 3 frames
-
-VK_TRACETOOLTEST_frame_end - defines a frame end meant for unit testing; this will likely be
-replaced by something official from Khronos soon. The only new command is
-vkFrameEndTRACETOOLTEST(VkDevice).
 
 Private GLES extensions
 -----------------------

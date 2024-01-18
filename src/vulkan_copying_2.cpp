@@ -201,7 +201,7 @@ static void copying_2(int argc, char** argv)
 		check(result);
 	}
 
-	for (int i = 0; i < times; i++)
+	for (int frame = 0; frame < times; frame++)
 	{
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
@@ -216,25 +216,31 @@ static void copying_2(int argc, char** argv)
 				check(result);
 			}
 			VkPipelineStageFlags flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			VkSubmitInfo submit_info = {};
-			submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submit_info.commandBufferCount = 1;
-			submit_info.pCommandBuffers = &command_buffers[i];
-			if (i != num_buffers - 1)
-			{
-				submit_info.signalSemaphoreCount = 1;
-				submit_info.pSignalSemaphores = &semaphores[i];
-			}
-			if (i > 0)
-			{
-				submit_info.waitSemaphoreCount = 1;
-				submit_info.pWaitSemaphores = &semaphores.at(i - 1);
-				submit_info.pWaitDstStageMask = &flags;
-			}
 			VkQueue q = queue1;
 			if (queue_variant == 0 && i % 2 == 1) q = queue2; // interleave mode
+			VkFrameBoundaryEXT fbe = { VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, nullptr };
+			fbe.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+			fbe.frameID = frame;
 			if (reqs.apiVersion < VK_API_VERSION_1_3)
 			{
+				VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+				submit_info.commandBufferCount = 1;
+				submit_info.pCommandBuffers = &command_buffers[i];
+				if (i != num_buffers - 1)
+				{
+					submit_info.signalSemaphoreCount = 1;
+					submit_info.pSignalSemaphores = &semaphores[i];
+				}
+				if (i > 0)
+				{
+					submit_info.waitSemaphoreCount = 1;
+					submit_info.pWaitSemaphores = &semaphores.at(i - 1);
+					submit_info.pWaitDstStageMask = &flags;
+				}
+				if (i == num_buffers - 1 && vulkan.device_extensions.count(VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME))
+				{
+					submit_info.pNext = &fbe;
+				}
 				result = vkQueueSubmit(q, 1, &submit_info, fences[i]);
 				check(result);
 			}
@@ -246,6 +252,10 @@ static void copying_2(int argc, char** argv)
 				VkSemaphoreSubmitInfo s2 = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, signalsema, VK_PIPELINE_STAGE_2_COPY_BIT, 0 }; // signal semaphore
 				VkCommandBufferSubmitInfo csi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, command_buffers[i], 0 };
 				VkSubmitInfo2 submit_info2 = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, (i > 0), &s1, 1, &csi, (i != num_buffers - 1), &s2 };
+				if (i == num_buffers - 1 && vulkan.device_extensions.count(VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME))
+				{
+					submit_info2.pNext = &fbe;
+				}
 				result = fpQueueSubmit2(q, 1, &submit_info2, fences[i]);
 				check(result);
 			}
@@ -257,7 +267,6 @@ static void copying_2(int argc, char** argv)
 			result = vkResetFences(vulkan.device, num_buffers, fences.data());
 			check(result);
 		}
-		if (vulkan.vkFrameEnd) vulkan.vkFrameEnd(vulkan.device); // our fake extension to denote frame end for testing purposes
 	}
 
 	// Verification
