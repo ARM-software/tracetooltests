@@ -1,30 +1,65 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import xml.etree.ElementTree as ET
 import re
+import collections
+import typing as t
+import itertools
+
+## --- Utils ---
+
+# We need this to ensure our generated code is deterministic. From https://github.com/bustawin/ordered-set-37
+T = t.TypeVar("T")
+class OrderedSet(t.MutableSet[T]):
+    __slots__ = ('_d',)
+    def __init__(self, iterable: t.Optional[t.Iterable[T]] = None):
+        self._d = dict.fromkeys(iterable) if iterable else {}
+    def add(self, x: T) -> None:
+        self._d[x] = None
+    def clear(self) -> None:
+        self._d.clear()
+    def discard(self, x: T) -> None:
+        self._d.pop(x, None)
+    def __getitem__(self, index) -> T:
+        try:
+            return next(itertools.islice(self._d, index, index + 1))
+        except StopIteration:
+            raise IndexError(f"index {index} out of range")
+    def __contains__(self, x: object) -> bool:
+        return self._d.__contains__(x)
+    def __len__(self) -> int:
+        return self._d.__len__()
+    def __iter__(self) -> t.Iterator[T]:
+        return self._d.__iter__()
+    def __str__(self):
+        return f"{{{', '.join(str(i) for i in self)}}}"
+    def __repr__(self):
+        return f"<OrderedSet {self}>"
+
+## --- Provided data ---
 
 INSTANCE_CHAIN_PARAMETERS = ["VkInstance", "VkPhysicalDevice"]
 DEVICE_CHAIN_PARAMETERS = ["VkDevice", "VkQueue", "VkCommandBuffer"]
 
 tree = ET.parse('external/Vulkan-Headers/registry/vk.xml')
 root = tree.getroot()
-disabled = set()
-disabled_functions = set()
+disabled = OrderedSet()
+disabled_functions = OrderedSet()
 functions = [] # must be ordered, so cannot use set
 valid_functions = [] # internal
-protected_funcs = {}
-protected_types = {}
+protected_funcs = collections.OrderedDict()
+protected_types = collections.OrderedDict()
 structures = []
 disp_handles = []
 nondisp_handles = []
 all_handles = []
-platforms = {}
+platforms = collections.OrderedDict()
 extension_structs = set() # list of extension structs
-type2sType = {} # map struct type -> sType enum
-function_aliases = {} # goes from vendor extension -> core extension -> core
-aliases_to_functions_map = {}
+type2sType = collections.OrderedDict() # map struct type -> sType enum
+function_aliases = collections.OrderedDict() # goes from vendor extension -> core extension -> core
+aliases_to_functions_map = collections.OrderedDict()
 extension_tags = []
-parents = {} # dictionary of lists
+parents = collections.OrderedDict() # dictionary of lists
 externally_synchronized = set() # tuples with (vulkan command, parameter name)
 enums = [] # list of valid enums
 types = [] # list of valid types
@@ -80,13 +115,13 @@ indirect_command_c_struct_names = {
 }
 
 # special call-me-twice query functions
-special_count_funcs = {}
+special_count_funcs = collections.OrderedDict()
 
 # dictionary values contain: name of variable holding created handle, name of variable holding number of handles to create (or hard-coded value), type of created handle
-functions_create = {}
+functions_create = collections.OrderedDict()
 
 # Functions that destroy Vulkan objects
-functions_destroy = {}
+functions_destroy = collections.OrderedDict()
 
 # Functions that can be called before an instance is created (loader implementations).
 special_commands = []
@@ -96,6 +131,8 @@ instance_chain_commands = []
 
 # Functions that are called on existing logical devices, queues or command buffers.
 device_chain_commands = []
+
+## --- Code to fill the above with data ---
 
 def str_contains_vendor(s):
 	if not s: return False
