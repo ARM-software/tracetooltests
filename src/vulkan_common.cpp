@@ -300,7 +300,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (reqs.bufferDeviceAddress && reqs.apiVersion < VK_API_VERSION_1_2)
 	{
 		printf("Buffer device address feature requires at least Vulkan 1.2 - set the Vulkan version with the -V parameter\n");
-		exit(78);
+		exit(77);
 	}
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
@@ -312,8 +312,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &feat12 };
 		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &feat11 };
 		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
-		if (reqs.samplerAnisotropy) assert(feat2.features.samplerAnisotropy);
-		if (reqs.bufferDeviceAddress) assert(feat12.bufferDeviceAddress);
+		if (reqs.samplerAnisotropy && !feat2.features.samplerAnisotropy) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
+		if (reqs.bufferDeviceAddress && !feat12.bufferDeviceAddress) { printf("Buffer device address required but not supported!\n"); exit(77); }
 		if (has_tooling_benchmarking)
 		{
 			printf("Benchmarking mode requested:\n");
