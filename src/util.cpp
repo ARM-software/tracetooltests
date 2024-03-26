@@ -119,9 +119,10 @@ char* load_blob(const std::string& filename, uint32_t* size)
 	struct stat st;
 	int r = fstat(fileno(fp), &st);
 	if (r != 0) ABORT("Could not stat \"%s\": %s", filename.c_str(), strerror(errno));
+	if (st.st_size == 0) ABORT("Trying to load blob of size zero!");
 	char* blob = (char*)malloc(st.st_size);
 	r = fread(blob, st.st_size, 1, fp);
-	if (r != 1) ABORT("Could not read \"%s\": %s", filename.c_str(), strerror(errno));
+	if (r != 1) ABORT("Could not read \"%s\" (size %d, returned %d): %s", filename.c_str(), (int)st.st_size, r, strerror(errno));
 	fclose(fp);
 	*size = st.st_size;
 	return blob;
@@ -129,12 +130,13 @@ char* load_blob(const std::string& filename, uint32_t* size)
 
 void save_blob(const std::string& filename, const char* data, uint32_t size)
 {
+	if (size == 0) ABORT("Trying to save blob of size zero!");
 	FILE* fp = fopen(filename.c_str(), "wb");
 	if (!fp)
 	{
 		ABORT("Cannot open \"%s\": %s", filename.c_str(), strerror(errno));
 	}
 	int r = fwrite(data, size, 1, fp);
-	if (r != 1) ABORT("Could not write \"%s\": %s", filename.c_str(), strerror(errno));
+	if (r != 1) ABORT("Could not write \"%s\" (size %d, returned %d): %s", filename.c_str(), (int)size, r, strerror(errno));
 	fclose(fp);
 }

@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 	commandBufferBeginInfo.pNext = nullptr;
 	commandBufferBeginInfo.flags = 0;
 	commandBufferBeginInfo.pInheritanceInfo = nullptr;
-	
+
 	result = vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
 	assert(result == VK_SUCCESS);
 
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
 
 		result = vkQueueSubmit(queue, 1, &submitInfo, fence);
 		assert(result == VK_SUCCESS);
-		
+
 		result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
 		assert(result == VK_SUCCESS);
 
@@ -173,13 +173,9 @@ int main(int argc, char** argv)
 	// Free/Destroy everything
 
 	vkDestroyImage(vulkan.device, image, nullptr);
-
 	vkFreeMemory(vulkan.device, deviceMemory, nullptr);
-
 	vkDestroyFence(vulkan.device, fence, nullptr);
-
 	vkDestroyCommandPool(vulkan.device, commandPool, nullptr);
-
 	test_done(vulkan);
 
 	return 0;

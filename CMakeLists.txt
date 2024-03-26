@@ -171,8 +171,8 @@ vulkan_test(feature_1)
 vulkan_test(compute_1)
 add_custom_command(TARGET vulkan_compute_1 PRE_BUILD COMMAND rm -f test.bin)
 vulkan_test_extra(vulkan_compute_1_test_0 compute_1 -pc) # pipelinecache, only use
-vulkan_test_extra(vulkan_compute_1_test_1 compute_1 -pc -pcf test.bin) # +save
-vulkan_test_extra(vulkan_compute_1_test_2 compute_1 -pc -pcf test.bin) # +read
+vulkan_test_extra(vulkan_compute_1_test_1 compute_1 -pc -pcf ${CMAKE_CURRENT_BINARY_DIR}/test.bin) # +save
+vulkan_test_extra(vulkan_compute_1_test_2 compute_1 -pc -pcf ${CMAKE_CURRENT_BINARY_DIR}/test.bin) # +read
 vulkan_test_extra(vulkan_compute_1_test_3 compute_1 -I) # indirect
 vulkan_test_extra(vulkan_compute_1_test_4 compute_1 -I -ioff 7) # indirect, offset
 

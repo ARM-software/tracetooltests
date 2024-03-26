@@ -215,7 +215,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &resources.command_buffer;
-	check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.queue));
 
 	// Record device adress for next test stage
@@ -320,7 +320,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	resources.functions.vkCmdBuildAccelerationStructuresKHR(resources.command_buffer, 1, &as_build_info, &as_range_infos);
 
 	check(vkEndCommandBuffer(resources.command_buffer));
-	check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.queue));
 
 	vkFreeMemory(vulkan.device, scratch_buffer.memory, nullptr);
@@ -460,7 +460,7 @@ void bind_and_trace(const vulkan_setup_t & vulkan, Resources & resources)
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &resources.command_buffer;
 
-	check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.queue));
 }
 

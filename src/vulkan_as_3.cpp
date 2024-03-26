@@ -250,7 +250,7 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &command_buffer;
-		check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 		check(vkGetQueryPoolResults(vulkan.device, resources.query_pool, 0, bl_as_build_count, sizeof(VkDeviceSize), compacted_sizes.data(), sizeof(VkDeviceSize), VK_QUERY_RESULT_WAIT_BIT));
 		vkFreeCommandBuffers(vulkan.device, resources.command_pool, 1, &command_buffer);
@@ -316,7 +316,7 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &command_buffer;
-		check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 		vkFreeCommandBuffers(vulkan.device, resources.command_pool, 1, &command_buffer);
 	}
@@ -466,7 +466,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &command_buffer;
-		check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 
 		// After the first build, do k more rebuilds - this would account for instance buffer changing and thus geometry moving in the scene
@@ -482,7 +482,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 			check(vkEndCommandBuffer(command_buffer));
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &command_buffer;
-			check(vkQueueSubmit(resources.queue, 1, &submitInfo, nullptr));
+			check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 			check(vkQueueWaitIdle(resources.queue));
 		}
 	}

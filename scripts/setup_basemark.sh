@@ -6,3 +6,5 @@ mkdir -p external/relicoflife
 ( cd external/relicoflife/ ; tar xzvkf ../../tmp/relicoflife_linux_x64_launcher_free_1.0.0.tar.gz )
 mkdir -p external/sacredpath
 ( cd external/sacredpath/ ; tar xzvkf ../../tmp/amd64_ubuntu20_amd64_launcher_sacredpath_free_1.0.2.tar.gz )
+mv external/sacredpath/linux-unpacked/* external/sacredpath/
+rmdir external/sacredpath/linux-unpacked
