@@ -56,6 +56,18 @@ int STOI(const std::string& value);
 
 #else // !ANDROID
 
+static __attribute__((pure)) inline uint32_t adler32(unsigned char *data, size_t len)
+{
+	const uint32_t MOD_ADLER = 65521;
+	uint32_t a = 1, b = 0;
+	for (size_t index = 0; index < len; ++index)
+	{
+		a = (a + data[index]) % MOD_ADLER;
+		b = (b + a) % MOD_ADLER;
+	}
+	return (b << 16) | a;
+}
+
 #ifndef NDEBUG
 /// Using DLOGn() instead of DLOG(n,...) so that we can conditionally compile without some of them
 #define DLOG3(_format, ...) do { if (p__debug_level >= 3) { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } } while(0)

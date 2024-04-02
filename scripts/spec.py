@@ -43,6 +43,9 @@ DEVICE_CHAIN_PARAMETERS = ["VkDevice", "VkQueue", "VkCommandBuffer"]
 
 tree = ET.parse('external/Vulkan-Headers/registry/vk.xml')
 root = tree.getroot()
+videotree = ET.parse('external/Vulkan-Headers/registry/video.xml')
+videoroot = videotree.getroot()
+
 disabled = OrderedSet()
 disabled_functions = OrderedSet()
 functions = [] # must be ordered, so cannot use set
@@ -61,8 +64,8 @@ aliases_to_functions_map = collections.OrderedDict()
 extension_tags = []
 parents = collections.OrderedDict() # dictionary of lists
 externally_synchronized = set() # tuples with (vulkan command, parameter name)
-enums = [] # list of valid enums
-types = [] # list of valid types
+enums = [] # list of actually used, valid Vulkan enums
+types = [] # list of actually used, valid Vulkan types
 
 externally_synchronized_members = {
 	'VkDescriptorSetAllocateInfo' : [ 'descriptorPool' ],
@@ -87,9 +90,30 @@ type_mappings = {
 	'xcb_visualid_t' : 'uint32_t',
 }
 
+packed_bitfields = [
+	'StdVideoAV1ColorConfigFlags',
+	'StdVideoAV1TimingInfoFlags',
+	'StdVideoAV1LoopFilterFlags',
+	'StdVideoAV1QuantizationFlags',
+	'StdVideoAV1TileInfoFlags',
+	'StdVideoAV1FilmGrainFlvags',
+	'StdVideoAV1SequenceHeaderFlags',
+	'StdVideoDecodeAV1PictureInfoFlags',
+	'StdVideoDecodeAV1ReferenceInfoFlags',
+	'StdVideoDecodeH264PictureInfoFlags',
+	'StdVideoDecodeH264ReferenceInfoFlags',
+	'StdVideoDecodeH265PictureInfoFlags',
+	'StdVideoDecodeH265ReferenceInfoFlags',
+	'StdVideoEncodeH265SliceSegmentHeaderFlags',
+	'StdVideoEncodeH265PictureInfoFlags',
+	'StdVideoEncodeH265ReferenceInfoFlags',
+]
+
 # Parameters not named *Count with type uint32_t or size_t that need temporaries created for access to them by other parameters.
 other_counts = {
 	'VkPipelineShaderStageModuleIdentifierCreateInfoEXT' : [ 'identifierSize' ],
+	'VkPushConstantsInfoKHR' : [ 'size' ],
+	'VkShaderModuleIdentifierEXT' : [ 'identifierSize' ],
 	'vkCreateRayTracingPipelinesKHR' : [ 'dataSize' ],
 	'vkGetPipelineExecutableInternalRepresentationsKHR' : [ 'dataSize' ],
 	'vkCreateGraphicsPipelines' : [ 'rasterizationSamples', 'dataSize', 'pRasterizationState' ],
@@ -143,6 +167,84 @@ def str_contains_vendor(s):
 			return True
 	return False
 
+def scan(req):
+	api = req.attrib.get('api')
+	if api and api == 'vulkansc': return
+	for sc in req.findall('command'):
+		sname = sc.attrib.get('name')
+		if sname not in valid_functions and not str_contains_vendor(sname): valid_functions.append(sname)
+	for sc in req.findall('enum'):
+		sname = sc.attrib.get('name')
+		if not sname in enums and not str_contains_vendor(sname): enums.append(sname)
+	for sc in req.findall('type'):
+		sname = sc.attrib.get('name')
+		if not sname in types and not str_contains_vendor(sname): types.append(sname)
+
+def scan_type(v):
+	api = v.attrib.get('api')
+	if api and api == 'vulkansc': return
+	category = v.attrib.get('category')
+	name = v.attrib.get('name')
+	if category == 'struct':
+		sType = None
+		for m in v.findall('member'):
+			sType = m.attrib.get('values')
+			if sType and 'VK_STRUCTURE_TYPE' in sType:
+				break
+		if sType:
+			type2sType[name] = sType
+		# Look for extensions
+		extendstr = v.attrib.get('structextends')
+		extends = []
+		if str_contains_vendor(sType) or not name in types: return
+		if name in ['VkBaseOutStructure', 'VkBaseInStructure']: return
+		if name in packed_bitfields: return
+		structures.append(name)
+		if name in protected_types:
+			return # TBD: need a better way?
+		if extendstr:
+			assert sType, 'Failed to find structure type for %s' % name
+			extends = extendstr.split(',')
+		for e in extends:
+			if str_contains_vendor(e): return
+			if str_contains_vendor(name): return
+			extension_structs.add(name)
+	elif category == 'handle':
+		if v.find('name') == None: # ignore aliases for now
+			return
+		name = v.find('name').text
+		parenttext = v.attrib.get('parent')
+		if str_contains_vendor(name): return
+		if parenttext:
+			parentsplit = parenttext.split(',')
+			for p in parentsplit:
+				if not name in parents:
+					parents[name] = []
+				parents[name].append(p)
+		if v.find('type').text == 'VK_DEFINE_HANDLE':
+			disp_handles.append(name)
+		else: # non-dispatchable
+			nondisp_handles.append(name)
+		all_handles.append(name)
+	elif category == 'enum':
+		type_mappings[name] = 'uint32_t'
+	elif category == 'basetype':
+		name = v.find('name').text
+		atype = v.find('type')
+		if atype is not None: type_mappings[name] = atype.text
+	elif category == 'bitmask':
+		# ignore aliases for now
+		if v.find('name') == None:
+			return
+		atype = v.find('type').text
+		name = v.find('name').text
+		if atype == 'VkFlags64':
+			type_mappings[name] = 'uint64_t'
+		elif atype == 'VkFlags':
+			type_mappings[name] = 'uint32_t'
+		else:
+			assert false, 'Unknown bitmask type: %s' % atype
+
 def init():
 	# Find extension tags
 	for v in root.findall("tags/tag"):
@@ -166,99 +268,36 @@ def init():
 			disabled.add(name)
 		elif supported != 'vulkansc':
 			for req in v.findall('require'):
-				api = req.attrib.get('api')
-				if api == 'vulkansc': continue
-				for sc in req.findall('command'):
-					sname = sc.attrib.get('name')
-					if sname not in valid_functions and not str_contains_vendor(sname): valid_functions.append(sname)
-				for sc in req.findall('enum'):
-					sname = sc.attrib.get('name')
-					if not sname in enums and not str_contains_vendor(sname): enums.append(sname)
-				for sc in req.findall('type'):
-					sname = sc.attrib.get('name')
-					if not sname in types and not str_contains_vendor(sname): types.append(sname)
+				scan(req)
 		if conditional:
 			for n in v.findall('require/command'):
 				protected_funcs[n.attrib.get('name')] = platforms[conditional]
 			for n in v.findall('require/type'):
 				protected_types[n.attrib.get('name')] = platforms[conditional]
+	for v in videoroot.findall('extensions/extension'):
+		name = v.attrib.get('name')
+		conditional = v.attrib.get('platform')
+		supported = v.attrib.get('supported')
+		if supported == 'disabled':
+			for dc in v.findall('require/command'):
+				disabled_functions.add(dc.attrib.get('name'))
+			disabled.add(name)
+		for req in v.findall('require'):
+			scan(req)
 
 	# Find all valid commands/functions/types
 	for v in root.findall("feature"):
 		apiname = v.attrib.get('name')
 		apis = v.attrib.get('api')
-		if apis != 'vulkansc': # skip these for now until Khronos sorts out this mess
-			for vv in v.findall('require/command'):
-				name = vv.attrib.get('name')
-				if not name in valid_functions and not str_contains_vendor(name): valid_functions.append(name)
-			for vv in v.findall('require/enum'):
-				name = vv.attrib.get('name')
-				if not name in enums and not str_contains_vendor(name): enums.append(name)
-			for vv in v.findall('require/type'):
-				name = vv.attrib.get('name')
-				if not name in types and not str_contains_vendor(name): types.append(name)
+		if apis == 'vulkansc': continue # skip these for now until Khronos sorts out this mess
+		for req in v.findall('require'):
+			scan(req)
 
 	# Find all structures and handles
 	for v in root.findall('types/type'):
-		category = v.attrib.get('category')
-		name = v.attrib.get('name')
-		if category == 'struct':
-			sType = None
-			for m in v.findall('member'):
-				sType = m.attrib.get('values')
-				if sType and 'VK_STRUCTURE_TYPE' in sType:
-					break
-			if sType:
-				type2sType[name] = sType
-			# Look for extensions
-			extendstr = v.attrib.get('structextends')
-			extends = []
-			structures.append(name)
-			if str_contains_vendor(sType) or not name in types: continue
-			if name in protected_types:
-				continue # TBD: need a better way?
-			if extendstr:
-				assert sType, 'Failed to find structure type for %s' % name
-				extends = extendstr.split(',')
-			for e in extends:
-				if str_contains_vendor(e): continue
-				if str_contains_vendor(name): continue
-				extension_structs.add(name)
-		elif category == 'handle':
-			if v.find('name') == None: # ignore aliases for now
-				continue
-			name = v.find('name').text
-			parenttext = v.attrib.get('parent')
-			if str_contains_vendor(name): continue
-			if parenttext:
-				parentsplit = parenttext.split(',')
-				for p in parentsplit:
-					if not name in parents:
-						parents[name] = []
-					parents[name].append(p)
-			if v.find('type').text == 'VK_DEFINE_HANDLE':
-				disp_handles.append(name)
-			else: # non-dispatchable
-				nondisp_handles.append(name)
-			all_handles.append(name)
-		elif category == 'enum':
-			type_mappings[name] = 'uint32_t'
-		elif category == 'basetype':
-			name = v.find('name').text
-			atype = v.find('type')
-			if atype is not None: type_mappings[name] = atype.text
-		elif category == 'bitmask':
-			# ignore aliases for now
-			if v.find('name') == None:
-				continue
-			atype = v.find('type').text
-			name = v.find('name').text
-			if atype == 'VkFlags64':
-				type_mappings[name] = 'uint64_t'
-			elif atype == 'VkFlags':
-				type_mappings[name] = 'uint32_t'
-			else:
-				assert false, 'Unknown bitmask type: %s' % atype
+		scan_type(v)
+	for v in videoroot.findall('types/type'):
+		scan_type(v)
 
 	# Find aliases
 	for v in root.findall("commands/command"):
