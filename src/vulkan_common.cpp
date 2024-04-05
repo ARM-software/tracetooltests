@@ -112,7 +112,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	std::unordered_set<std::string> device_required(reqs.device_extensions.begin(), reqs.device_extensions.end()); // temp copy
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
-	bool has_tooling_benchmarking = false;
 	bool has_debug_utils = false;
 
 	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
@@ -184,12 +183,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			{
 				enabledExtensions.push_back(s.extensionName);
 				has_debug_utils = true;
-				vulkan.instance_extensions.insert(s.extensionName);
-			}
-			else if (strcmp(s.extensionName, VK_TRACETOOLTEST_BENCHMARKING_EXTENSION_NAME) == 0)
-			{
-				enabledExtensions.push_back(s.extensionName);
-				has_tooling_benchmarking = true;
 				vulkan.instance_extensions.insert(s.extensionName);
 			}
 
@@ -305,26 +298,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
-		VkBenchmarkingTRACETOOLTEST benchmarking = { VK_STRUCTURE_TYPE_BENCHMARKING_TRACETOOLTEST, nullptr };
 		VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
-		if (has_tooling_benchmarking) feat13.pNext = &benchmarking;
 		VkPhysicalDeviceVulkan12Features feat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &feat13 };
 		VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &feat12 };
 		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &feat11 };
 		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
 		if (reqs.samplerAnisotropy && !feat2.features.samplerAnisotropy) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
 		if (reqs.bufferDeviceAddress && !feat12.bufferDeviceAddress) { printf("Buffer device address required but not supported!\n"); exit(77); }
-		if (has_tooling_benchmarking)
-		{
-			printf("Benchmarking mode requested:\n");
-			printf("\tfixedTimeStep = %u\n", benchmarking.fixedTimeStep);
-			printf("\tdisablePerformanceAdaptation = %s\n", benchmarking.disablePerformanceAdaptation ? "true" : "false");
-			printf("\tdisableVendorAdaptation = %s\n", benchmarking.disableVendorAdaptation ? "true" : "false");
-			printf("\tdisableLoadingFrames = %s\n", benchmarking.disableVendorAdaptation ? "true" : "false");
-			printf("\tvisualSettings = %u\n", benchmarking.visualSettings);
-			printf("\tscenario = %u\n", benchmarking.scenario);
-			printf("\tloopTime = %u\n", benchmarking.loopTime);
-		}
 		if (feat13.synchronization2 == VK_TRUE) reqfeat13.synchronization2 = VK_TRUE;
 	}
 	else // vulkan 1.0 mode

@@ -57,13 +57,13 @@ disp_handles = []
 nondisp_handles = []
 all_handles = []
 platforms = collections.OrderedDict()
-extension_structs = set() # list of extension structs
+extension_structs = OrderedSet() # list of extension structs
 type2sType = collections.OrderedDict() # map struct type -> sType enum
 function_aliases = collections.OrderedDict() # goes from vendor extension -> core extension -> core
 aliases_to_functions_map = collections.OrderedDict()
 extension_tags = []
 parents = collections.OrderedDict() # dictionary of lists
-externally_synchronized = set() # tuples with (vulkan command, parameter name)
+externally_synchronized = OrderedSet() # tuples with (vulkan command, parameter name)
 enums = [] # list of actually used, valid Vulkan enums
 types = [] # list of actually used, valid Vulkan types
 

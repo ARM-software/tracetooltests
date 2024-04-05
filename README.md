@@ -90,45 +90,6 @@ vkGetLayerObjectPropertyTRACETOOLTEST(VkInstance instance, VkObjectType objectTy
 uint64_t objectHandle, VkLayerObjectPropertyTRACETOOLTEST valueType) which can request
 layer internal information from the layer supporting this extension.
 
-VK_TRACETOOLTEST_benchmarking - defines a structure that can be "fetched" from
-vkGetPhysicalDeviceFeatures2() and "returned" to vkCreateDevice() to negotiate the details of
-a benchmarking run. The application should check if the extension is supported before
-creating a Vulkan device, and request the desired parameters with a call to
-vkGetPhysicalDeviceFeatures2() with the structure passed in as an extension. On device
-creation the structure shall be filled out with the benchmarking details actually
-fulfilled by the application and passed to vkCreateDevice() as an extension structure.
-
-Structure details:
-* VkFlags flags - reserved for future use
-* uint32_t fixedTimeStep - if non-zero, run in a fixed timestep mode, always rendering the
-  same content in the same number of frames; may be passed with a different value than
-  requested
-* VkBool32 disablePerformanceAdaptation - disable dynamic graphics adaptations to improve
-  performance
-* VkBool32 disableVendorAdaptation - disable use of vendor specific adaptations to improve
-  performance or rendering quality
-* VkBool32 disableLoadingFrames - do not render anything during application loading; this
-  may be important when running in very slow simulation environments
-* uint32_t visualSettings - visual quality, where one is best; if the best possible
-  quality cannot be achieved on the host platform, the value shall not be returned as one;
-  if zero then no override of visual settings
-* uint32_t scenario - the scenario to run, return zero if fetched value is not supported
-* uint32_t loopTime - the number of seconds to loop the main body of the content; this is
-  useful for power usage benchmarking
-* VkTracingFlagsTRACETOOLTEST tracingFlags - see below
-
-For visualSettings and scenario the values supported by the application and what they mean
-can be deduced by trial and error or by asking the application developer.
-
-VkTracingFlagsTRACETOOLTEST, prefixed with VK_TRACING_:
-* NO_COHERENT_MEMORY_BIT_TRACETOOLTEST - behave as if no coherent memory exists
-* NO_SUBALLOCATION_BIT_TRACETOOLTEST - only use dedicated memory allocation
-* NO_MEMORY_ALIASING_BIT_TRACETOOLTEST - do not use memory aliasing
-* NO_POINTER_OFFSETS_BIT_TRACETOOLTEST - do not generate memory addresses with an offset from
-  pointers from GetDeviceBufferAddress()
-* NO_JUST_IN_TIME_REUSE_BIT_TRACETOOLTEST - do not reuse resources as soon as possible but wait
-  at least 3 frames
-
 Private GLES extensions
 -----------------------
 
