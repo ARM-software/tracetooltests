@@ -3,9 +3,17 @@
 # This suite contains some open source games.
 #
 
+if [ "$LAYERPATH" != "" ];
+then
+	REPLAYER="$LAYERPATH/gfxrecon-replay"
+	TRACER="$LAYERPATH/gfxrecon-capture-vulkan.py --capture-layer $LAYERPATH"
+fi
+
 REPORTDIR=$(pwd)/reports/gfxr/games
 REPORT=$REPORTDIR/report.html
 TRACEDIR=$(pwd)/traces
+REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
+TRACER=${TRACER:-"$(which gfxrecon-capture-vulkan.py)"}
 
 mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
@@ -25,25 +33,25 @@ function replay
 	echo "** replay $2 **"
 	echo
 	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 gfxrecon-replay traces/$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} traces/$1.gfxr
 	convert -alpha off $3.ppm $REPORTDIR/$1_f${FRAME}_replay.png
 	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay.png $REPORTDIR/$1_f$3_compare.png || true
 	rm -f *.ppm
 
 	# Replay -m remap
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 gfxrecon-replay -m remap traces/$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m remap traces/$1.gfxr
 	convert -alpha off $3.ppm $REPORTDIR/$1_f$3_replay_remap.png
 	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay_remap.png $REPORTDIR/$1_f$3_compare_remap.png || true
 	rm -f *.ppm
 
 	# Replay -m realign
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 gfxrecon-replay -m realign traces/$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m realign traces/$1.gfxr
 	convert -alpha off $3.ppm $REPORTDIR/$1_f$3_replay_realign.png
 	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay_realign.png $REPORTDIR/$1_f$3_compare_realign.png || true
 	rm -f *.ppm
 
 	# Replay -m rebind
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 gfxrecon-replay -m rebind traces/$1.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m rebind traces/$1.gfxr
 	convert -alpha off $3.ppm $REPORTDIR/$1_f$3_replay_rebind.png
 	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay_rebind.png $REPORTDIR/$1_f$3_compare_rebind.png || true
 	rm -f *.ppm
@@ -79,7 +87,7 @@ function vkquake1
 	echo
 	echo "** trace **"
 	echo
-	gfxrecon-capture.py -o vkquake1.gfxr ./vkquake -fitz
+	${TRACER} -o vkquake1.gfxr ./vkquake -fitz
 	mv vkquake1*.gfxr $TRACEDIR/vkquake1.gfxr
 
 	popd
@@ -109,11 +117,10 @@ function vkquake2
 	echo
 	echo "** trace **"
 	echo
-	gfxrecon-capture.py -o vkquake2.gfxr ./quake2 $QUAKE2_OPTS
+	${TRACER} -o vkquake2.gfxr ./quake2 $QUAKE2_OPTS
 	mv vkquake2*.gfxr $TRACEDIR/vkquake2.gfxr
 
 	popd
-
 	replay vkquake2 "VkQuake 2" $FRAME
 }
 

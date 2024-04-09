@@ -1,10 +1,17 @@
 #!/bin/bash
 
+if [ "$LAYERPATH" != "" ];
+then
+	REPLAYER="$LAYERPATH/gfxrecon-replay"
+	TRACER="$LAYERPATH/gfxrecon-capture-vulkan.py --capture-layer $LAYERPATH"
+fi
+
 REPORTDIR=reports/gfxr/demos${TAG}
 REPORT=$REPORTDIR/report.html
 DEMO_PARAMS="--benchmark -bfs 10"
 TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
+TRACER=${TRACER:-"$(which gfxrecon-capture-vulkan.py)"}
 
 rm -rf external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
 mkdir -p $TRACEDIR $REPORTDIR
@@ -38,7 +45,7 @@ function demo_runner
 	echo
 
 	# Make trace
-	( cd external/vulkan-demos ; gfxrecon-capture-vulkan.py -o ${NAME}.gfxr build/bin/$1 $DEMO_PARAMS )
+	( cd external/vulkan-demos ; ${TRACER} -o ${NAME}.gfxr build/bin/$1 $DEMO_PARAMS )
 	mv external/vulkan-demos/${NAME}*.gfxr $TRACEDIR/${NAME}.gfxr
 
 	echo
@@ -76,7 +83,7 @@ function demo_runner
 	rm -f *.png
 
 	# Make fastforwarded traces
-	gfxrecon-capture-vulkan.py -f 3-5 -o ${NAME}_ff.gfxr $REPLAYER -m none $TRACEDIR/$NAME.gfxr
+	${TRACER} -f 3-5 -o ${NAME}_ff.gfxr $REPLAYER -m none $TRACEDIR/$NAME.gfxr
 	mv ${NAME}_ff* $TRACEDIR/${NAME}_ff_frame3.gfxr
 
 	# Run the fastforwarded trace
@@ -115,7 +122,7 @@ demo computeraytracing
 demo computeshader
 ( vulkaninfo | grep -e VK_EXT_conditional_rendering > /dev/null ) && demo conditionalrender
 ( vulkaninfo | grep -e VK_EXT_conservative_rasterization > /dev/null ) && demo conservativeraster
-demo debugmarker
+demo debugutils
 demo deferred
 demo deferredmultisampling
 demo deferredshadows
@@ -137,7 +144,7 @@ demo indirectdraw
 ( vulkaninfo | grep -e VK_EXT_inline_uniform_block > /dev/null ) && demo inlineuniformblocks
 demo inputattachments
 demo instancing
-( vulkaninfo | grep -e VK_EXT_mesh_shader > /dev/null ) && demo mesh
+( vulkaninfo | grep -e VK_EXT_mesh_shader > /dev/null ) && demo meshshader
 demo multisampling
 demo multithreading
 ( vulkaninfo | grep -e VK_KHR_multiview > /dev/null ) && demo multiview
@@ -146,7 +153,6 @@ demo occlusionquery
 demo offscreen
 demo oit
 demo parallaxmapping
-demo particlefire
 demo pbrbasic
 demo pbribl
 demo pbrtexture
@@ -155,6 +161,7 @@ demo pipelinestatistics
 demo pushconstants
 demo pushdescriptors
 demo radialblur
+( vulkaninfo | grep -e VK_KHR_shader_non_semantic_info > /dev/null ) && demo debugprintf
 ( vulkaninfo | grep -e VK_KHR_ray_query > /dev/null ) && demo rayquery
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingbasic
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingcallable
@@ -163,6 +170,8 @@ demo radialblur
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingsbtdata
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingintersection
 ( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracingtextures
+( vulkaninfo | grep -e VK_KHR_ray_tracing_pipeline > /dev/null ) && demo raytracinggltf
+( vulkaninfo | grep -e VK_KHR_ray_tracing_position_fetch > /dev/null ) && demo raytracingpositionfetch
 #demo renderheadless # not non-interactive
 demo screenshot
 demo shadowmapping

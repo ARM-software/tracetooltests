@@ -1,9 +1,16 @@
 #!/bin/bash
 
+if [ "$LAYERPATH" != "" ];
+then
+	REPLAYER="$LAYERPATH/gfxrecon-replay"
+	TRACER="$LAYERPATH/gfxrecon-capture-vulkan.py --capture-layer $LAYERPATH"
+fi
+
 REPORTDIR=reports/gfxr/samples${TAG}
 REPORT=$REPORTDIR/report.html
 TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
+TRACER=${TRACER:-"$(which gfxrecon-capture-vulkan.py)"}
 
 rm -rf external/vulkan-samples/*.ppm *.ppm $TRACEDIR/sample_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
 mkdir -p $TRACEDIR
@@ -39,7 +46,7 @@ function run
 
 	# Make trace
 	rm -f external/vulkan-samples/*.gfxr
-	( cd external/vulkan-samples ; gfxrecon-capture-vulkan.py -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
+	( cd external/vulkan-samples ; ${TRACER} -o sample_$1.gfxr build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
 	mv external/vulkan-samples/sample_$1*.gfxr $TRACEDIR/sample_$1.gfxr
 
 	echo
@@ -72,7 +79,7 @@ function run
 	rm -f *.ppm
 
 	# Make fastforwarded trace
-	gfxrecon-capture-vulkan.py -f 3-5 -o sample_$1_ff.gfxr $REPLAYER -m none $TRACEDIR/sample_$1.gfxr
+	${TRACER} -f 3-5 -o sample_$1_ff.gfxr $REPLAYER -m none $TRACEDIR/sample_$1.gfxr
 	mv sample_$1_ff* $TRACEDIR/sample_$1_ff_frame3.gfxr
 
 	# Run the fastforwarded trace
