@@ -167,6 +167,7 @@ vulkan_test_extra(copying_3_test_2 copying_3 -c 2 -t 3)
 
 vulkan_test(tool_1)
 vulkan_test(feature_1)
+vulkan_test(debug_marker)
 
 vulkan_test(compute_1)
 add_custom_command(TARGET vulkan_compute_1 PRE_BUILD COMMAND rm -f test.bin)
