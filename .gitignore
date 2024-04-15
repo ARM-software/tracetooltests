@@ -3,3 +3,4 @@ build
 reports
 traces
 external
+__pycache__
