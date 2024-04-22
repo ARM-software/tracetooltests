@@ -2,8 +2,8 @@
 
 if [ "$LAYERPATH" != "" ];
 then
-	REPLAYER="$LAYERPATH/gfxrecon-replay"
-	TRACER="$LAYERPATH/gfxrecon-capture-vulkan.py --capture-layer $LAYERPATH"
+	REPLAYER="$LAYERPATH/bin/gfxrecon-replay"
+	TRACER="$LAYERPATH/bin/gfxrecon-capture-vulkan.py --capture-layer ${LAYERPATH}/share/vulkan/explicit_layer.d"
 fi
 
 REPORTDIR=reports/gfxr/demos${TAG}
@@ -24,7 +24,7 @@ echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { pad
 echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th>" >> $REPORT
 echo "<th>Replay -m rebind</th><th>Replay offscreen</th><th>Replay trim</th></tr>" >> $REPORT
 
-echo "Test,Native Time,Capture time,Replay time,Native FPS,Replay FPS" > $CSV
+echo "Test,Native Time,Capture time,Replay time,Native FPS,Replay FPS,Replay time perf mode,Replay FPS perf mode" > $CSV
 
 function demo_runner
 {
@@ -69,9 +69,12 @@ function demo_runner
 	rm -f *.ppm gfxrecon-measurements.json
 
 	# Replay -m rebind
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -m rebind --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
+	$TIMER $REPLAYER -m rebind --vssb --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
 	RTIMERB=$(cat time.txt)
 	RFPSRB=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -m rebind --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
+	RTIMERBSS=$(cat time.txt)
+	RFPSRBSS=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay_rebind.png
 	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_rebind.png $REPORTDIR/${NAME}_f3_compare_rebind.png || true
 	rm -f *.ppm gfxrecon-measurements.json
@@ -99,12 +102,12 @@ function demo_runner
 	echo "<tr><td>$1 $3</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_native.png" /><br>native cpu: $NTIME<br>screenshot cpu: $STIME<br>native fps: $NFPS<br>tracing cpu: $CTIME</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare.png" /><br>cpu: $RTIME<br>fps: $RFPS</td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_rebind.png" /><br>cpu: $RTIMERB<br>fps: $RFPSRB</td>" >> $REPORT
+	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_rebind.png" /><br>cpu: $RTIMERBSS<br>fps: $RFPSRBSS<br>cpu perf: $RTIMERB<br>fps perf: $RFPSRB</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_offscreen.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_offscreen.png" /><br>cpu: $RTIMEOFF<br>cpu (w/ snap): $RTIMEOFFSS<br>fps: $RFPSOFF</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_ff.png" /><br>cpu: $RTIMEFF</td>" >> $REPORT
 	echo "</tr>" >> $REPORT
 
-	echo "$1,$NTIME,$CTIME,$RTIMERB,$NFPS,$RFPSRB" >> $CSV
+	echo "$1,$NTIME,$CTIME,$RTIMERBSS,$NFPS,$RFPSRBSS,$RTIMERB,$RFPSRB" >> $CSV
 }
 
 function demo

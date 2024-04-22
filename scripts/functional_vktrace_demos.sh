@@ -27,7 +27,7 @@ HTMLIMGOPTS="width=200 height=200"
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
 echo "<body><h1>Comparison for vulkan-samples with arm vktrace</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th></tr>" >> $REPORT
 
-echo "Test,Mode,Native Time,Capture time,Replay time,Native FPS,Replay FPS" > $CSV
+echo "Test,Mode,Native Time,Capture time,Replay time,Native FPS,Replay FPS,Replay time perf mode,Replay FPS perf mode" > $CSV
 
 function demo
 {
@@ -72,11 +72,16 @@ function demo
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
 	rm -f *.ppm
 
+	# Replay performance
+	$TIMER $REPLAYER -evsc TRUE -vscpm TRUE -o traces/demo_$1.vktrace
+	RTIMEPERF=$(cat time.txt)
+	RFPSPERF=$(grep -e fps /work/tracetooltests/vktrace_result.json | sed 's/.*: //'| sed 's/,//')
+
 	echo "<tr><td>$1</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_native.png" /><br>native cpu: $NTIME<br>screenshot cpu: $STIME<br>tracing cpu: $CTIME<br>native fps: $NFPS</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><img $HTMLIMGOPTS src="$1_f3_compare.png" /><br>cpu: $RTIME<br>fps: $RFPS</td>" >> $REPORT
 
-	echo "$1,$NTIME,$CTIME,$RTIME,$NFPS,$RFPS" >> $CSV
+	echo "$1,$NTIME,$CTIME,$RTIME,$NFPS,$RFPS,$RTIMEPERF,$RFPSPERF" >> $CSV
 }
 
 source scripts/demo_list.sh

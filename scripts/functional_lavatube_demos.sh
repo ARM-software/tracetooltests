@@ -17,7 +17,7 @@ HTMLIMGOPTS="width=200 height=200"
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
 echo "<body><h1>Comparison for vulkan-demos with lavatube</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th></tr>" >> $REPORT
 
-echo "Test,Mode,Native Time,Capture time,Replay time,Native FPS,Replay FPS" > $CSV
+echo "Test,Mode,Native Time,Capture time,Replay time,Native FPS,Replay FPS,Replay time perf mode,Replay FPS perf mode" > $CSV
 
 function demo
 {
@@ -68,11 +68,16 @@ function demo
 	rm -f *.ppm
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
 
+	# Perf mode
+	$TIMER $REPLAYER -v -vp $TRACEDIR/demo_$1.vk
+	RTIMEPERF=$(cat time.txt)
+	RFPSPERF=$(cat lavaresults.txt)
+
 	echo "<tr><td>$1</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_native.png" /><br>native cpu: $NTIME<br>native+snap cpu: $STIME<br>trace cpu: $CTIME<br>native fps: $NFPS<br>trace fps: $CFPS</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f3_replay.png" /><img $HTMLIMGOPTS src="$1_f3_compare.png" /><br>cpu: $RTIME<br>fps: $RFPS</td>" >> $REPORT
 
-	echo "$1,$NTIME,$CTIME,$RTIME,$NFPS,$RFPS" >> $CSV
+	echo "$1,$NTIME,$CTIME,$RTIME,$NFPS,$RFPS,$RTIMEPERF,$RFPSPERF" >> $CSV
 }
 
 source scripts/demo_list.sh

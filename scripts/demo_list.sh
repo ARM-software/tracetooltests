@@ -5,7 +5,6 @@ demo triangle
 demo bloom
 demo computecloth
 demo computecullandlod
-exit
 #demo computeheadless # not able to run non-interactive
 demo computenbody
 demo computeparticles
