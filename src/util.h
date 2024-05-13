@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <vector>
 #include <string>
+#include <stdint.h>
 
 /// Implement support for naming threads, missing from c++11
 void set_thread_name(const char* name);
