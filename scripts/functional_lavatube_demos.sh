@@ -1,5 +1,14 @@
 #!/bin/bash
 
+if [ "$LAVATUBE_LAYER_PATH" != "" ];
+then
+	LAVATUBE_REPLAYER="$LAVATUBE_LAYER_PATH/lava-replay"
+	LAVATUBE_PATH="$LAVATUBE_LAYER_PATH/implicit_layer.d"
+else
+	LAVATUBE_REPLAYER="/opt/lavatube/bin"
+	LAVATUBE_PATH="/opt/lavatube/implicit_layer.d"
+fi
+
 REPORTDIR=reports/lavatube/demos${TAG}
 REPORT=$REPORTDIR/report.html
 DEMO_PARAMS="--benchmark -bfs 100 -bw 0"
@@ -10,8 +19,6 @@ TIMER="/usr/bin/time -f %U -o $(pwd)/time.txt"
 rm -f external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.vk $REPORTDIR/*.png $REPORTDIR/*.html
 mkdir -p $TRACEDIR $REPORTDIR
 
-LAVATUBE_PATH=/work/lava_oss/build
-REPLAYER=${LAVATUBE_PATH}/lava-replay
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
@@ -61,7 +68,7 @@ function demo
 	# Replay
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -v $TRACEDIR/demo_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER -v $TRACEDIR/demo_$1.vk
 	RTIME=$(cat time.txt)
 	RFPS=$(cat lavaresults.txt)
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay.png
@@ -69,7 +76,7 @@ function demo
 	compare -alpha off $REPORTDIR/$1_f3_native.png $REPORTDIR/$1_f3_replay.png $REPORTDIR/$1_f3_compare.png || true
 
 	# Perf mode
-	$TIMER $REPLAYER -v -vp $TRACEDIR/demo_$1.vk
+	$TIMER $LAVATUBE_REPLAYER -v -vp $TRACEDIR/demo_$1.vk
 	RTIMEPERF=$(cat time.txt)
 	RFPSPERF=$(cat lavaresults.txt)
 

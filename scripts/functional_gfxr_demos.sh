@@ -2,8 +2,8 @@
 
 if [ "$LAYERPATH" != "" ];
 then
-	REPLAYER="$LAYERPATH/bin/gfxrecon-replay"
-	TRACER="$LAYERPATH/bin/gfxrecon-capture-vulkan.py --capture-layer ${LAYERPATH}/share/vulkan/explicit_layer.d"
+	REPLAYER="${LAYERPATH}/gfxrecon-replay"
+	TRACER="${LAYERPATH}/gfxrecon-capture-vulkan.py --capture-layer ${LAYERPATH}"
 fi
 
 REPORTDIR=reports/gfxr/demos${TAG}
@@ -21,7 +21,7 @@ mkdir -p $TRACEDIR $REPORTDIR
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay -m none</th>" >> $REPORT
+echo "<body><h1>Comparison for vulkan-demos with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th>" >> $REPORT
 echo "<th>Replay -m rebind</th><th>Replay offscreen</th><th>Replay trim</th></tr>" >> $REPORT
 
 echo "Test,Native Time,Capture time,Replay time,Native FPS,Replay FPS,Replay time perf mode,Replay FPS perf mode" > $CSV
@@ -59,15 +59,6 @@ function demo_runner
 	echo "** replay $1 using $REPLAYER **"
 	echo
 
-	# Replay -m none
-	rm -f gfxrecon-measurements.json *.ppm
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -m none --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
-	RTIME=$(cat time.txt)
-	RFPS=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
-	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay.png
-	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay.png $REPORTDIR/${NAME}_f3_compare.png || true
-	rm -f *.ppm gfxrecon-measurements.json
-
 	# Replay -m rebind
 	$TIMER $REPLAYER -m rebind --vssb --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
 	RTIMERB=$(cat time.txt)
@@ -89,7 +80,7 @@ function demo_runner
 	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_offscreen.png $REPORTDIR/${NAME}_f3_compare_offscreen.png || true
 	rm -f *.png gfxrecon-measurements.json
 
-	# Make fastforwarded traces
+	# Make fastforwarded trace from existing trace
 	${TRACER} -f 3-5 -o ${NAME}_ff.gfxr $REPLAYER -m none $TRACEDIR/$NAME.gfxr
 	mv ${NAME}_ff* $TRACEDIR/${NAME}_ff_frame3.gfxr
 
@@ -101,7 +92,6 @@ function demo_runner
 
 	echo "<tr><td>$1 $3</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_native.png" /><br>native cpu: $NTIME<br>screenshot cpu: $STIME<br>native fps: $NFPS<br>tracing cpu: $CTIME</td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare.png" /><br>cpu: $RTIME<br>fps: $RFPS</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_rebind.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_rebind.png" /><br>cpu: $RTIMERBSS<br>fps: $RFPSRBSS<br>cpu perf: $RTIMERB<br>fps perf: $RFPSRB</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_replay_offscreen.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_offscreen.png" /><br>cpu: $RTIMEOFF<br>cpu (w/ snap): $RTIMEOFFSS<br>fps: $RFPSOFF</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="${NAME}_f3_ff_replay.png" /><br><img $HTMLIMGOPTS src="${NAME}_f3_compare_ff.png" /><br>cpu: $RTIMEFF</td>" >> $REPORT
