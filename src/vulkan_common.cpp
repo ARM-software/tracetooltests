@@ -554,9 +554,7 @@ acceleration_structures::functions  acceleration_structures::query_acceleration_
 
 acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties)
 {
-    VkBufferCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	create_info.pNext = nullptr;
+	VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	create_info.usage = usage;
 	create_info.size = size;
 	acceleration_structures::Buffer buffer { };
@@ -570,8 +568,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	memory_allocate_info.allocationSize = memory_requirements.size;
 	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
 
-	VkMemoryAllocateFlagsInfoKHR allocation_flags_info{};
-	allocation_flags_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
+	VkMemoryAllocateFlagsInfoKHR allocation_flags_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR, nullptr };
 	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
 	{
 		allocation_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
@@ -593,9 +590,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 
 VkDeviceAddress acceleration_structures::get_buffer_device_address(const vulkan_setup_t &vulkan, VkBuffer buffer)
 {
-    VkBufferDeviceAddressInfo buffer_device_adress_info{};
-	buffer_device_adress_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-	buffer_device_adress_info.pNext = nullptr;
+	VkBufferDeviceAddressInfo buffer_device_adress_info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	buffer_device_adress_info.buffer = buffer;
 	return vulkan.vkGetBufferDeviceAddress(vulkan.device, &buffer_device_adress_info);
 }
@@ -605,15 +600,13 @@ VkPipelineShaderStageCreateInfo acceleration_structures::prepare_shader_stage_cr
 	std::vector<uint32_t> code(spirv_length);
 	memcpy(code.data(), spirv, spirv_length);
 
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = code.data();
 	createInfo.codeSize = spirv_length;
 	VkShaderModule shader_module;
  	check(vkCreateShaderModule(vulkan.device, &createInfo, NULL, &shader_module));
 
-	VkPipelineShaderStageCreateInfo shader_stage_create_info = {};
-	shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	VkPipelineShaderStageCreateInfo shader_stage_create_info = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr };
 	shader_stage_create_info.stage = stage;
 	shader_stage_create_info.module = shader_module;
 	shader_stage_create_info.pName = "main";
@@ -675,15 +668,17 @@ const char* errorString(const VkResult errorCode)
 	}
 }
 
-void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t size, uint32_t width, uint32_t height)
+/// Takes an RGBA8888 image and saves it to disk as PNG
+void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height)
 {
 	float* ptr = nullptr;
-	VkResult result = vkMapMemory(vulkan.device, memory, offset, size, 0, (void**)&ptr);
+	const uint32_t size = width * height * 4;
+	VkResult result = vkMapMemory(vulkan.device, memory, offset, size * sizeof(float), 0, (void**)&ptr);
 	check(result);
 	assert(ptr != nullptr);
 	std::vector<unsigned char> image;
-	image.reserve(width * height * 4);
-	for (unsigned i = 0; i < width * height * 4; i++)
+	image.reserve(size);
+	for (unsigned i = 0; i < size; i++)
 	{
 		image.push_back((unsigned char)(255.0f * ptr[i]));
 	}

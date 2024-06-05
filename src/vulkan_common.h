@@ -133,4 +133,5 @@ int repeats();
 /// Select which GPU to use
 void select_gpu(int chosen_gpu);
 
-void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t size, uint32_t width, uint32_t height);
+/// Takes an RGBA8888 image and saves it to disk as PNG
+void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height);

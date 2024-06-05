@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+set(CMAKE_CXX_STANDARD 17)
 
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
@@ -33,7 +34,7 @@ elseif (WINDOWSYSTEM MATCHES "pbuffers")
 else()
 	message(FATAL_ERROR "Invalid window system: ${WINDOWSYSTEM}")
 endif()
-set(IT_CFLAGS "-std=c++11 -Wall -g")
+set(IT_CFLAGS "-Wall -g")
 
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:
@@ -188,6 +189,7 @@ vulkan_test_extra(vulkan_compute_1_test_1 compute_1 -pc -pcf ${CMAKE_CURRENT_BIN
 vulkan_test_extra(vulkan_compute_1_test_2 compute_1 -pc -pcf ${CMAKE_CURRENT_BINARY_DIR}/test.bin) # +read
 vulkan_test_extra(vulkan_compute_1_test_3 compute_1 -I) # indirect
 vulkan_test_extra(vulkan_compute_1_test_4 compute_1 -I -ioff 7) # indirect, offset
+vulkan_test_extra(vulkan_compute_1_test_5 compute_1 -i) # image output
 
 vulkan_test(compute_2)
 vulkan_test_extra(vulkan_compute_2_test_0 compute_2 -q 1 -s 1)

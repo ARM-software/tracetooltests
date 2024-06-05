@@ -249,7 +249,7 @@ int main(int argc, char** argv)
 	check(result);
 	waitfence(vulkan, r.fence);
 
-	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, buffer_size, width, height);
+	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, width, height);
 
 	destroyComputePipeline(vulkan, r);
 	vkDestroyPipelineCache(vulkan.device, cache1, nullptr);

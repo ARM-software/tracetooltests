@@ -293,7 +293,7 @@ int main(int argc, char** argv)
 
 	// TBD : hash and verify each image by checksumming it
 
-	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, buffer_size, width, height);
+	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, width, height);
 
 	for (unsigned i = 0; i < nodes; i++) vkDestroyFence(vulkan.device, fences.at(i), NULL);
 	for (unsigned i = 0; i < nodes; i++) vkDestroyBuffer(vulkan.device, r.buffer.at(i), NULL);
