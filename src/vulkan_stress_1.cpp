@@ -35,19 +35,22 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	return false;
 }
 
-static const char* case_1(vulkan_setup_t& vulkan)
+static const char* case_1(vulkan_setup_t& vulkan, bool active)
 {
 	VkResult r;
+	bench_set_scene(vulkan.bench, "case 1 : vkEnumeratePhysicalDeviceGroups");
+	if (active) bench_start_iteration(vulkan.bench);
 	for (int i = 0; i < loops; i++)
 	{
 		uint32_t devgrpcount = 0;
 		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, nullptr);
 		check(r);
 	}
+	if (active) bench_stop_iteration(vulkan.bench);
 	return "vkEnumeratePhysicalDeviceGroups";
 }
 
-static const char* case_2(vulkan_setup_t& vulkan)
+static const char* case_2(vulkan_setup_t& vulkan, bool active)
 {
 	VkResult r;
 	VkFence fence;
@@ -55,10 +58,13 @@ static const char* case_2(vulkan_setup_t& vulkan)
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(r);
+	bench_set_scene(vulkan.bench, "case 2 : vkGetFenceStatus");
+	if (active) bench_start_iteration(vulkan.bench);
 	for (int i = 0; i < loops; i++)
 	{
 		r = vkGetFenceStatus(vulkan.device, fence);
 	}
+	if (active) bench_stop_iteration(vulkan.bench);
 	vkDestroyFence(vulkan.device, fence, nullptr);
 	return "vkGetFenceStatus";
 }
@@ -72,8 +78,8 @@ int main(int argc, char** argv)
 	// warmup
 	switch (variant)
 	{
-	case 1: case_1(vulkan); break;
-	case 2: case_2(vulkan); break;
+	case 1: case_1(vulkan, false); break;
+	case 2: case_2(vulkan, false); break;
 	default: assert(false);
 	}
 
@@ -82,8 +88,8 @@ int main(int argc, char** argv)
 	uint64_t before = mygettime();
 	switch (variant)
 	{
-	case 1: name = case_1(vulkan); break;
-	case 2: name = case_2(vulkan); break;
+	case 1: name = case_1(vulkan, true); break;
+	case 2: name = case_2(vulkan, true); break;
 	default: assert(false);
 	}
 	uint64_t after = mygettime();

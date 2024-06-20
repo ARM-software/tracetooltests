@@ -1,6 +1,8 @@
 #include "gles_common.h"
 #include <EGL/eglext.h>
 
+#include "external/json.hpp"
+#include <fstream>
 #include <vector>
 
 #define IT_WIDTH 1024
@@ -46,6 +48,44 @@ static void debug_callback(GLenum source, GLenum type, GLuint id, GLenum severit
 	}
 }
 
+static bool check_bench(TOOLSTEST& b, const TOOLSTEST_INIT& reqs)
+{
+	const char* enable_json = getenv("BENCHMARKING_ENABLE_JSON");
+	const char* enable_path = getenv("BENCHMARKING_ENABLE_PATH");
+	const std::string our_name = "gles_" + b.name;
+	char* content = nullptr;
+
+	if (enable_path && enable_json) fprintf(stderr, "Both BENCHMARKING_ENABLE_JSON and BENCHMARKING_ENABLE_PATH are set -- this is an error!\n");
+
+	if (enable_path)
+	{
+		printf("Reading benchmarking enable file: %s\n", enable_path);
+		uint32_t size = 0;
+		content = load_blob(enable_path, &size);
+	}
+	else if (enable_json)
+	{
+		printf("Reading benchmarking enable file directly from the environment variable\n");
+		content = strdup(enable_json);
+	}
+	else return false;
+
+	nlohmann::json data = nlohmann::json::parse(content);
+	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); return false; }
+	if (data.value("target", "no target") != our_name) { printf("Name in benchmarking enable file is not ours - skipping\n"); return false; }
+
+	if (data.count("capabilities"))
+	{
+		nlohmann::json caps = data.at("capabilities");
+
+		p__loops = caps.value("loops", p__loops);
+	}
+
+	bench_init(b.bench, our_name.c_str(), content, data.value("results", "results.json").c_str());
+
+	return true;
+}
+
 GLenum fb_internalformat()
 {
 	GLint red = 0;
@@ -68,17 +108,6 @@ GLenum fb_internalformat()
 		DLOG("GL_RGBA8");
 		return GL_RGBA8;
 	}
-}
-
-static int get_env_int(const char* name, int fallback)
-{
-	int v = fallback;
-	const char* tmpstr = getenv(name);
-	if (tmpstr)
-	{
-		v = atoi(tmpstr);
-	}
-	return v;
 }
 
 bool is_null_run()
@@ -124,12 +153,12 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 	handle.swap = init.swap;
 	handle.init = init.init;
 	handle.done = init.done;
-	handle.times = get_env_int("TOOLSTEST_TIMES", 10);
+	handle.times = p__loops;
 	handle.user_data = init.user_data;
 	handle.current_frame = 0;
 
 	if (get_env_int("TOOLSTEST_STEP", 0) > 0) step_mode = true;
-	inject_asserts = (bool)get_env_int("TOOLSTEST_SANITY", 0);
+	inject_asserts = (bool)p__sanity;
 	null_run = (bool)get_env_int("TOOLSTEST_NULL_RUN", 0);
 	if (null_run)
 	{
@@ -171,6 +200,8 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 			}
 		}
 	}
+
+	check_bench(handle, init);
 
 #ifdef SDL
 	SDL_SetMainReady();
@@ -253,6 +284,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		return -6;
 	}
 	DLOG("EGL version is %d.%d", majorVersion, minorVersion);
+	handle.bench.backend_name = "GLES 3.2";
 
 	EGLint numConfigs = 0;
 	if (!eglChooseConfig(handle.display, attribs, nullptr, 0, &numConfigs))
@@ -410,8 +442,10 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		handle.current_frame = i;
 		std::string annotation = std::string(init.name) + " frame " + std::to_string(handle.current_frame);
 		annotate(annotation.c_str());
+		bench_start_iteration(handle.bench);
 		init.swap(&handle);
 		test_swap(&handle);
+		bench_stop_iteration(handle.bench);
 		if (step_mode)
 		{
 			char c = keypress();
@@ -422,6 +456,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 #endif
 		}
 	}
+	bench_done(handle.bench);
 	init.done(&handle);
 
 	eglMakeCurrent(handle.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);

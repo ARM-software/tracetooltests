@@ -1,0 +1,11 @@
+{
+	"name": "gles_multisurface_1",
+	"description": "Test of multiple window surfaces",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"name": "gles_extension_pack_es31a",
+	"description": "Test for presence of Android extension pack",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

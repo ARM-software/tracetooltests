@@ -1,0 +1,11 @@
+{
+	"name": "gles_drawrange_2",
+	"description": "Test of glDrawRangeElements",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"name": "gles_copy_image_1",
+	"description": "Test of glCopyImageSubData",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

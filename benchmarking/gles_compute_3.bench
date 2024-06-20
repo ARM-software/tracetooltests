@@ -1,0 +1,11 @@
+{
+	"name": "gles_compute_3",
+	"description": "Test of GLES compute calls with uniform buffers and glCreateShaderProgramv",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

@@ -40,6 +40,21 @@ struct vulkan_req_t;
 typedef void (*TOOLSTEST_CALLBACK_USAGE)();
 typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv, vulkan_req_t& reqs);
 
+struct vulkan_req_t // Vulkan context requirements
+{
+	uint32_t apiVersion = VK_API_VERSION_1_1;
+	uint32_t queues = 1;
+	std::vector<std::string> instance_extensions;
+	std::vector<std::string> device_extensions;
+	bool samplerAnisotropy = false;
+	bool bufferDeviceAddress = false;
+	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
+	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
+	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
+	VkBaseInStructure* extension_features = nullptr;
+	bool fence_delay = false;
+};
+
 struct vulkan_setup_t
 {
 	VkInstance instance = VK_NULL_HANDLE;
@@ -55,24 +70,11 @@ struct vulkan_setup_t
 	std::unordered_set<std::string> device_extensions;
 	VkPhysicalDeviceProperties device_properties = {};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
+	benchmarking bench;
 };
 
-struct vulkan_req_t // Vulkan context requirements
+namespace acceleration_structures
 {
-	uint32_t apiVersion = VK_API_VERSION_1_1;
-	uint32_t queues = 1;
-	std::vector<std::string> instance_extensions;
-	std::vector<std::string> device_extensions;
-	bool samplerAnisotropy = false;
-	bool bufferDeviceAddress = false;
-	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
-	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
-	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
-	VkBaseInStructure* extension_features = nullptr;
-};
-
-namespace acceleration_structures{
-
 	struct functions
 	{
 		PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
@@ -110,14 +112,13 @@ namespace acceleration_structures{
 		VkAccelerationStructureKHR handle{ VK_NULL_HANDLE};
 		VkDeviceOrHostAddressConstKHR address{};
 	};
-
 };
 
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.
 struct dummy_ext { VkStructureType sType; dummy_ext* pNext; };
 
 vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs);
-void test_done(vulkan_setup_t s, bool shared_instance = false);
+void test_done(vulkan_setup_t& vulkan, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name);
 

@@ -73,6 +73,8 @@ struct TOOLSTEST
 #endif
 	int current_frame = 0;
 	int debug = 0;
+
+	benchmarking bench;
 };
 
 struct TOOLSTEST_INIT

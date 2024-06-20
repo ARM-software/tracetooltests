@@ -72,7 +72,7 @@ static int test(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.apiVersion = VK_API_VERSION_1_1;
-	std::string testname = "vulkan_memory_3";
+	std::string testname = "vulkan_memory_mprotect";
 	vulkan_setup_t vulkan = test_init(argc, argv, testname, reqs);
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)

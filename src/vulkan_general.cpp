@@ -1,14 +1,13 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static int fence_variant = 0;
 static bool ugly_exit = false;
 static vulkan_req_t reqs;
 
 static void show_usage()
 {
 	printf("-x/--ugly-exit         Exit without cleanup\n");
-	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
+	printf("-f/--fence-variant N   Set fence variant (default 0)\n");
 	printf("\t0 - normal run\n");
 	printf("\t1 - expect induced fence delay\n");
 }
@@ -22,8 +21,9 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	}
 	else if (match(argv[i], "-f", "--fence-variant"))
 	{
-		fence_variant = get_arg(argv, ++i, argc);
-		return (fence_variant >= 0 && fence_variant <= 1);
+		const int fence_delay = get_arg(argv, ++i, argc);
+		if (fence_delay >= 0 && fence_delay <= 1) { reqs.fence_delay = true; return true; }
+		else return false;
 	}
 	return false;
 }
@@ -34,6 +34,8 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_general", reqs);
 	VkResult r;
+
+	bench_start_iteration(vulkan.bench);
 
 	// Test vkEnumerateInstanceVersion
 
@@ -104,7 +106,7 @@ int main(int argc, char** argv)
 	check(r);
 
 	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX - 1);
-	if (fence_variant == 0) assert(r == VK_SUCCESS);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
 	else assert(r == VK_TIMEOUT);
 
 	std::vector<VkFence> fences = { fence1, fence2 }; // one signaled, one unsignaled
@@ -112,7 +114,7 @@ int main(int argc, char** argv)
 	assert(r == VK_TIMEOUT);
 
 	r = vkGetFenceStatus(vulkan.device, fence1);
-	if (fence_variant == 0) assert(r == VK_SUCCESS);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
 	else assert(r == VK_NOT_READY);
 
 	r = vkGetFenceStatus(vulkan.device, fence2);
@@ -179,6 +181,8 @@ int main(int argc, char** argv)
 	{
 		vkDestroyPrivateDataSlot(vulkan.device, VK_NULL_HANDLE, nullptr);
 	}
+
+	bench_stop_iteration(vulkan.bench);
 
 	// Optionally test ugly exit
 

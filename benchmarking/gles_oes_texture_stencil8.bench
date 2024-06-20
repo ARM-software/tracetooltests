@@ -1,0 +1,11 @@
+{
+	"name": "gles_gles_oes_texture_stencil8",
+	"description": "Test of OES_texture_stencil8",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

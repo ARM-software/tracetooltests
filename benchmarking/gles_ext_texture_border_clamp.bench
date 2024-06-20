@@ -1,0 +1,11 @@
+{
+	"name": "gles_ext_texture_border_clamp",
+	"description": "Test of GLES draws with border color",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

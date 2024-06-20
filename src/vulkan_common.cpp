@@ -1,4 +1,6 @@
 #include "vulkan_common.h"
+#include "external/json.hpp"
+#include <fstream>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb_image_write.h"
@@ -6,29 +8,9 @@
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int selected_gpu = 0;
 
-#if defined(ANDROID)
-int STOI(const std::string& value)
-{
-    int out;
-    std::istringstream(value) >> out;
-    return out;
-}
-#endif
-
-static int get_env_int(const char* name, int fallback)
-{
-	int v = fallback;
-	const char* tmpstr = getenv(name);
-	if (tmpstr)
-	{
-		v = atoi(tmpstr);
-	}
-	return v;
-}
-
 int repeats()
 {
-	return get_env_int("TOOLSTEST_TIMES", 10);
+	return p__loops;
 }
 
 void select_gpu(int chosen_gpu)
@@ -67,8 +49,9 @@ void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory)
 	vkFreeMemory(vulkan.device, memory, nullptr);
 }
 
-void test_done(vulkan_setup_t vulkan, bool shared_instance)
+void test_done(vulkan_setup_t& vulkan, bool shared_instance)
 {
+	bench_done(vulkan.bench);
 	vkDestroyDevice(vulkan.device, nullptr);
 	if (!shared_instance)
 	{
@@ -104,6 +87,61 @@ static void print_usage(const vulkan_req_t& reqs)
 	exit(1);
 }
 
+static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* testname)
+{
+	const char* enable_json = getenv("BENCHMARKING_ENABLE_JSON");
+	const char* enable_path = getenv("BENCHMARKING_ENABLE_FILE");
+	char* content = nullptr;
+
+	if (enable_path && enable_json) fprintf(stderr, "Both BENCHMARKING_ENABLE_JSON and BENCHMARKING_ENABLE_PATH are set -- this is an error!\n");
+
+	if (enable_path)
+	{
+		printf("Reading benchmarking enable file: %s\n", enable_path);
+		uint32_t size = 0;
+		content = load_blob(enable_path, &size);
+	}
+	else if (enable_json)
+	{
+		printf("Reading benchmarking enable file directly from the environment variable\n");
+		content = strdup(enable_json);
+	}
+	else return false;
+
+	nlohmann::json data = nlohmann::json::parse(content);
+	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); return false; }
+	if (data.value("target", "no target") != testname) { printf("Name in benchmarking enable file is not ours - skipping\n"); return false; }
+
+	if (data.count("capabilities"))
+	{
+		nlohmann::json caps = data.at("capabilities");
+
+		reqs.fence_delay = caps.value("gpu_delay_reuse", false);
+		p__loops = caps.value("loops", p__loops);
+		// TBD: gpu_no_coherent
+	}
+
+	if (data.count("settings"))
+	{
+		nlohmann::json settings = data.at("settings");
+
+		if (settings.count("vulkan_variant"))
+		{
+			std::string api = settings.value("vulkan_variant", "1.1");
+			if (api == "1.0") reqs.apiVersion = VK_API_VERSION_1_0;
+			else if (api == "1.1") reqs.apiVersion = VK_API_VERSION_1_1;
+			else if (api == "1.2") reqs.apiVersion = VK_API_VERSION_1_2;
+			else if (api == "1.3") reqs.apiVersion = VK_API_VERSION_1_3;
+			else { printf("Bad vulkan_variant: %s\n", api.c_str()); return false; }
+		}
+
+		if (settings.count("queue_count")) reqs.queues = settings.value("queue_count", 1);
+	}
+	bench_init(vulkan.bench, testname, content, data.value("results", "results.json").c_str());
+
+	return true;
+}
+
 vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vulkan_req_t& reqs)
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
@@ -113,6 +151,20 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_debug_utils = false;
+
+	std::string api;
+	switch (reqs.apiVersion)
+	{
+	case VK_API_VERSION_1_0: api = "1.0"; break;
+	case VK_API_VERSION_1_1: api = "1.1"; break;
+	case VK_API_VERSION_1_2: api = "1.2"; break;
+	case VK_API_VERSION_1_3: api = "1.3"; break;
+	default: api = "(unrecognized version)"; break;
+	}
+
+	// Parse bench enable file, if any
+	check_bench(vulkan, reqs, testname.c_str());
+	vulkan.bench.backend_name = "Vulkan " + api;
 
 	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
 	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
@@ -424,7 +476,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
 	}
 
-	if (has_tooling_checksum && get_env_int("TOOLSTEST_SANITY", 1) > 0)
+	if (has_tooling_checksum && p__sanity > 0)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
 	}

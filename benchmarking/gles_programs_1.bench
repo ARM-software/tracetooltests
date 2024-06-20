@@ -1,0 +1,11 @@
+{
+	"name": "gles_programs_1",
+	"description": "Test of GLES program pipelines",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

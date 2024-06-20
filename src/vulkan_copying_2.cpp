@@ -8,14 +8,13 @@ static int map_variant = 0;
 static int queue_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
-static int times = repeats();
 static PFN_vkQueueSubmit2 fpQueueSubmit2 = nullptr;
 
 static void show_usage()
 {
 	printf("-b/--buffer-size N     Set buffer size (default %u)\n", buffer_size);
 	printf("-c/--buffer-count N    Set buffer count (default %u)\n", num_buffers);
-	printf("-t/--times N           Times to repeat (default %d)\n", times);
+	printf("-t/--times N           Times to repeat\n");
 	printf("-q/--queue-variant N   Set queue variant (default %d)\n", queue_variant);
 	printf("\t0 - ping-pong between two queues\n");
 	printf("\t1 - put all jobs on one queue\n");
@@ -39,7 +38,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	}
 	else if (match(argv[i], "-t", "--times"))
 	{
-		times = get_arg(argv, ++i, argc);
+		p__loops = get_arg(argv, ++i, argc);
 		return true;
 	}
 	else if (match(argv[i], "-c", "--buffer-count"))
@@ -201,8 +200,9 @@ static void copying_2(int argc, char** argv)
 		check(result);
 	}
 
-	for (int frame = 0; frame < times; frame++)
+	for (int frame = 0; frame < p__loops; frame++)
 	{
+		bench_start_iteration(vulkan.bench);
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
 			if (flush_variant == 1) // add useless flush
@@ -267,6 +267,7 @@ static void copying_2(int argc, char** argv)
 			result = vkResetFences(vulkan.device, num_buffers, fences.data());
 			check(result);
 		}
+		bench_stop_iteration(vulkan.bench);
 	}
 
 	// Verification

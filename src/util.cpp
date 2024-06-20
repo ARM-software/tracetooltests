@@ -1,5 +1,7 @@
 #include "util.h"
 
+#include "external/json.hpp"
+#include <fstream>
 #include <termios.h>
 #include <unistd.h>
 #include <string.h>
@@ -15,7 +17,7 @@
 #include <SDL2/SDL.h>
 #endif
 
-static int get_env_int(const char* name, int fallback)
+int get_env_int(const char* name, int fallback)
 {
 	int v = fallback;
 	const char* tmpstr = getenv(name);
@@ -26,8 +28,36 @@ static int get_env_int(const char* name, int fallback)
 	return v;
 }
 
+uint_fast8_t p__loops = get_env_int("TOOLSTEST_TIMES", 10);
+uint_fast8_t p__sanity = get_env_int("TOOLSTEST_SANITY", 0);
 uint_fast8_t p__debug_level = get_env_int("TOOLSTEST_DEBUG", 0);
 uint_fast8_t p__validation = get_env_int("TOOLSTEST_VALIDATION", 0);
+
+void bench_save_results_file(const benchmarking& b)
+{
+	printf("Writing benchmarking results file (%d iterations): %s\n", (int)b.results.size(), b.results_file.c_str());
+	nlohmann::json data;
+	data["app_version"] = "1.0";
+	data["std_version"] = 1;
+	data["enable_file"] = nlohmann::json::parse(b.enable_file);
+	if (!b.backend_name.empty()) data["rendering_backend"] = b.backend_name;
+	data["init_time"] = b.init_time;
+	data["end_time"] = gettime();
+	nlohmann::json results = nlohmann::json::array();
+	for (const auto& v : b.results)
+	{
+		nlohmann::json result;
+		if (!b.scene_name.empty()) result["scene"] = b.scene_name.at(v.scene);
+		result["start_time"] = v.start;
+		result["stop_time"] = v.end;
+		result["time"] = v.end - v.start;
+		results.push_back(result);
+	}
+	data["results"] = results;
+	std::ofstream file(b.results_file);
+	file << data.dump(4);
+	file.close();
+}
 
 void set_thread_name(const char* name)
 {

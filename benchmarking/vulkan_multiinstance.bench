@@ -1,0 +1,18 @@
+{
+	"name": "vulkan_multiinstance",
+	"description": "Test of multiple instances",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	},
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

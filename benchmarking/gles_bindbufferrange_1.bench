@@ -1,0 +1,11 @@
+{
+	"name": "gles_bindbufferrange_1",
+	"description": "Test of glBindBufferRange",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

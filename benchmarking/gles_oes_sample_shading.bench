@@ -1,0 +1,11 @@
+{
+	"name": "gles_oes_sample_shading",
+	"description": "Test of OES_sample_shading",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

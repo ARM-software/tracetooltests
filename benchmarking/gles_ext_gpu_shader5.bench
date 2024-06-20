@@ -1,0 +1,11 @@
+{
+	"name": "gles_ext_gpu_shader5",
+	"description": "Test of GL_EXT_gpu_shader5",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

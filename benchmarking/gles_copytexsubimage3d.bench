@@ -1,0 +1,11 @@
+{
+	"name": "gles_copytexsubimage3d",
+	"description": "Test of glCopyTexSubImage3D",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

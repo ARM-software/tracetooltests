@@ -1,0 +1,11 @@
+{
+	"name": "gles_draw_2",
+	"description": "Test of glDrawElements",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

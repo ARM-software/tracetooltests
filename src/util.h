@@ -19,6 +19,8 @@
 /// Implement support for naming threads, missing from c++11
 void set_thread_name(const char* name);
 
+extern uint_fast8_t p__loops;
+extern uint_fast8_t p__sanity;
 extern uint_fast8_t p__debug_level;
 extern uint_fast8_t p__validation;
 
@@ -69,6 +71,17 @@ static __attribute__((pure)) inline uint32_t adler32(unsigned char *data, size_t
 	return (b << 16) | a;
 }
 
+static __attribute__((pure)) inline uint64_t gettime()
+{
+	struct timespec t;
+	// CLOCK_MONOTONIC_COARSE is much more light-weight, but resolution is quite poor.
+	// CLOCK_PROCESS_CPUTIME_ID is another possibility, it ignores rest of system, but costs more,
+	// and also on some CPUs process migration between cores can screw up such measurements.
+	// CLOCK_MONOTONIC is therefore a reasonable and portable compromise.
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec);
+}
+
 #ifndef NDEBUG
 /// Using DLOGn() instead of DLOG(n,...) so that we can conditionally compile without some of them
 #define DLOG3(_format, ...) do { if (p__debug_level >= 3) { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } } while(0)
@@ -95,6 +108,41 @@ static __attribute__((pure)) inline uint32_t adler32(unsigned char *data, size_t
 #define UINT32_MAX (4294967295U)
 #endif
 
+/// Things needed for implementing benchmarking standard
+struct result_t
+{
+	uint64_t start;
+	uint64_t end;
+	int scene;
+};
+struct benchmarking
+{
+	std::vector<result_t> results; // store all results
+	uint64_t init_time = 0; // to track start of whole run
+	uint64_t latest_time = 0; // if we need it, to track start of latest iteration
+	char* enable_file = nullptr; // copy of the enable file for the results file
+	std::string test_name;
+	std::string results_file; // path to results file
+	std::vector<std::string> scene_name;
+	std::string backend_name;
+};
+
+void bench_save_results_file(const benchmarking& b);
+static inline void bench_init(benchmarking& b, const char* test_name, char* enable_file, const char* results_file)
+{
+	b.test_name = test_name;
+	b.init_time = gettime();
+	b.enable_file = enable_file;
+	b.results_file = results_file;
+}
+static inline void bench_done(benchmarking& b)
+{
+	if (b.enable_file) { bench_save_results_file(b); free(b.enable_file); }
+}
+static inline void bench_start_iteration(benchmarking& b) { b.latest_time = gettime(); }
+static inline void bench_stop_iteration(benchmarking& b) { b.results.push_back({ b.latest_time, gettime(), std::max<int>(0, (int)b.scene_name.size() - 1) }); }
+static inline void bench_set_scene(benchmarking& b, const std::string& scene_name) { b.scene_name.push_back(scene_name); }
+
 static inline bool is_debug() { return p__debug_level; }
 char keypress();
 bool match(const char* in, const char* short_form, const char* long_form);
@@ -104,3 +152,5 @@ void usage();
 char* load_blob(const std::string& filename, uint32_t* size);
 void save_blob(const std::string& filename, const char* data, uint32_t size);
 bool exists_blob(const std::string& filename);
+
+int get_env_int(const char* name, int fallback);

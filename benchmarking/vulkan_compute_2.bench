@@ -1,0 +1,18 @@
+{
+	"name": "vulkan_compute_2",
+	"description": "Test of compute shaders",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	},
+	"capabilities": {
+		"loops": "option",
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

@@ -415,7 +415,7 @@ void bind_and_dispatch(const vulkan_setup_t & vulkan, Resources & resources)
 
 int main(int argc, char** argv)
 {
-    vulkan_req_t reqs;
+	vulkan_req_t reqs;
 	VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_query_features, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");
@@ -440,6 +440,6 @@ int main(int argc, char** argv)
 
 	free_test_resources(vulkan, resources);
 
-    test_done(vulkan);
-    return 0;
+	test_done(vulkan);
+	return 0;
 }

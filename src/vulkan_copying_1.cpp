@@ -194,6 +194,7 @@ static void copying_1(int argc, char** argv)
 	testCmdCopyBuffer(vulkan, command_buffers.at(num_buffers), origin_buffers, target_buffers, buffer_size);
 	result = vkEndCommandBuffer(command_buffers.at(num_buffers));
 	check(result);
+	bench_start_iteration(vulkan.bench);
 	if (queue_variant == 0 || queue_variant == 4 || queue_variant == 5)
 	{
 		std::vector<VkFence> fences(num_buffers);
@@ -268,6 +269,8 @@ static void copying_1(int argc, char** argv)
 			assert(orig == dest);
 		}
 	}
+
+	bench_stop_iteration(vulkan.bench);
 
 	// Cleanup...
 	if (map_variant == 0 || map_variant == 2) for (unsigned i = 0; i < origin_memory.size(); i++) vkUnmapMemory(vulkan.device, origin_memory[i]);

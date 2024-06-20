@@ -1,0 +1,11 @@
+{
+	"name": "gles_indirectdraw_1",
+	"description": "Test of glDrawArraysIndirect",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

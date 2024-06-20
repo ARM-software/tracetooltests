@@ -1,0 +1,17 @@
+{
+	"name": "vulkan_as_4",
+	"description": "Test of accelleration structures",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	},
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}

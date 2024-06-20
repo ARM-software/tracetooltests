@@ -264,6 +264,7 @@ int main(int argc, char** argv)
 
 	for (unsigned i = 0; i < times; i++)
 	{
+		bench_start_iteration(vulkan.bench);
 		for (unsigned node = 0; node < nodes; node++)
 		{
 			VkPipelineStageFlags flag = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -287,6 +288,7 @@ int main(int argc, char** argv)
 			result = vkResetFences(vulkan.device, nodes, fences.data());
 			check(result);
 		}
+		bench_stop_iteration(vulkan.bench);
 	}
 
 	// TBD : hash and verify each image by checksumming it
