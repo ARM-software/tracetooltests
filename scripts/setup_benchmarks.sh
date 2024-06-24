@@ -8,3 +8,8 @@ mkdir -p external/sacredpath
 ( cd external/sacredpath/ ; tar xzvkf ../../tmp/amd64_ubuntu20_amd64_launcher_sacredpath_free_1.0.2.tar.gz )
 mv external/sacredpath/linux-unpacked/* external/sacredpath/
 rmdir external/sacredpath/linux-unpacked
+
+( cd tmp ; wget -N https://tellusim.com/download/GravityMark_1.87.run )
+mkdir -p external/gravitymark
+chmod +x tmp/GravityMark_1.87.run
+( cd external/gravitymark ; ../../tmp/GravityMark_1.87.run )

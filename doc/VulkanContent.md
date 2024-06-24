@@ -1,13 +1,11 @@
-Open source Vulkan content
-==========================
+Available Vulkan content
+========================
 
-This is a list of publicly available Vulkan content that is freely redistributable
-that comes with c or c++ source code and runs on Linux.
+This is a list of publicly available Vulkan content that is freely downloadable and runs on Linux.
 
 Not listing Vulkan game engines, as many other people are making lists for that.
 
-For a list of closed-source Vulkan games, see for example the list at
-https://www.pcgamingwiki.com/wiki/List_of_Vulkan_games
+For a list of commercial closed-source Vulkan-capable games, there is a list at https://www.pcgamingwiki.com/wiki/List_of_Vulkan_games
 
 Open source Vulkan games
 ------------------------
@@ -30,8 +28,11 @@ Open source Vulkan samples, demos and benchmarks
 * [VkPolyBench](https://github.com/ElsevierSoftwareX/SOFTX_2020_86)
 * [VkPeak](https://github.com/nihui/vkpeak)
 * [uVkCompute](https://github.com/google/uVkCompute)
+* [Ray Tracing in Vulkan](https://github.com/GPSnoopy/RayTracingInVulkan)
 
-Free Vulkan content (not open source)
--------------------------------------
+Other Vulkan content (not open source)
+--------------------------------------
 
-* Basemark benchmarks - Sacred Path, Relic of Life
+* [Basemark Relic of Life](https://www.gpuscore.com/benchmarks/gpuscore/relic-of-life/)
+* [Basemark Sacred Path](https://www.gpuscore.com/benchmarks/gpuscore/sacred-path)
+* [Tellusim GravityMark](https://gravitymark.tellusim.com/)

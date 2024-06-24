@@ -1,6 +1,6 @@
 # Common benchmarking standard
 
-This offers a standardized way for applications to offer test automation features to users.
+This offers a standardized way for applications to offer customization and test automation features to users.
 
 There are three target groups for this initiative:
 
@@ -26,7 +26,7 @@ The capabilities file is a JSON that the application bundles to describe which s
 
 ### Specification
 
-Platform independent JSON description. Example:
+Platform independent JSON description of this form:
 
 ```json
     {
@@ -50,6 +50,22 @@ Platform independent JSON description. Example:
             "example": "free form human readable description of the adaptation"
         }
     }
+```
+
+An actual example from this repository:
+
+```json
+{
+	"name": "gles_bindbufferrange_1",
+	"description": "Test of glBindBufferRange",
+	"capabilities": {
+		"non-interactive": "always",
+		"fixed-framerate": "always",
+		"loops": "option",
+		"gpu-frame-deterministic": "always",
+		"gpu-fully-deterministic": "always"
+	}
+}
 ```
 
 The defined top-level fields are as follows:
@@ -87,24 +103,24 @@ Available fields that can be added in each settings entry:
 
 #### Capabilities
 
-The capabilities entry is a list of key-value pairs, where the key is one of those described in the table below, and the value is either a setting enum type or a boolean, as indicated below. In the enable file it takes a value as described below.
+The capabilities entry is a list of key-value pairs, where the key is one of those described in the table below, and the value is a setting enum type as described below. In the enable file it takes a value as described in the table below.
 
-|Capability | Required capability value | Enable value type | Enable values allowed | Description |
-| --------- | ------------------------- | ----------------- | --------------------- | ----------- |
-| non_interactive | enum | bool | true | The application is capable to run in fully non-interactive mode. If enabled, it must automatically run the activated scenes (or some default scene if none given or scene selection not supported), and then if able to run it to completion, exit with a successful exit code. If it fails to complete the scene, it shall exit with a failure exit code. |
-| fixed_framerate | true | number | zero or higher | The application is capable of running in a fixed framerate mode. This means that no matter the performance it will render the same content in the same number of frames every time. If the enable value is set to a non-zero value, this is the number of desired milliseconds of simulated rendering time between each frame. If zero, fixed framerate mode is disabled. |
-| no_cpu_performance_adaptations | enum | bool | true | The application is capable of disabling dynamic runtime CPU adaptations to improve performance. This also include using settings that are adapted to application prior knowledge of the device performance and core pinning, but not sizing thread pools according to CPU core numbers. TBD: Split this up? |
-| no_gpu_performance_adaptations | enum | bool | true | The application is capable of disabling dynamic runtime graphics adaptations to improve performance. This also include using settings that are adapted to application prior knowledge of the device performance. |
-| no_vendor_performance_adaptations | enum | bool | true | The application is capable of disabling vendor specific adaptations to improve performance. If specific adaptations are exposed in the capabilities file and are enabled in the enable file, those adaptations should override changes made by this option. |
-| no_vendor_workarounds	| enum | bool | true | The application is capable of disabling vendor specific bug workarounds that have been added to prevent rendering artifacts or crashes. If specific adaptations are exposed in the capabilities file and are enabled in the enable file, those adaptations should override changes made by this option. |
-| no_os_workarounds | enum | bool | true | As above, but for workarounds that have been added to prevent rendering artifacts or crashes on specific versions of an operating or windowing system version system. |
-| no_loading_screen | enum | bool | true | The application is capable of turning off any loading screen that is shown while the application is starting up or changing scenes. Instead, no new frames should be rendered. |
-| visual_settings | true | number | zero or higher | The application is capable of tuning its rendering quality by giving it a 1-100 value, where 1 is lowest and 100 is highest. An enable value of zero means this capability is not to be used. |
-| loops | true | number | zero or higher | The application is capable of running its scenes in a loop with no or only a minimal scene loading between each loop iteration. The enable value gives the number of loops to be run, where zero means run in an infinite loop. This is useful in particular for measuring sustained performance, or measuring power, battery and temperature. If multiple scenes are activated, the order in which they loop is up to the application. |
-| gpu_delay_reuse | enum | number | zero or higher | The application is capable of delaying the reuse of GPU resources. The enable value gives the number of frames that resources must not be reused for, or zero if this capability should not be enabled. |
-| gpu_no_coherent | enum | bool | true | The application is capable of behaving as if no coherent memory exists, and must explicitly call the graphics API to flush any modified memory before it is to be used for rendering. This allows for instance gfxreconstruct to run in 'assisted' tracing mode instead of using guard pages which may speed up runtime performance while tracing or avoid issues with guard pages. |
-| gpu_frame_deterministic | enum | true | true | Whether the application generates a deterministic final rendering output. |
-| gpu_fully_deterministic | enum | true | true | Whether the application generates deterministic rendering outputs from every GPU compute or rendering step. |
+| Capability | Enable value type | Enable values allowed | Description |
+| ---------- | ----------------- | --------------------- | ------------|
+| non_interactive | bool | true | The application is capable to run in fully non-interactive mode. If enabled, it must automatically run the activated scenes (or some default scene if none given or scene selection not supported), and then if able to run it to completion, exit with a successful exit code. If it fails to complete the scene, it shall exit with a failure exit code. |
+| fixed_framerate | number | zero or higher | The application is capable of running in a fixed framerate mode. This means that no matter the performance it will render the same content in the same number of frames every time. If the enable value is set to a non-zero value, this is the number of desired milliseconds of simulated rendering time between each frame. If zero, an application provided default frame time shall be used. |
+| no_cpu_performance_adaptations | bool | true | The application is capable of disabling dynamic runtime CPU adaptations to improve performance. This also include using settings that are adapted to application prior knowledge of the device performance and core pinning, but not sizing thread pools according to CPU core numbers. |
+| no_gpu_performance_adaptations | bool | true | The application is capable of disabling dynamic runtime graphics adaptations to improve performance. This also include using settings that are adapted to application prior knowledge of the device performance. |
+| no_vendor_performance_adaptations | bool | true | The application is capable of disabling vendor specific adaptations to improve performance. If specific adaptations are exposed in the capabilities file and are enabled in the enable file, those adaptations should override changes made by this option. |
+| no_vendor_workarounds	| bool | true | The application is capable of disabling vendor specific bug workarounds that have been added to prevent rendering artifacts or crashes. If specific adaptations are exposed in the capabilities file and are enabled in the enable file, those adaptations should override changes made by this option. |
+| no_os_workarounds | bool | true | As above, but for workarounds that have been added to prevent rendering artifacts or crashes on specific versions of an operating or windowing system version system. |
+| no_loading_screen | bool | true | The application is capable of turning off any loading screen that is shown while the application is starting up or changing scenes. Instead, no new frames should be rendered. |
+| visual_settings | number | one or higher | The application is capable of tuning its rendering quality by giving it a 1-100 value, where 1 is lowest and 100 is highest. If present in capabilities file, must be "option" or "never". |
+| loops | number | zero or higher | The application is capable of running its scenes in a loop with no or only a minimal scene loading between each loop iteration. The enable value gives the number of loops to be run, where zero means run in an infinite loop. This is useful in particular for measuring sustained performance, or measuring power, battery and temperature. If multiple scenes are activated, the order in which they loop is up to the application. If present in capabilities file, must be "option" or "never". |
+| gpu_delay_reuse | number | one or higher | The application is capable of delaying the reuse of GPU resources. The enable value gives the number of frames that resources must not be reused for. |
+| gpu_no_coherent | bool | true | The application is capable of behaving as if no coherent memory exists, and must explicitly call the graphics API to flush any modified memory before it is to be used for rendering. This allows for instance gfxreconstruct to run in 'assisted' tracing mode instead of using guard pages which may speed up runtime performance while tracing or avoid issues with guard pages. |
+| gpu_frame_deterministic | true | true | Whether the application generates a deterministic final rendering output. |
+| gpu_fully_deterministic | true | true | Whether the application generates deterministic rendering outputs from every GPU compute or rendering step. |
 
 ### Adaptations
 
