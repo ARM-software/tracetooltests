@@ -9,7 +9,7 @@ static void show_usage()
 	printf("-x/--ugly-exit         Exit without cleanup\n");
 	printf("-f/--fence-variant N   Set fence variant (default 0)\n");
 	printf("\t0 - normal run\n");
-	printf("\t1 - expect induced fence delay\n");
+	printf("\t1 - expect induced fence delay of 2 calls\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -105,25 +105,29 @@ int main(int argc, char** argv)
 	r = vkQueueSubmit(queue, 0, nullptr, fence1); // easiest way to signal a fence...
 	check(r);
 
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX - 1);
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
 	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT);
+	else assert(r == VK_TIMEOUT); // First call delayed
+
+	r = vkGetFenceStatus(vulkan.device, fence1);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
+	else assert(r == VK_NOT_READY); // Second call delayed
+
+	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, 10);
+	assert(r == VK_TIMEOUT);
+
+	r = vkGetFenceStatus(vulkan.device, fence2);
+	assert(r == VK_NOT_READY);
+
+	r = vkGetFenceStatus(vulkan.device, fence1);
+	assert(r == VK_SUCCESS); // Third call NOT delayed
 
 	std::vector<VkFence> fences = { fence1, fence2 }; // one signaled, one unsignaled
 	r = vkWaitForFences(vulkan.device, 2, fences.data(), VK_TRUE, 10);
 	assert(r == VK_TIMEOUT);
 
-	r = vkGetFenceStatus(vulkan.device, fence1);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_NOT_READY);
-
-	r = vkGetFenceStatus(vulkan.device, fence2);
-	assert(r == VK_NOT_READY);
-
 	r = vkResetFences(vulkan.device, 2, fences.data());
 	check(r);
-	r = vkGetFenceStatus(vulkan.device, fence1);
-	assert(r == VK_NOT_READY);
 
 	// Test private data
 	bool private_data_support = false;
