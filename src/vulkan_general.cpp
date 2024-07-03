@@ -105,6 +105,10 @@ int main(int argc, char** argv)
 	r = vkQueueSubmit(queue, 0, nullptr, fence1); // easiest way to signal a fence...
 	check(r);
 
+	// Wait 1ms, to be sure that the test after (wait for fence1) succeed
+	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, 1000000);
+	assert(r == VK_TIMEOUT);
+
 	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
 	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
 	else assert(r == VK_TIMEOUT); // First call delayed
@@ -112,9 +116,6 @@ int main(int argc, char** argv)
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
 	else assert(r == VK_NOT_READY); // Second call delayed
-
-	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, 10);
-	assert(r == VK_TIMEOUT);
 
 	r = vkGetFenceStatus(vulkan.device, fence2);
 	assert(r == VK_NOT_READY);
