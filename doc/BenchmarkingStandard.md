@@ -30,6 +30,7 @@ Platform independent JSON description of this form:
 
 ```json
     {
+        "name": "app name",
         "description": "free form optional description of the app",
         "scenes": {
             "example": {
@@ -73,6 +74,7 @@ The defined top-level fields are as follows:
 | Field | Mandatory | Description |
 | ----- | --------- | ----------- |
 | name | Yes | Name of the application described |
+| path | Maybe | Path to the executable. Required if the executable is not in the same directory as the capability file or does not have the same name as the ```name``` field. If the path is not absolute, it is relative to the directory of the capability file. |
 | description | No | A short human readable description of the content |
 | std_version | No | Version of this standard that is supported. The default value is 1. |
 | scenes | No | Dictionary describing the scenes found in the content and that can be activated. |
@@ -134,29 +136,26 @@ The setting enum type is a string with one of the values "always", "option", "op
 
 ## File locations
 
-Describe where this file must be located for each platform. It needs to be predictable so that third-party applications or layers can locate them automatically.
+Describe where the capability file must be located for each platform. It needs to be predictable so that third-party tools can locate them automatically.
 
-### Linux - system package
+The normal workflow would be that the tool is given a capability file, and takes this as a signal that it wants to enable benchmarking mode and then uses the capability file to work out the path to the executable to run.
 
-If part of a packaged system installation where the binary executable goes into /usr/bin: Capability files should go into /usr/share/benchmarking/ and the name should be in the form
+The capability file should have the name of the application or package and must have the extension ```.bench```.
+
+### Linux
+
+If part of a system install then capability files shall go into one of these directories:
 
 ```
-<binary name>.bench
+/usr/share/benchmarking/
+/usr/local/share/benchmarking/
 ```
 
-eg if the binary you want to run is called 'vkcube', then its capability file should be '/usr/share/benchmarking/vkcube.bench'.
+Otherwise, it shall be placed in the application directory and a symlink to it shall be created in
 
-Reasoning: There is no precedent for putting non-executable files into /usr/bin on Linux.
-
-### Linux - custom install
-
-If the binary is not part of a system package installation, or its executable is not installed in /usr/bin, then its capability file shall have the same name as the executable with the extension '.bench' added, and it shall reside in the same path as the executable.
-
-You **may** also add a symbolic link to it in $HOME/.local/share/benchmarking/ of the user doing the installation (if this directory does not exist, it should be created). The purpose of the symbolic link is to enable applications that want to discover benchmark-enabled apps on the system a way to do so. It makes more sense for applications with a more extensive support for this standard, supporting automation capabilities.
-
-Example: If Hades is installed into /opt/hades with its executable in /opt/hades/bin/hades, then its capability file shall be /opt/hades/bin/hades.bench
-
-Reasoning: While it may be tempting to attempt to replicate the logic of package system installs for other directories such as /opt and /usr/local, this would be hard without also mandating where apps can place their binaries, which is outside the scope of this standard. Therefore the only reliable location is next to the executable. This also neatly splits the responsibility for placing these files: Application developers and custom application installers (including 'make install') use this custom method, while package maintainers and packaging scripts use the system package method.
+```
+${HOME}/.local/share/benchmarking/
+```
 
 ## Benchmark mode activation
 
@@ -187,8 +186,7 @@ Example:
         "results": "path/to/results/file",
         "intent": "showcase",
         "settings": {
-                "example": "balanced"
-            }
+            "example": "balanced"
         },
         "capabilities": {
             "example": true
