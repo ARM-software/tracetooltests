@@ -2,8 +2,8 @@
 	"name": "gles_dummy_1",
 	"description": "Most basic test of GLES calls",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

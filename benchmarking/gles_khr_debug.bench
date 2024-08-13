@@ -2,8 +2,8 @@
 	"name": "gles_khr_debug",
 	"description": "Test of KHR_debug",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

@@ -2,8 +2,8 @@
 	"name": "gles_compute_2",
 	"description": "Test of GLES indirect compute calls",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

@@ -2,8 +2,8 @@
 	"name": "gles_ext_texture_cube_map_array",
 	"description": "Test of GL_TEXTURE_CUBE_MAP_ARRAY",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

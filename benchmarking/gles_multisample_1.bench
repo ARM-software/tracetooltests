@@ -2,8 +2,8 @@
 	"name": "gles_multisample_1",
 	"description": "Test of glTexStorage2DMultisample",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

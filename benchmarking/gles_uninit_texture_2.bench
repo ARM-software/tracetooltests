@@ -2,8 +2,8 @@
 	"name": "gles_uninit_texture_2",
 	"description": "Test of uninitialized textures",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

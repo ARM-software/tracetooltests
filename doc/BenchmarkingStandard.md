@@ -60,11 +60,11 @@ An actual example from this repository:
 	"name": "gles_bindbufferrange_1",
 	"description": "Test of glBindBufferRange",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
-		"gpu-frame-deterministic": "always",
-		"gpu-fully-deterministic": "always"
+		"gpu_frame_deterministic": "always",
+		"gpu_fully_deterministic": "always"
 	}
 }
 ```
@@ -119,6 +119,7 @@ The capabilities entry is a list of key-value pairs, where the key is one of tho
 | no_loading_screen | bool | true | The application is capable of turning off any loading screen that is shown while the application is starting up or changing scenes. Instead, no new frames should be rendered. |
 | visual_settings | number | one or higher | The application is capable of tuning its rendering quality by giving it a 1-100 value, where 1 is lowest and 100 is highest. If present in capabilities file, must be "option" or "never". |
 | loops | number | zero or higher | The application is capable of running its scenes in a loop with no or only a minimal scene loading between each loop iteration. The enable value gives the number of loops to be run, where zero means run in an infinite loop. This is useful in particular for measuring sustained performance, or measuring power, battery and temperature. If multiple scenes are activated, the order in which they loop is up to the application. If present in capabilities file, must be "option" or "never". |
+| loop_time | number | zero or higher | The application is capable of running its scenes in a loop as above but for a certain amount of time. If present in the enable file, this gives the number of seconds to run the loop for. |
 | gpu_delay_reuse | number | one or higher | The application is capable of delaying the reuse of GPU resources. The enable value gives the number of frames that resources must not be reused for. |
 | gpu_no_coherent | bool | true | The application is capable of behaving as if no coherent memory exists, and must explicitly call the graphics API to flush any modified memory before it is to be used for rendering. This allows for instance gfxreconstruct to run in 'assisted' tracing mode instead of using guard pages which may speed up runtime performance while tracing or avoid issues with guard pages. |
 | gpu_frame_deterministic | true | true | Whether the application generates a deterministic final rendering output. |

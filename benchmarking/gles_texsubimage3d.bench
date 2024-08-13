@@ -2,8 +2,8 @@
 	"name": "gles_texsubimage3d",
 	"description": "Test of glTexSubImage3D",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

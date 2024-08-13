@@ -2,8 +2,8 @@
 	"name": "gles_khr_blend_equation_advanced",
 	"description": "Test of KHR_blend_equation_advanced",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

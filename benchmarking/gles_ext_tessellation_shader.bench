@@ -2,8 +2,8 @@
 	"name": "gles_ext_tessellation_shader",
 	"description": "Test of GLES tessellation calls",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

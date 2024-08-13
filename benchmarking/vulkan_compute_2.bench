@@ -10,8 +10,8 @@
 	},
 	"capabilities": {
 		"loops": "option",
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"
 	}

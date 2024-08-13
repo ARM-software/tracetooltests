@@ -2,8 +2,8 @@
 	"name": "gles_indirectdraw_2",
 	"description": "Test of glDrawElementsIndirect",
 	"capabilities": {
-		"non-interactive": "always",
-		"fixed-framerate": "always",
+		"non_interactive": "always",
+		"fixed_framerate": "always",
 		"loops": "option",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"
