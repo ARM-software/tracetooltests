@@ -62,8 +62,8 @@ function(gles_test test_name)
 endfunction()
 
 function(vulkan_test_build test_name)
-	add_executable(vulkan_${ARGV0} src/util.cpp src/util.h src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h
-		src/vulkan_window_common.cpp src/vulkan_window_common.h)
+	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
+		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
 	target_link_directories(vulkan_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
@@ -193,6 +193,8 @@ vulkan_test_extra(vulkan_compute_1_test_5 compute_1 -i) # image output
 
 vulkan_test(compute_2)
 vulkan_test_extra(vulkan_compute_2_test_0 compute_2 -q 1 -s 1)
+
+vulkan_test(compute_3)
 
 vulkan_test(pipelinecache_1)
 vulkan_test(multidevice_1)

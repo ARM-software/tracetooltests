@@ -7,7 +7,9 @@
 
 #include <vector>
 #include <string>
+#include <variant>
 #include <unordered_set>
+#include <unordered_map>
 
 #ifdef NDEBUG
 #ifdef __clang__
@@ -53,6 +55,7 @@ struct vulkan_req_t // Vulkan context requirements
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
 	VkBaseInStructure* extension_features = nullptr;
 	bool fence_delay = false;
+	std::unordered_map<std::string, std::variant<int, bool, std::string>> options;
 };
 
 struct vulkan_setup_t

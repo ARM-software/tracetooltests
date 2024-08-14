@@ -1,4 +1,4 @@
-// Unit test to try out vulkan compute with variations
+// Minimal compute unit test
 // Based on https://github.com/Erkaman/vulkan_minimal_compute
 
 #include "vulkan_common.h"
@@ -11,71 +11,29 @@
 
 #include <cmath>
 
-static int fence_variant = 0;
-static bool indirect = false;
-static int indirectOffset = 0;
-
-struct pushconstants
+struct pixel
 {
-	float width;
-	float height;
+	float r, g, b, a;
 };
 
 static void show_usage()
 {
 	compute_usage();
-	printf("-f/--fence-variant N   Set fence variant (default %d)\n", fence_variant);
-	printf("\t0 - use vkWaitForFences\n");
-	printf("\t1 - use vkGetFenceStatus\n");
-	printf("-I/--indirect          Use indirect compute dispatch (default %d)\n", (int)indirect);
-	printf("  -ioff N              Use indirect compute dispatch buffer with this offset multiple (default %d)\n", indirectOffset);
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-f", "--fence-variant"))
-	{
-		fence_variant = get_arg(argv, ++i, argc);
-		return (fence_variant >= 0 && fence_variant <= 1);
-	}
-	else if (match(argv[i], "-ioff", "--indirect-offset"))
-	{
-		indirectOffset = get_arg(argv, ++i, argc);
-		return true;
-	}
-	else if (match(argv[i], "-I", "--indirect"))
-	{
-		indirect = true;
-		return true;
-	}
 	return compute_cmdopt(i, argc, argv, reqs);
-}
-
-static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
-{
-	if (fence_variant == 0)
-	{
-		VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
-		check(result);
-	}
-	else if (fence_variant == 1)
-	{
-		VkResult result = VK_NOT_READY;
-		do
-		{
-			result = vkGetFenceStatus(vulkan.device, fence);
-			assert(result != VK_ERROR_DEVICE_LOST);
-			if (result != VK_SUCCESS) usleep(10);
-		} while (result != VK_SUCCESS);
-	}
 }
 
 int main(int argc, char** argv)
 {
 	vulkan_req_t req;
+	req.options["width"] = 640;
+	req.options["height"] = 480;
 	req.usage = show_usage;
 	req.cmdopt = test_cmdopt;
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_1", req);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_3", req);
 	compute_resources r = compute_init(vulkan, req);
 	const int width = std::get<int>(req.options.at("width"));
 	const int height = std::get<int>(req.options.at("height"));
@@ -122,45 +80,6 @@ int main(int argc, char** argv)
 	writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
 	vkUpdateDescriptorSets(vulkan.device, 1, &writeDescriptorSet, 0, NULL);
 
-	if (indirect)
-	{
-		VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
-		bufferCreateInfo.size = sizeof(VkDispatchIndirectCommand) * (1 + indirectOffset);
-		bufferCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &r.indirectBuffer);
-		assert(result == VK_SUCCESS);
-
-		VkMemoryRequirements memory_requirements;
-		vkGetBufferMemoryRequirements(vulkan.device, r.indirectBuffer, &memory_requirements);
-		const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
-		const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
-
-		VkMemoryAllocateFlagsInfo flaginfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr, 0, 0 };
-		VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
-		if (vulkan.apiVersion >= VK_API_VERSION_1_1)
-		{
-			pAllocateMemInfo.pNext = &flaginfo;
-		}
-		pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-		pAllocateMemInfo.allocationSize = aligned_size * (indirectOffset + 1);
-		result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &r.indirectMemory);
-		check(result);
-		assert(r.indirectMemory != VK_NULL_HANDLE);
-
-		result = vkBindBufferMemory(vulkan.device, r.indirectBuffer, r.indirectMemory, indirectOffset * aligned_size);
-		check(result);
-
-		uint32_t* data = nullptr;
-		result = vkMapMemory(vulkan.device, r.indirectMemory, indirectOffset * aligned_size, aligned_size, 0, (void**)&data);
-		assert(result == VK_SUCCESS);
-		data[0] = ceil(width / float(workgroup_size));
-		data[1] = ceil(height / float(workgroup_size));
-		data[2] = 1;
-		vkUnmapMemory(vulkan.device, r.indirectMemory);
-	}
-
 	uint32_t code_size = long(ceil(vulkan_compute_1_spirv_len / 4.0)) * 4;
 	r.code.resize(code_size);
 	memcpy(r.code.data(), vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
@@ -173,14 +92,7 @@ int main(int argc, char** argv)
 	check(result);
 	vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
 	vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
-	if (indirect)
-	{
-		vkCmdDispatchIndirect(r.commandBuffer, r.indirectBuffer, indirectOffset * sizeof(VkDispatchIndirectCommand));
-	}
-	else
-	{
-		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
-	}
+	vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
 	result = vkEndCommandBuffer(r.commandBuffer);
 	check(result);
 
@@ -195,14 +107,14 @@ int main(int argc, char** argv)
 
 	result = vkQueueSubmit(r.queue, 1, &submitInfo, r.fence);
 	check(result);
-	waitfence(vulkan, r.fence);
+
+	result = vkWaitForFences(vulkan.device, 1, &r.fence, VK_TRUE, UINT32_MAX);
+	check(result);
 
 	compute_done(vulkan, r, req);
 	vkDestroyFence(vulkan.device, r.fence, NULL);
 	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
-	if (indirect) vkDestroyBuffer(vulkan.device, r.indirectBuffer, NULL);
 	testFreeMemory(vulkan, r.memory);
-	if (indirect) testFreeMemory(vulkan, r.indirectMemory);
 	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
 	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
