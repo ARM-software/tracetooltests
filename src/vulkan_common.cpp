@@ -500,7 +500,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	return vulkan;
 }
 
-acceleration_structures::functions  acceleration_structures::query_acceleration_structure_functions(const vulkan_setup_t& vulkan)
+acceleration_structures::functions acceleration_structures::query_acceleration_structure_functions(const vulkan_setup_t& vulkan)
 {
 	acceleration_structures::functions functions{};
 	functions.vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCreateAccelerationStructureKHR"));

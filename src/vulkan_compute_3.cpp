@@ -96,31 +96,7 @@ int main(int argc, char** argv)
 	result = vkEndCommandBuffer(r.commandBuffer);
 	check(result);
 
-	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &r.commandBuffer;
-
-	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
-	fenceCreateInfo.flags = 0;
-	result = vkCreateFence(vulkan.device, &fenceCreateInfo, NULL, &r.fence);
-	check(result);
-
-	result = vkQueueSubmit(r.queue, 1, &submitInfo, r.fence);
-	check(result);
-
-	result = vkWaitForFences(vulkan.device, 1, &r.fence, VK_TRUE, UINT32_MAX);
-	check(result);
-
+	compute_submit(vulkan, r, req);
 	compute_done(vulkan, r, req);
-	vkDestroyFence(vulkan.device, r.fence, NULL);
-	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
-	testFreeMemory(vulkan, r.memory);
-	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
-	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
-	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
-	vkDestroyPipelineLayout(vulkan.device, r.pipelineLayout, NULL);
-	vkDestroyPipeline(vulkan.device, r.pipeline, NULL);
-	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
-
 	test_done(vulkan);
 }

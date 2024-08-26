@@ -13,18 +13,19 @@ void compute_usage()
 	printf("-wg/--workgroup-size   Set workgroup size (default 32)\n");
 	printf("-pc/--pipelinecache    Add a pipeline cache to compute pipeline. By default it is empty.\n");
 	printf("-pcf/--cachefile N     Save and restore pipeline cache to/from file N\n");
+	printf("-fb/--frame-boundary   Use frameboundary extension to publicize output\n");
 }
 
 bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
 	if (match(argv[i], "-i", "--image-output"))
 	{
-		reqs.options["image_output"] = 1;
+		reqs.options["image_output"] = true;
 		return true;
 	}
 	else if (match(argv[i], "-pc", "--pipelinecache"))
 	{
-		reqs.options["pipelinecache"] = 1;
+		reqs.options["pipelinecache"] = true;
 		return true;
 	}
 	else if (match(argv[i], "-pcf", "--cachefile"))
@@ -45,6 +46,15 @@ bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-wg", "--workgroup-size"))
 	{
 		reqs.options["wg_size"] = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-fb", "--frame-boundary"))
+	{
+		reqs.options["frame_boundary"] = true;
+		reqs.device_extensions.push_back("VK_EXT_frame_boundary");
+		static VkPhysicalDeviceFrameBoundaryFeaturesEXT fbfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr, VK_TRUE };
+		fbfeats.pNext = reqs.extension_features; // chain them if there are any existing ones
+		reqs.extension_features = (VkBaseInStructure*)&fbfeats;
 		return true;
 	}
 	return false;
@@ -118,6 +128,40 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	return r;
 }
 
+void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
+{
+	VkFence fence;
+
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &r.commandBuffer;
+
+	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
+	fenceCreateInfo.flags = 0;
+	VkResult result = vkCreateFence(vulkan.device, &fenceCreateInfo, NULL, &fence);
+	check(result);
+
+	VkFrameBoundaryEXT fbinfo = { VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, nullptr };
+	fbinfo.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+	fbinfo.frameID = 0;
+	fbinfo.imageCount = 0;
+	fbinfo.pImages = nullptr;
+	fbinfo.bufferCount = 1;
+	fbinfo.pBuffers = &r.buffer;
+	if (reqs.options.count("frame_boundary"))
+	{
+		submitInfo.pNext = &fbinfo;
+	}
+
+	result = vkQueueSubmit(r.queue, 1, &submitInfo, fence);
+	check(result);
+
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
+	check(result);
+
+	vkDestroyFence(vulkan.device, fence, nullptr);
+}
+
 void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
 {
 	if (reqs.options.count("image_output"))
@@ -138,6 +182,14 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 		ILOG("Saved pipeline cache data to %s", file.c_str());
 		vkDestroyPipelineCache(vulkan.device, r.cache, nullptr);
 	}
+	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
+	testFreeMemory(vulkan, r.memory);
+	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
+	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
+	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
+	vkDestroyPipelineLayout(vulkan.device, r.pipelineLayout, NULL);
+	vkDestroyPipeline(vulkan.device, r.pipeline, NULL);
+	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
 }
 
 void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
