@@ -82,10 +82,11 @@ demo texturecubemap
 demo texturecubemaparray
 demo texturemipmapgen
 ( vulkaninfo | grep -e sparseResidencyImage2D | grep -e 1 > /dev/null ) && demo texturesparseresidency
-#demo variablerateshading # uses VK_NV_shading_rate_image, not VK_KHR_fragment_shading_rate
+( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && demo variablerateshading
 demo vertexattributes
 demo viewportarray
 demo vulkanscene
 demo occlusionquery
 ( vulkaninfo | grep -e VK_EXT_descriptor_buffer > /dev/null ) && demo descriptorbuffer
 ( vulkaninfo | grep -e VK_EXT_dynamic_state > /dev/null ) && demo dynamicstate
+( vulkaninfo | grep -e VK_EXT_host_image_copy > /dev/null ) && demo hostimagecopy
