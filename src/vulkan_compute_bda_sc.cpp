@@ -125,6 +125,7 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	reqs.bufferDeviceAddress = true;
+	reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_sc", reqs);
 	compute_resources r = compute_init(vulkan, reqs);
 	const int width = std::get<int>(reqs.options.at("width"));

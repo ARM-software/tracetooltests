@@ -294,13 +294,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		vulkan.instance = reqs.instance;
 	}
 
+	// Set up the feature pnext chain
+	reqs.reqfeat13.pNext = reqs.extension_features;
+	if (reqs.apiVersion < VK_API_VERSION_1_3) reqs.reqfeat12.pNext = reqs.extension_features;
+	if (reqs.apiVersion < VK_API_VERSION_1_2) reqs.reqfeat11.pNext = reqs.extension_features;
+
 	// Create logical device
-	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, reqs.extension_features };
-	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
-	if (reqs.apiVersion < VK_API_VERSION_1_3) reqfeat12.pNext = reqs.extension_features;
-	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
-	if (reqs.apiVersion < VK_API_VERSION_1_2) reqfeat11.pNext = reqs.extension_features;
-	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t num_devices = 0;
 	VkResult result = vkEnumeratePhysicalDevices(vulkan.instance, &num_devices, nullptr);
 	check(result);
@@ -348,23 +347,20 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		exit(77);
 	}
 
+	// Get physical device capabilities
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
-		VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
-		VkPhysicalDeviceVulkan12Features feat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &feat13 };
-		VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &feat12 };
-		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &feat11 };
-		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
-		if (reqs.samplerAnisotropy && !feat2.features.samplerAnisotropy) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
-		if (reqs.bufferDeviceAddress && !feat12.bufferDeviceAddress) { printf("Buffer device address required but not supported!\n"); exit(77); }
-		if (feat13.synchronization2 == VK_TRUE) reqfeat13.synchronization2 = VK_TRUE;
+		vkGetPhysicalDeviceFeatures2(vulkan.physical, &vulkan.hasfeat2);
+		if (reqs.samplerAnisotropy && !vulkan.hasfeat2.features.samplerAnisotropy) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
+		if (reqs.reqfeat12.bufferDeviceAddress && !vulkan.hasfeat12.bufferDeviceAddress) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
+		if (reqs.bufferDeviceAddress && !vulkan.hasfeat12.bufferDeviceAddress) { printf("Buffer device address required but not supported!\n"); exit(77); }
+		if (vulkan.hasfeat13.synchronization2 == VK_TRUE) reqs.reqfeat13.synchronization2 = VK_TRUE;
 	}
 	else // vulkan 1.0 mode
 	{
 		assert(!reqs.bufferDeviceAddress);
-		VkPhysicalDeviceFeatures feat = {};
-		vkGetPhysicalDeviceFeatures(vulkan.physical, &feat);
-		if (reqs.samplerAnisotropy) assert(feat.samplerAnisotropy);
+		vkGetPhysicalDeviceFeatures(vulkan.physical, &vulkan.hasfeat2.features);
+		if (reqs.samplerAnisotropy) assert(vulkan.hasfeat2.features.samplerAnisotropy);
 	}
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
@@ -393,18 +389,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	deviceInfo.pQueueCreateInfos = &queueCreateInfo;
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
-	if (reqs.samplerAnisotropy) reqfeat2.features.samplerAnisotropy = VK_TRUE;
+	if (reqs.samplerAnisotropy) reqs.reqfeat2.features.samplerAnisotropy = VK_TRUE;
 	if (reqs.bufferDeviceAddress)
 	{
-		reqfeat12.bufferDeviceAddress = VK_TRUE;
+		reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	}
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 2)
 	{
-		deviceInfo.pNext = &reqfeat2;
+		deviceInfo.pNext = &reqs.reqfeat2;
 	}
 	else
 	{
-		deviceInfo.pEnabledFeatures = &reqfeat2.features;
+		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
 	}
 
 	std::vector<const char*> enabledExtensions;
