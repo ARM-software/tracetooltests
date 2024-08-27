@@ -10,6 +10,7 @@
 	},
 	"capabilities": {
 		"non_interactive": "always",
+		"frameless": "opt-out",
 		"fixed_framerate": "always",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"

@@ -262,6 +262,7 @@ int main(int argc, char** argv)
 	for (unsigned i = 0; i < nodes; i++) result = vkCreateFence(vulkan.device, &fenceCreateInfo, NULL, &fences.at(i));
 	check(result);
 
+	bench_start_scene(vulkan.bench, "compute_2");
 	for (unsigned i = 0; i < times; i++)
 	{
 		bench_start_iteration(vulkan.bench);
@@ -291,9 +292,12 @@ int main(int argc, char** argv)
 		bench_stop_iteration(vulkan.bench);
 	}
 
-	// TBD : hash and verify each image by checksumming it
-
-	if (output) test_save_image(vulkan, "mandelbrot.png", r.memory, 0, width, height);
+	if (output)
+	{
+		test_save_image(vulkan, "mandelbrot.png", r.memory, 0, width, height);
+		bench_stop_scene(vulkan.bench, "mandelbrot.png");
+	}
+	else bench_stop_scene(vulkan.bench);
 
 	for (unsigned i = 0; i < nodes; i++) vkDestroyFence(vulkan.device, fences.at(i), NULL);
 	for (unsigned i = 0; i < nodes; i++) vkDestroyBuffer(vulkan.device, r.buffer.at(i), NULL);

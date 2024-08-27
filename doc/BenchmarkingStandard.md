@@ -124,6 +124,8 @@ The capabilities entry is a list of key-value pairs, where the key is one of tho
 | gpu_no_coherent | bool | true | The application is capable of behaving as if no coherent memory exists, and must explicitly call the graphics API to flush any modified memory before it is to be used for rendering. This allows for instance gfxreconstruct to run in 'assisted' tracing mode instead of using guard pages which may speed up runtime performance while tracing or avoid issues with guard pages. |
 | gpu_frame_deterministic | true | true | Whether the application generates a deterministic final rendering output. |
 | gpu_fully_deterministic | true | true | Whether the application generates deterministic rendering outputs from every GPU compute or rendering step. |
+| frameless | true | true | Whether the application does not present graphical frames. If opt-out and frameless is disabled in the enable file, then it must add present or frame boundary calls. |
+| file_output | true | true | Whether the application is capable of or will generate outputs for each scene as files in the filesystem. |
 
 ### Adaptations
 
@@ -271,6 +273,9 @@ Results fields:
 | stop_marker | No | As above, but for the stop point of the scene. |
 | start_time | No | The time in milliseconds since Epoch that the scene started. |
 | stop_time | No | As above, but when scene ended. If present, ```start_time``` must also be present, and (```stop_time``` - ```start_time```) must be equal to ```time```. |
+| output | No | If the scene generates output as a file, in which case this field gives the filename of this file. |
+| output_type | No | If the scene generates output as a file, this field can give the type of output. It can be one of 'png', 'jpeg' or 'csv'. The deterministic capability values apply to this output. |
+| validated | If frameless | True if the application has validated its own output to verify that it works correctly. This is usually only applicable to compute content. |
 
 ## CMake integration
 

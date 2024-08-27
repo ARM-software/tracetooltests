@@ -38,7 +38,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 static const char* case_1(vulkan_setup_t& vulkan, bool active)
 {
 	VkResult r;
-	bench_set_scene(vulkan.bench, "case 1 : vkEnumeratePhysicalDeviceGroups");
+	bench_start_scene(vulkan.bench, "case 1 : vkEnumeratePhysicalDeviceGroups");
 	if (active) bench_start_iteration(vulkan.bench);
 	for (int i = 0; i < loops; i++)
 	{
@@ -58,7 +58,7 @@ static const char* case_2(vulkan_setup_t& vulkan, bool active)
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(r);
-	bench_set_scene(vulkan.bench, "case 2 : vkGetFenceStatus");
+	bench_start_scene(vulkan.bench, "case 2 : vkGetFenceStatus");
 	if (active) bench_start_iteration(vulkan.bench);
 	for (int i = 0; i < loops; i++)
 	{

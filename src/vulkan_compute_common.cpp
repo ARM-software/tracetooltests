@@ -50,12 +50,7 @@ bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	}
 	else if (match(argv[i], "-fb", "--frame-boundary"))
 	{
-		reqs.options["frame_boundary"] = true;
-		reqs.device_extensions.push_back("VK_EXT_frame_boundary");
-		static VkPhysicalDeviceFrameBoundaryFeaturesEXT fbfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr, VK_TRUE };
-		fbfeats.pNext = reqs.extension_features; // chain them if there are any existing ones
-		reqs.extension_features = (VkBaseInStructure*)&fbfeats;
-		return true;
+		return enable_frame_boundary(reqs);
 	}
 	return false;
 }
@@ -125,6 +120,9 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
 	check(result);
 
+	bench_start_scene(vulkan.bench, "compute");
+	bench_start_iteration(vulkan.bench);
+
 	return r;
 }
 
@@ -159,6 +157,8 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
 	check(result);
 
+	bench_stop_iteration(vulkan.bench);
+
 	vkDestroyFence(vulkan.device, fence, nullptr);
 }
 
@@ -167,7 +167,9 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 	if (reqs.options.count("image_output"))
 	{
 		test_save_image(vulkan, "compute.png", r.memory, 0, std::get<int>(reqs.options.at("width")), std::get<int>(reqs.options.at("height")));
+		bench_stop_scene(vulkan.bench, "compute.png");
 	}
+	else bench_stop_scene(vulkan.bench);
 
 	if (reqs.options.count("pipelinecache") && reqs.options.count("cachefile"))
 	{

@@ -124,6 +124,7 @@ struct benchmarking
 	std::string test_name;
 	std::string results_file; // path to results file
 	std::vector<std::string> scene_name;
+	std::vector<std::string> scene_result_file;
 	std::string backend_name;
 };
 
@@ -141,7 +142,8 @@ static inline void bench_done(benchmarking& b)
 }
 static inline void bench_start_iteration(benchmarking& b) { b.latest_time = gettime(); }
 static inline void bench_stop_iteration(benchmarking& b) { b.results.push_back({ b.latest_time, gettime(), std::max<int>(0, (int)b.scene_name.size() - 1) }); }
-static inline void bench_set_scene(benchmarking& b, const std::string& scene_name) { b.scene_name.push_back(scene_name); }
+static inline void bench_start_scene(benchmarking& b, const std::string& scene_name) { b.scene_name.push_back(scene_name); }
+static inline void bench_stop_scene(benchmarking& b, const std::string& filename = std::string()) { b.scene_result_file.push_back(filename); }
 
 static inline bool is_debug() { return p__debug_level; }
 char keypress();

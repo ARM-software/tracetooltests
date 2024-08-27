@@ -87,6 +87,17 @@ static void print_usage(const vulkan_req_t& reqs)
 	exit(1);
 }
 
+bool enable_frame_boundary(vulkan_req_t& reqs)
+{
+	reqs.options["frame_boundary"] = true;
+	reqs.device_extensions.push_back("VK_EXT_frame_boundary");
+	static VkPhysicalDeviceFrameBoundaryFeaturesEXT fbfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr, VK_TRUE };
+	fbfeats.pNext = reqs.extension_features; // chain them if there are any existing ones
+	reqs.extension_features = (VkBaseInStructure*)&fbfeats;
+	printf("Enabling frame boundary extension\n");
+	return true;
+}
+
 static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* testname)
 {
 	const char* enable_json = getenv("BENCHMARKING_ENABLE_JSON");
@@ -117,6 +128,7 @@ static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* 
 		nlohmann::json caps = data.at("capabilities");
 
 		reqs.fence_delay = caps.value("gpu_delay_reuse", false);
+		if (caps.count("frameless") && caps.value("frameless", true) == false) enable_frame_boundary(reqs);
 		p__loops = caps.value("loops", p__loops);
 		// TBD: gpu_no_coherent
 	}

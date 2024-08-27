@@ -11,6 +11,7 @@
 	"capabilities": {
 		"loops": "option",
 		"non_interactive": "always",
+		"frameless": "always",
 		"fixed_framerate": "always",
 		"gpu-frame-deterministic": "always",
 		"gpu-fully-deterministic": "always"
