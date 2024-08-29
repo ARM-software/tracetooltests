@@ -158,8 +158,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
-	std::unordered_set<std::string> instance_required(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // temp copy
-	std::unordered_set<std::string> device_required(reqs.device_extensions.begin(), reqs.device_extensions.end()); // temp copy
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_debug_utils = false;
@@ -177,9 +175,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	// Parse bench enable file, if any
 	check_bench(vulkan, reqs, testname.c_str());
 	vulkan.bench.backend_name = "Vulkan " + api;
-
-	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
-	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -218,6 +213,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			}
 		}
 	}
+
+	std::unordered_set<std::string> instance_required(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // temp copy
+	std::unordered_set<std::string> device_required(reqs.device_extensions.begin(), reqs.device_extensions.end()); // temp copy
+	vulkan.instance_extensions.insert(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // permanent copy
+	vulkan.device_extensions.insert(reqs.device_extensions.begin(), reqs.device_extensions.end()); // permanent copy
 
 	// Create instance
 	if (reqs.instance == VK_NULL_HANDLE)
