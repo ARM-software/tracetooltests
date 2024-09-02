@@ -439,20 +439,19 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			has_tooling_obj_property = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		// Official frame boundary extension
-		else if (strcmp(s.extensionName, VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME) == 0)
-		{
-			enabledExtensions.push_back(s.extensionName);
-			pdfbfinfo.pNext = (void*)deviceInfo.pNext;
-			pdfbfinfo.frameBoundary = VK_TRUE;
-			deviceInfo.pNext = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)&pdfbfinfo;
-			vulkan.device_extensions.insert(s.extensionName);
-		}
 
 		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
 		{
 			enabledExtensions.push_back(str.c_str());
 			device_required.erase(str);
+
+			// Official frame boundary extension required and supported
+			if (strcmp(s.extensionName, VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME) == 0)
+			{
+				pdfbfinfo.pNext = (void*)deviceInfo.pNext;
+				pdfbfinfo.frameBoundary = VK_TRUE;
+				deviceInfo.pNext = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)&pdfbfinfo;
+			}
 		}
 	}
 	if (enabledExtensions.size() > 0) printf("Required device extensions:\n");
