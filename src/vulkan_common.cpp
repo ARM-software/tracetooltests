@@ -1,6 +1,7 @@
 #include "vulkan_common.h"
 #include "external/json.hpp"
 #include <fstream>
+#include <spirv/unified1/spirv.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb_image_write.h"
@@ -860,4 +861,21 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		offset += aligned_size;
 	}
 	return aligned_size;
+}
+
+bool shader_has_buffer_devices_addresses(const uint32_t* code, uint32_t code_size)
+{
+	uint16_t opcode;
+	uint16_t word_count;
+	const uint32_t* insn = code + 5;
+	assert(code_size % 4 == 0); // aligned
+	code_size /= 4; // from bytes to words
+	do {
+		opcode = uint16_t(insn[0]);
+		word_count = uint16_t(insn[0] >> 16);
+		if (opcode == SpvOpExtension && strcmp((char*)&insn[2], "KHR_physical_storage_buffer") == 0) return true;
+		insn += word_count;
+	}
+	while (insn != code + code_size && opcode != SpvOpMemoryModel);
+	return false;
 }

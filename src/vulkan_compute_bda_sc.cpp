@@ -5,9 +5,9 @@
 #include "vulkan_compute_common.h"
 
 // contains our compute shader, generated with:
-//   glslangValidator -V vulkan_compute_1.comp -o vulkan_compute_1.spirv
-//   xxd -i vulkan_compute_1.spirv > vulkan_compute_1.inc
-#include "vulkan_compute_1.inc"
+//   glslangValidator -V vulkan_compute_bda_sc.comp -o vulkan_compute_bda_sc.spirv
+//   xxd -i vulkan_compute_bda_sc.spirv > vulkan_compute_bda_sc.inc
+#include "vulkan_compute_bda_sc.inc"
 
 #include <cmath>
 
@@ -33,6 +33,7 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 	createInfo.codeSize = r.code.size();
 	VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
 	check(result);
+	assert(shader_has_buffer_devices_addresses(r.code.data(), r.code.size()));
 
 	std::vector<VkSpecializationMapEntry> smentries(7);
 	for (unsigned i = 0; i < smentries.size(); i++)
@@ -173,9 +174,9 @@ int main(int argc, char** argv)
 	writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
 	vkUpdateDescriptorSets(vulkan.device, 1, &writeDescriptorSet, 0, NULL);
 
-	uint32_t code_size = long(ceil(vulkan_compute_1_spirv_len / 4.0)) * 4;
+	uint32_t code_size = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4;
 	r.code.resize(code_size);
-	memcpy(r.code.data(), vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
+	memcpy(r.code.data(), vulkan_compute_bda_sc_spirv, vulkan_compute_bda_sc_spirv_len);
 
 	VkBufferDeviceAddressInfo bdainfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	bdainfo.buffer = r.buffer;
