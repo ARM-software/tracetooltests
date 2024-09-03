@@ -30,7 +30,7 @@ bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	}
 	else if (match(argv[i], "-pcf", "--cachefile"))
 	{
-		reqs.options["cachefile"] = get_string_arg(argv, ++i, argc);
+		reqs.options["cachefile"] = std::string(get_string_arg(argv, ++i, argc));
 		return true;
 	}
 	else if (match(argv[i], "-W", "--width"))
