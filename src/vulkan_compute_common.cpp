@@ -67,8 +67,8 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	if (!reqs.options.count("height")) reqs.options["height"] = 480;
 	if (!reqs.options.count("wg_size")) reqs.options["wg_size"] = 32;
 
-	const int width = std::get<int>(reqs.options.at("width"));
-	const int height = std::get<int>(reqs.options.at("height"));
+	const uint32_t width = std::get<int>(reqs.options.at("width"));
+	const uint32_t height = std::get<int>(reqs.options.at("height"));
 	r.buffer_size = sizeof(pixel) * width * height;
 
 	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
@@ -94,16 +94,48 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	commandBufferAllocateInfo.commandBufferCount = 1;
 	result = vkAllocateCommandBuffers(vulkan.device, &commandBufferAllocateInfo, &r.commandBuffer);
 	check(result);
+	result = vkAllocateCommandBuffers(vulkan.device, &commandBufferAllocateInfo, &r.commandBufferFrameBoundary);
+	check(result);
 
-	VkMemoryRequirements memory_requirements;
+	// Create an image for the frame boundary, in case we need it
+	const uint32_t queueFamilyIndex = 0;
+	VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
+	imageCreateInfo.flags = 0;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageCreateInfo.extent.width = width;
+	imageCreateInfo.extent.height = height;
+	imageCreateInfo.extent.depth = 1;
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.queueFamilyIndexCount = 1;
+	imageCreateInfo.pQueueFamilyIndices = &queueFamilyIndex;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &r.image);
+	check(result);
+
+	VkMemoryRequirements memory_requirements = {};
+	vkGetImageMemoryRequirements(vulkan.device, r.image, &memory_requirements);
+	VkMemoryPropertyFlagBits memoryflags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memoryflags);
+	uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
+	const uint32_t aligned_image_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+	uint32_t total_size = aligned_image_size;
+
 	vkGetBufferMemoryRequirements(vulkan.device, r.buffer, &memory_requirements);
-	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	const uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
-	const uint32_t aligned_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+	const uint32_t memoryTypeIndex2 = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	assert(memoryTypeIndex == memoryTypeIndex2); // else we're in trouble here
+	align_mod = memory_requirements.size % memory_requirements.alignment;
+	const uint32_t aligned_buffer_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+	total_size += aligned_buffer_size;
 
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = aligned_size;
+	pAllocateMemInfo.allocationSize = total_size;
 	VkMemoryAllocateFlagsInfo flaginfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr, 0, 0 };
 	if (vulkan.apiVersion >= VK_API_VERSION_1_1)
 	{
@@ -120,6 +152,13 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
 	check(result);
 
+	VkBindImageMemoryInfo bindInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
+	bindInfo.image = r.image;
+	bindInfo.memory = r.memory;
+	bindInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
+	result = vkBindImageMemory2(vulkan.device, 1, &bindInfo);
+	check(result);
+
 	bench_start_scene(vulkan.bench, "compute");
 	bench_start_iteration(vulkan.bench);
 
@@ -129,11 +168,6 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
 {
 	VkFence fence;
-
-	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &r.commandBuffer;
-
 	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
 	fenceCreateInfo.flags = 0;
 	VkResult result = vkCreateFence(vulkan.device, &fenceCreateInfo, NULL, &fence);
@@ -142,15 +176,41 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	VkFrameBoundaryEXT fbinfo = { VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, nullptr };
 	fbinfo.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
 	fbinfo.frameID = 0;
-	fbinfo.imageCount = 0;
-	fbinfo.pImages = nullptr;
-	fbinfo.bufferCount = 1;
-	fbinfo.pBuffers = &r.buffer;
+	fbinfo.imageCount = 1;
+	fbinfo.pImages = &r.image;
+	fbinfo.bufferCount = 0;
+	fbinfo.pBuffers = nullptr;
+
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	std::vector<VkCommandBuffer> cmdbufs;
+	cmdbufs.push_back(r.commandBuffer);
+	submitInfo.commandBufferCount = 1;
 	if (reqs.options.count("frame_boundary"))
 	{
+		const uint32_t width = std::get<int>(reqs.options.at("width"));
+		const uint32_t height = std::get<int>(reqs.options.at("height"));
+
+		VkImageSubresourceLayers srlayer = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 }; // aspect mask, mip level, layer, layer count
+		VkBufferImageCopy region = {};
+		region.bufferOffset = 0;
+		region.bufferRowLength = width; // in texels
+		region.bufferImageHeight = height;
+		region.imageSubresource = srlayer;
+		region.imageOffset = { 0, 0, 0 };
+		region.imageExtent = { width, height, 1 };
+
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
+		check(result);
+		vkCmdCopyBufferToImage(r.commandBufferFrameBoundary, r.buffer, r.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+		result = vkEndCommandBuffer(r.commandBuffer);
+		check(result);
+		submitInfo.commandBufferCount++;
+		cmdbufs.push_back(r.commandBufferFrameBoundary);
 		submitInfo.pNext = &fbinfo;
 	}
-
+	submitInfo.pCommandBuffers = cmdbufs.data();
 	result = vkQueueSubmit(r.queue, 1, &submitInfo, fence);
 	check(result);
 
@@ -184,6 +244,7 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 		ILOG("Saved pipeline cache data to %s", file.c_str());
 		vkDestroyPipelineCache(vulkan.device, r.cache, nullptr);
 	}
+	if (r.image) vkDestroyImage(vulkan.device, r.image, NULL);
 	vkDestroyBuffer(vulkan.device, r.buffer, NULL);
 	testFreeMemory(vulkan, r.memory);
 	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);

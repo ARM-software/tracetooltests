@@ -18,6 +18,10 @@ struct compute_resources
 	VkPipelineCache cache = VK_NULL_HANDLE;
 	std::vector<uint32_t> code;
 	int buffer_size = -1;
+
+	// used for frame boundary extension
+	VkImage image = VK_NULL_HANDLE;
+	VkCommandBuffer commandBufferFrameBoundary = VK_NULL_HANDLE;
 };
 
 bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
