@@ -204,7 +204,7 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 		result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
 		check(result);
 		vkCmdCopyBufferToImage(r.commandBufferFrameBoundary, r.buffer, r.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
-		result = vkEndCommandBuffer(r.commandBuffer);
+		result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
 		check(result);
 		submitInfo.commandBufferCount++;
 		cmdbufs.push_back(r.commandBufferFrameBoundary);
