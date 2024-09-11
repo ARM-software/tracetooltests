@@ -67,6 +67,16 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 	shaderStageCreateInfo.pName = "main";
 	shaderStageCreateInfo.pSpecializationInfo = &specInfo;
 
+	VkBufferDeviceAddressSpecializationConstantMarkingTTT bdascm = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_SPECIALIZATION_CONSTANT_MARKING_TTT, nullptr };
+	VkBufferDeviceAddressPairTTT bdapair = { 5, 6 };
+	bdascm.markings.pairCount = 1;
+	bdascm.markings.pPairs = &bdapair;
+	if (vulkan.bda_marking_supported)
+	{
+		bdascm.pNext = shaderStageCreateInfo.pNext;
+		shaderStageCreateInfo.pNext = &bdascm;
+	}
+
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
 	pipelineLayoutCreateInfo.setLayoutCount = 0;
 	pipelineLayoutCreateInfo.pSetLayouts = nullptr;

@@ -440,6 +440,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			has_tooling_obj_property = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
+		else if (strcmp(s.extensionName, VK_TTT_BUFFER_DEVICE_ADDRESS_MARKING_EXTENSION_NAME) == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			vulkan.bda_marking_supported = true;
+			vulkan.device_extensions.insert(s.extensionName);
+		}
 
 		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
 		{

@@ -82,6 +82,7 @@ struct vulkan_setup_t
 	VkPhysicalDeviceProperties device_properties = {};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
+	bool bda_marking_supported = false;
 };
 
 namespace acceleration_structures

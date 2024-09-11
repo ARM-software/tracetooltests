@@ -75,11 +75,21 @@ static void bda_pushconstant_create_pipeline(vulkan_setup_t& vulkan, compute_res
 	pushrange.size = sizeof(PushConstants);
 	pushrange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+	VkBufferDeviceAddressPushConstantMarkingTTT bdapcm = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_SPECIALIZATION_CONSTANT_MARKING_TTT, nullptr };
+	VkBufferDeviceAddressPairTTT bdapair = { 0, 1 };
+	VkBufferDeviceAddressListTTT bdalist = { 1, &bdapair };
+	bdapcm.pMarkings = &bdalist;
+
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
 	pipelineLayoutCreateInfo.setLayoutCount = 0;
 	pipelineLayoutCreateInfo.pSetLayouts = nullptr;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushrange;
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+	if (vulkan.bda_marking_supported)
+	{
+		bdapcm.pNext = shaderStageCreateInfo.pNext;
+		pipelineLayoutCreateInfo.pNext = &bdapcm;
+	}
 	result = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutCreateInfo, NULL, &r.pipelineLayout);
 	check(result);
 
@@ -149,10 +159,11 @@ int main(int argc, char** argv)
 	r.code.resize(code_size);
 	memcpy(r.code.data(), vulkan_compute_bda_pushconstant_spirv, vulkan_compute_bda_pushconstant_spirv_len);
 
+	bda_pushconstant_create_pipeline(vulkan, r, reqs);
+
 	VkBufferDeviceAddressInfo bdainfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	bdainfo.buffer = r.buffer;
 	constants.address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
-	bda_pushconstant_create_pipeline(vulkan, r, reqs);
 
 	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

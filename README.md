@@ -90,6 +90,9 @@ vkGetLayerObjectPropertyTRACETOOLTEST(VkInstance instance, VkObjectType objectTy
 uint64_t objectHandle, VkLayerObjectPropertyTRACETOOLTEST valueType) which can request
 layer internal information from the layer supporting this extension.
 
+VK_TRACETOOLTEST_buffer_device_address_marking - defines three new pNext structs
+that can be used to mark where buffer device addresses are.
+
 Private GLES extensions
 -----------------------
 
