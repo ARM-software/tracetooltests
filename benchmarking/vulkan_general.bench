@@ -9,10 +9,25 @@
 		}
 	},
 	"capabilities": {
-		"non_interactive": "always",
-		"fixed_framerate": "always",
-		"gpu_delay_reuse": "option",
-		"gpu_frame_deterministic": "always",
-		"gpu_fully_deterministic": "always"
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_delay_reuse": {
+			"default": 1,
+			"modifiable": true
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
 	}
 }

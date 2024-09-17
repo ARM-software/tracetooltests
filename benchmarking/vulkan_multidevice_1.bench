@@ -9,9 +9,21 @@
 		}
 	},
 	"capabilities": {
-		"non_interactive": "always",
-		"fixed_framerate": "always",
-		"gpu-frame-deterministic": "always",
-		"gpu-fully-deterministic": "always"
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
 	}
 }

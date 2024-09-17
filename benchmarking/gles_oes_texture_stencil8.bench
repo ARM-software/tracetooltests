@@ -2,10 +2,25 @@
 	"name": "gles_gles_oes_texture_stencil8",
 	"description": "Test of OES_texture_stencil8",
 	"capabilities": {
-		"non_interactive": "always",
-		"fixed_framerate": "always",
-		"loops": "option",
-		"gpu-frame-deterministic": "always",
-		"gpu-fully-deterministic": "always"
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"loops": {
+			"default": 0,
+			"modifiable": true
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
 	}
 }
