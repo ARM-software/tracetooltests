@@ -9,11 +9,29 @@
 		}
 	},
 	"capabilities": {
-		"loops": "option",
-		"non_interactive": "always",
-		"frameless": "always",
-		"fixed_framerate": "always",
-		"gpu-frame-deterministic": "always",
-		"gpu-fully-deterministic": "always"
+		"loops": {
+			"default": 0,
+			"modifiable": true
+		},
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"frameless": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
 	}
 }
