@@ -45,15 +45,24 @@ Here's an example of capabilities JSON file:
             "setting_1_name": {
                 "description": "Human readable description of setting 1",
                 "type": "selection",
+                "default": "high quality",
                 "options": [ "high performance", "balanced", "high quality" ]
             },
             "setting_2_name": {
                 "description": "Human readable description of setting 2",
-                "type": "bool"
+                "type": "bool",
+                "default": true
             },
             "setting_3_name": {
                 "description": "Human readable description of setting 3",
-                "type": "number",
+                "type": "integer",
+                "default": 27,
+                "min": 0,
+                "max": 100
+            },
+            "setting_4_name": {
+                "description": "Human readable description of setting 4",
+                "type": "float",
                 "min": 0,
                 "max": 3.14
             }
@@ -69,8 +78,12 @@ Here's an example of capabilities JSON file:
             }
         },
         "adaptations": {
-            "adaptation_1_name": "Human readable description of adaptation 1",
-            "adaptation_2_name": "Human readable description of adaptation 2"
+            "adaptation_1_name": {
+                "description": "Human readable description of adaptation 1"
+            },
+            "adaptation_2_name": {
+                "description": "Human readable description of adaptation 2"
+            }
         }
     }
 ```
@@ -98,7 +111,6 @@ Available fields that can be added in each scene entry:
 
 | Field | Mandatory | Description |
 | ----- | --------- | ----------- |
-| name | Yes | A name for the scene that can later be used to activate it |
 | description | No | A human readable description of the scene |
 
 #### Settings
@@ -107,11 +119,12 @@ Available fields that can be added in each settings entry:
 
 | Field | Mandatory | Description |
 | ----- | --------- | ----------- |
-| description | Yes | A short human readable description of the option |
-| type | Yes | One of `selection`, `bool`, or `number` |
-| options | If type is `selection` | If type is `selection`, this must be an array of possible values for the setting |
-| min | If type is `number` | If type is `number`, this must be the minimum value for this setting |
-| max | If type is `number` | If type is `number`, this must be the maximum value for this setting |
+| description | No | A short human readable description of the option |
+| type | Yes | One of `selection`, `bool`, `integer` or `float` |
+| default | No | Default value if the setting value is not specified in the enable file |
+| options | If type is `selection` | Array of possible values for the setting |
+| min | If type is `integer` or `float` | Minimum value for this setting |
+| max | If type is `integer` or `float` | Maximum value for this setting |
 
 #### Capabilities
 
@@ -126,11 +139,11 @@ The capabilities entry is a list of key-value pairs, where the key is the name o
 | disable_os_adaptations | bool | {true, false} | As above, but for adaptations that have been added to prevent rendering artifacts or crashes on specific versions of an operating or windowing system version system. |
 | disable_loading_screen | bool | {true, false} | The application is capable of turning off any loading screen that is shown while the application is starting up or changing scenes. Instead, no new frames should be rendered. |
 | non_interactive | bool | {true, false} | The application is capable of running in fully non-interactive mode. If enabled, it must automatically run the activated scenes (or some default scene if none given or scene selection not supported), and then if able to run it to completion, exit with a successful exit code. If it fails to complete the scene, it shall exit with a failure exit code. |
-| fixed_framerate | number | [0, inf] | The application is capable of running in a fixed framerate mode. This means that no matter the performance it will render the same content in the same number of frames every time. If the enable value is set to a non-zero value, this is the number of desired milliseconds of simulated rendering time between each frame. If zero, an application provided default frame time shall be used. |
-| visual_settings | number | [1, 100] | The application is capable of tuning its rendering quality by giving it a 1-100 value, where 1 is lowest and 100 is highest. |
-| loops | number | [0, inf] | The application is capable of running its scenes in a loop with no or only a minimal scene loading between each loop iteration. The enable value gives the number of loops to be run, where `0` means run in an infinite loop. This is useful in particular for measuring sustained performance, or measuring power, battery and temperature. If multiple scenes are activated, the order in which they loop is up to the application. |
-| loop_time | number | [0, inf] | The application is capable of running its scenes in a loop as above but for a certain amount of time. If present in the enable file, this gives the number of seconds to run the loop for. |
-| gpu_delay_reuse | number | [1, inf] | The application is capable of delaying the reuse of GPU resources. The enable value gives the number of frames that resources must not be reused for. |
+| fixed_framerate | float | [0, inf] | The application is capable of running in a fixed framerate mode. This means that no matter the performance it will render the same content in the same number of frames every time. If the enable value is set to a non-zero value, this is the number of desired milliseconds of simulated rendering time between each frame. If zero, an application provided default frame time shall be used. |
+| visual_settings | float | [1, 100] | The application is capable of tuning its rendering quality by giving it a 1-100 value, where 1 is lowest and 100 is highest. |
+| loops | int | [0, inf] | The application is capable of running its scenes in a loop with no or only a minimal scene loading between each loop iteration. The enable value gives the number of loops to be run, where `0` means run in an infinite loop. This is useful in particular for measuring sustained performance, or measuring power, battery and temperature. If multiple scenes are activated, the order in which they loop is up to the application. |
+| loop_time | float | [0, inf] | The application is capable of running its scenes in a loop as above but for a certain amount of time. If present in the enable file, this gives the number of seconds to run the loop for. |
+| gpu_delay_reuse | int | [1, inf] | The application is capable of delaying the reuse of GPU resources. The enable value gives the number of frames that resources must not be reused for. |
 | gpu_no_coherent | bool | {true, false} | The application is capable of behaving as if no coherent memory exists, and must explicitly call the graphics API to flush any modified memory before it is to be used for rendering. This allows for instance gfxreconstruct to run in 'assisted' tracing mode instead of using guard pages which may speed up runtime performance while tracing or avoid issues with guard pages. |
 | gpu_frame_deterministic | bool | {true, false} | Whether the application generates a deterministic final rendering output. |
 | gpu_fully_deterministic | bool | {true, false} | Whether the application generates deterministic rendering outputs from every GPU compute or rendering step. |
@@ -146,9 +159,14 @@ Fields that can be added in each capability properties entry:
 
 #### Adaptations
 
-The adaptations entry is a list of key-value pairs, where the key is an application-defined name, and the value is a free-form description of what it does.
-
 An adaptation is a behaviour that may be enabled by the application depending on runtime heuristics. The user may use the enable file to force this adaptation on or off, bypassing the runtime heuristics.
+
+Available fields that can be added in each adaptation entry:
+
+| Field | Mandatory | Description |
+| ----- | --------- | ----------- |
+| name | Yes | A name for the adaptation that can later be used to activate it |
+| description | No | A human readable description of the adaptation |
 
 ## File locations
 
@@ -203,12 +221,12 @@ Here's an example of enable file associated with the example of capabilities fil
     {
         "target": "application.name",
         "scenes": [ "scene_1_name", "scene_2_name" ],
-        "results": "path/to/results/file",
         "intent": "showcase",
+        "results": "path/to/results/file",
         "settings": {
             "setting_1_name": "balanced",
             "setting_2_name": false,
-            "setting_3_name": 1.618
+            "setting_4_name": 1.618
         },
         "capabilities": {
             "fixed_framerate": 60

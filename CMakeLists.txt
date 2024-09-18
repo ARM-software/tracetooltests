@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.13)
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED YES)
 enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
@@ -48,7 +47,8 @@ set(SYMLINK_DIR "$ENV{HOME}/.local/share/benchmarking")
 install(DIRECTORY DESTINATION "${SYMLINK_DIR}")
 
 function(gles_test test_name)
-	add_executable(gles_${ARGV0} src/util.cpp src/util.h src/gles_${ARGV0}.cpp src/gles_common.cpp src/gles_common.h)
+	add_executable(gles_${ARGV0} src/util.cpp src/util.h src/gles_${ARGV0}.cpp src/gles_common.cpp src/gles_common.h
+		src/benchmarking/generated_benchmarking.hpp src/benchmarking/generated_benchmarking.cpp src/benchmarking/benchmarking.hpp src/benchmarking/benchmarking.cpp)
 	target_link_libraries(gles_${ARGV0} PRIVATE -Wl,--add-needed EGL GLESv2 pthread ${IT_LIBS})
 	target_link_directories(gles_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(gles_${ARGV0} PUBLIC ${IT_DEFINES})
@@ -63,7 +63,8 @@ endfunction()
 
 function(vulkan_test_build test_name)
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
-		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
+		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h
+		src/benchmarking/generated_benchmarking.hpp src/benchmarking/generated_benchmarking.cpp src/benchmarking/benchmarking.hpp src/benchmarking/benchmarking.cpp)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
 	target_link_directories(vulkan_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
