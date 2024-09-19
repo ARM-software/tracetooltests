@@ -75,21 +75,11 @@ static void bda_pushconstant_create_pipeline(vulkan_setup_t& vulkan, compute_res
 	pushrange.size = sizeof(PushConstants);
 	pushrange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	VkBufferDeviceAddressPushConstantMarkingTTT bdapcm = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_SPECIALIZATION_CONSTANT_MARKING_TTT, nullptr };
-	VkBufferDeviceAddressPairTTT bdapair = { 0, 1 };
-	VkBufferDeviceAddressListTTT bdalist = { 1, &bdapair };
-	bdapcm.pMarkings = &bdalist;
-
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
 	pipelineLayoutCreateInfo.setLayoutCount = 0;
 	pipelineLayoutCreateInfo.pSetLayouts = nullptr;
 	pipelineLayoutCreateInfo.pPushConstantRanges = &pushrange;
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	if (vulkan.bda_marking_supported)
-	{
-		bdapcm.pNext = shaderStageCreateInfo.pNext;
-		pipelineLayoutCreateInfo.pNext = &bdapcm;
-	}
 	result = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutCreateInfo, NULL, &r.pipelineLayout);
 	check(result);
 
@@ -147,6 +137,7 @@ int main(int argc, char** argv)
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	reqs.bufferDeviceAddress = true;
 	reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
+	reqs.device_extensions.push_back("VK_KHR_maintenance6");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_pushconstant", reqs);
 	compute_resources r = compute_init(vulkan, reqs);
 	const int width = std::get<int>(reqs.options.at("width"));
@@ -170,7 +161,21 @@ int main(int argc, char** argv)
 	result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
 	check(result);
 	vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
-	vkCmdPushConstants(r.commandBuffer, r.pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants), &constants);
+
+	VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
+	pushinfo.layout = r.pipelineLayout;
+	pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	pushinfo.offset = 0;
+	pushinfo.size = sizeof(PushConstants);
+	pushinfo.pValues = &constants;
+	VkDeviceSize markup_location = 0;
+	VkAddMemoryMarkupTRACETOOLTEST amm = { VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST, pushinfo.pNext };
+	amm.target = VK_MEMORY_MARKUP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST;
+	amm.count = 1;
+	amm.pMarkings = &markup_location;
+	if (vulkan.memory_marking_supported) pushinfo.pNext = &amm;
+	vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
+
 	vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
 	result = vkEndCommandBuffer(r.commandBuffer);
 	check(result);

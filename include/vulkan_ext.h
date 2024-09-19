@@ -29,52 +29,48 @@ typedef enum VkTracingObjectPropertyTRACETOOLTEST {
 
 typedef uint64_t (VKAPI_PTR *PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)(VkDevice device, VkObjectType objectType, uint64_t objectHandle, VkTracingObjectPropertyTRACETOOLTEST valueType);
 
-// -- VK_TTT_buffer_device_address_marking --
-// Starting to use TTT as a short-hand here to avoid the length of these names going off the rails.
+// -- VK_TRACETOOLTEST_memory_markup --
+// Mark where in memory are stored buffer device addresses or shader group handles that may need to be rewritten during trace capture.
 
-#define VK_TTT_BUFFER_DEVICE_ADDRESS_MARKING_EXTENSION_NAME "VK_TTT_buffer_device_address_marking"
+#define VK_TRACETOOLTEST_MEMORY_MARKUP_EXTENSION_NAME "VK_TRACETOOLTEST_memory_markup"
 
 // Hope these random constants remain unused...
-#define VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_SPECIALIZATION_CONSTANT_MARKING_TTT (VkStructureType)131301
-#define VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_PUSH_CONSTANT_MARKING_TTT (VkStructureType)131302
-#define VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_BUFFER_TTT (VkStructureType)131303
+#define VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST (VkStructureType)131313
+#define VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_TRACETOOLTEST (VkStructureType)131314
 
-typedef struct VkBufferDeviceAddressPairTTT
+typedef enum VkMemoryMarkupTargetTRACETOOLTEST
 {
-	VkDeviceAddress offset_low;
-	VkDeviceAddress offset_high;
-} VkBufferDeviceAddressPairTTT;
+	VK_MEMORY_MARKUP_TARGET_BUFFER_TRACETOOLTEST,
+	VK_MEMORY_MARKUP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST,
+	VK_MEMORY_MARKUP_TARGET_SPECIALIZATION_CONSTANTS_TRACETOOLTEST,
+} VkMemoryMarkupTargetTRACETOOLTEST;
 
-typedef struct VkBufferDeviceAddressListTTT
+// Passed to vkCreatePipelineLayout for specialization constants, vkCmdPushConstants2KHR for push constants,
+// or vkCmdUpdateBuffer2TRACETOOLTEST for buffer updates. Any existing markup in the affected memory region is removed.
+typedef struct VkAddMemoryMarkupTRACETOOLTEST
 {
-	uint32_t pairCount;
-	VkBufferDeviceAddressPairTTT* pPairs;
-} VkBufferDeviceAddressListTTT;
-
-// Passed to vkCreatePipelineLayout
-typedef struct VkBufferDeviceAddressSpecializationConstantMarkingTTT
-{
-	VkStructureType sType;
+	VkStructureType sType; // must be VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST
 	const void* pNext;
-	VkBufferDeviceAddressListTTT markings;
-} VkBufferDeviceAddressSpecializationConstantMarkingTTT;
+	VkMemoryMarkupTargetTRACETOOLTEST target; // this is just to make the intent explicit, not really needed
+	uint32_t count; // if passed to vkCmdPushConstants2KHR, count must be equal to the number of push constant ranges
+	VkDeviceSize* pMarkings;
+} VkMemoryMarkupTRACETOOLTEST;
 
-// Passed to vkCreatePipelineLayout -- this is a bit inflexible because it is conceivable that
-// the address location is moved around, but the only other alternative is to upgrade each
-// vkCmdPushConstants to vkCmdPushConstants2KHR which can take a pNext
-typedef struct VkBufferDeviceAddressPushConstantMarkingTTT
-{
-	VkStructureType sType;
-	const void* pNext;
-	VkBufferDeviceAddressListTTT* pMarkings; // one for each defined push constant range
-} VkBufferDeviceAddressPushConstantMarkingTTT;
+// Add markup contents of a buffer as containing buffer device addresses or shader group handles. This function is meant for tools.
+typedef void (VKAPI_PTR *PFN_vkAddMemoryMarkupTRACETOOLTEST)(VkDevice device, VkBuffer buffer, uint32_t count, VkDeviceSize* pOffsets);
+// This is a more convenient or logical method for human users.
+typedef void (VKAPI_PTR *PFN_vkAddMemoryMarkupRegionTRACETOOLTEST)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, VkDeviceSize stride);
+// Clear markup from a region of a buffer. Size may be VK_WHOLE_SIZE.
+typedef void (VKAPI_PTR *PFN_vkClearMemoryMarkupTRACETOOLTEST)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size);
 
-// Passed to vkQueueSubmit* variants
-typedef struct VkBufferDeviceAddressBufferMarkingTTT
+// Adding a 2 version of vkCmdUpdateBuffer since it lacks a pNext chain.
+typedef struct VkUpdateBufferInfoTRACETOOLTEST
 {
-	VkStructureType sType;
+	VkStructureType sType; // must be VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_TRACETOOLTEST
 	const void* pNext;
-	uint32_t bufferCount;
-	VkBuffer* pBuffers;
-	VkBufferDeviceAddressListTTT* pMarkings;
-} VkBufferDeviceAddressBufferMarkingTTT;
+	VkBuffer dstBuffer;
+	VkDeviceSize dstOffset;
+	VkDeviceSize dataSize;
+	const void* pData;
+} VkUpdateBufferInfoTRACETOOLTEST;
+typedef void (VKAPI_PTR *PFN_vkCmdUpdateBuffer2TRACETOOLTEST)(VkCommandBuffer commandBuffer, VkUpdateBufferInfoTRACETOOLTEST* pInfo);

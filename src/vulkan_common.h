@@ -76,13 +76,18 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
+	PFN_vkAddMemoryMarkupTRACETOOLTEST vkAddMemoryMarkup = nullptr;
+	PFN_vkAddMemoryMarkupRegionTRACETOOLTEST vkAddMemoryMarkupRegion = nullptr;
+	PFN_vkClearMemoryMarkupTRACETOOLTEST vkClearMemoryMarkup = nullptr;
+	PFN_vkCmdUpdateBuffer2TRACETOOLTEST vkCmdUpdateBuffer2 = nullptr;
+	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
 	VkPhysicalDeviceProperties device_properties = {};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
-	bool bda_marking_supported = false;
+	bool memory_marking_supported = false;
 };
 
 namespace acceleration_structures

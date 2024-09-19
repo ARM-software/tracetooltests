@@ -162,6 +162,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_checksum = false;
 	bool has_tooling_obj_property = false;
 	bool has_debug_utils = false;
+	bool req_maintenance_6 = false;
 
 	std::string api;
 	switch (reqs.apiVersion)
@@ -440,10 +441,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			has_tooling_obj_property = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_TTT_BUFFER_DEVICE_ADDRESS_MARKING_EXTENSION_NAME) == 0)
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_MEMORY_MARKUP_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
-			vulkan.bda_marking_supported = true;
+			vulkan.memory_marking_supported = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
 
@@ -458,6 +459,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				pdfbfinfo.pNext = (void*)deviceInfo.pNext;
 				pdfbfinfo.frameBoundary = VK_TRUE;
 				deviceInfo.pNext = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)&pdfbfinfo;
+			}
+			else if (strcmp(s.extensionName, VK_KHR_MAINTENANCE_6_EXTENSION_NAME) == 0)
+			{
+				req_maintenance_6 = true;
 			}
 		}
 	}
@@ -494,6 +499,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
 	}
+
 	if (has_debug_utils)
 	{
 		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
@@ -501,14 +507,29 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 		if (vulkan.vkSetDebugUtilsObjectName && vulkan.vkCmdInsertDebugUtilsLabel) ILOG("Debug utils enabled");
 	}
+
 	if (has_tooling_obj_property)
 	{
 		vulkan.vkGetDeviceTracingObjectProperty = (PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkGetDeviceTracingObjectPropertyTRACETOOLTEST");
 	}
-	if(reqs.bufferDeviceAddress)
+
+	if (reqs.bufferDeviceAddress)
 	{
 		vulkan.vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(vulkan.device, "vkGetBufferDeviceAddress"));
 		assert(vulkan.vkGetBufferDeviceAddress);
+	}
+
+	if (vulkan.memory_marking_supported)
+	{
+		vulkan.vkAddMemoryMarkup = reinterpret_cast<PFN_vkAddMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkAddMemoryMarkupTRACETOOLTEST"));
+		vulkan.vkAddMemoryMarkupRegion = reinterpret_cast<PFN_vkAddMemoryMarkupRegionTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkAddMemoryMarkupRegionTRACETOOLTEST"));
+		vulkan.vkClearMemoryMarkup = reinterpret_cast<PFN_vkClearMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkClearMemoryMarkupTRACETOOLTEST"));
+		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
+	}
+
+	if (req_maintenance_6)
+	{
+		vulkan.vkCmdPushConstants2 = reinterpret_cast<PFN_vkCmdPushConstants2KHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdPushConstants2KHR"));
 	}
 
 	return vulkan;
