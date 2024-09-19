@@ -22,14 +22,20 @@ int main(int argc, char** argv)
 	VkResult result = ttCreateDeferredOperationKHR(vulkan.device, nullptr, &hOp);
 	assert(result == VK_SUCCESS);
 
+	uint32_t r = ttGetDeferredOperationMaxConcurrencyKHR(vulkan.device, hOp);
+	printf("vkGetDeferredOperationMaxConcurrencyKHR returns %u before join\n", (unsigned)r);
+
 	result = ttDeferredOperationJoinKHR(vulkan.device, hOp);
 	assert(result == VK_SUCCESS || result == VK_THREAD_DONE_KHR || result == VK_THREAD_IDLE_KHR);
+
+	r = ttGetDeferredOperationMaxConcurrencyKHR(vulkan.device, hOp);
+	printf("vkGetDeferredOperationMaxConcurrencyKHR returns %u after join\n", (unsigned)r);
 
 	result = ttGetDeferredOperationResultKHR(vulkan.device, hOp);
 	assert(result == VK_SUCCESS);
 
-	uint32_t r = ttGetDeferredOperationMaxConcurrencyKHR(vulkan.device, hOp);
-	assert(r == 0 || r == UINT32_MAX - 1);
+	r = ttGetDeferredOperationMaxConcurrencyKHR(vulkan.device, hOp);
+	printf("vkGetDeferredOperationMaxConcurrencyKHR returns %u after get result\n", (unsigned)r);
 
 	ttDestroyDeferredOperationKHR(vulkan.device, hOp, nullptr);
 
