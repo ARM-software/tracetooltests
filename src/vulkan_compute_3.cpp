@@ -18,11 +18,17 @@ struct pixel
 
 static void show_usage()
 {
+	printf("-t/--times N           Times to repeat\n");
 	compute_usage();
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
+	if (match(argv[i], "-t", "--times"))
+	{
+		p__loops = get_arg(argv, ++i, argc);
+		return true;
+	}
 	return compute_cmdopt(i, argc, argv, reqs);
 }
 
@@ -86,17 +92,23 @@ int main(int argc, char** argv)
 
 	compute_create_pipeline(vulkan, r, req);
 
-	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
-	check(result);
-	vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
-	vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
-	vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
-	result = vkEndCommandBuffer(r.commandBuffer);
-	check(result);
+	for (int frame = 0; frame < p__loops; frame++)
+	{
+		vkResetCommandBuffer(r.commandBuffer, 0);
 
-	compute_submit(vulkan, r, req);
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
+		check(result);
+		vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
+		vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
+		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
+		result = vkEndCommandBuffer(r.commandBuffer);
+		check(result);
+
+		compute_submit(vulkan, r, req);
+	}
+
 	compute_done(vulkan, r, req);
 	test_done(vulkan);
 }

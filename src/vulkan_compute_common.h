@@ -22,6 +22,7 @@ struct compute_resources
 	// used for frame boundary extension
 	VkImage image = VK_NULL_HANDLE;
 	VkCommandBuffer commandBufferFrameBoundary = VK_NULL_HANDLE;
+	int frame = 0;
 };
 
 bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);

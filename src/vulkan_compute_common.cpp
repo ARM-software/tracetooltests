@@ -83,7 +83,7 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	assert(result == VK_SUCCESS);
 
 	VkCommandPoolCreateInfo commandPoolCreateInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
-	commandPoolCreateInfo.flags = 0;
+	commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	commandPoolCreateInfo.queueFamilyIndex = 0; // TBD fix
 	result = vkCreateCommandPool(vulkan.device, &commandPoolCreateInfo, NULL, &r.commandPool);
 	check(result);
@@ -160,13 +160,14 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	check(result);
 
 	bench_start_scene(vulkan.bench, "compute");
-	bench_start_iteration(vulkan.bench);
 
 	return r;
 }
 
 void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
 {
+	bench_start_iteration(vulkan.bench);
+
 	VkFence fence;
 	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
 	fenceCreateInfo.flags = 0;
@@ -175,7 +176,7 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 
 	VkFrameBoundaryEXT fbinfo = { VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, nullptr };
 	fbinfo.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
-	fbinfo.frameID = 0;
+	fbinfo.frameID = r.frame++;
 	fbinfo.imageCount = 1;
 	fbinfo.pImages = &r.image;
 	fbinfo.bufferCount = 0;
@@ -217,9 +218,9 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
 	check(result);
 
-	bench_stop_iteration(vulkan.bench);
-
 	vkDestroyFence(vulkan.device, fence, nullptr);
+
+	bench_stop_iteration(vulkan.bench);
 }
 
 void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
