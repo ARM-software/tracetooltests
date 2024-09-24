@@ -76,9 +76,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
-	PFN_vkAddMemoryMarkupTRACETOOLTEST vkAddMemoryMarkup = nullptr;
-	PFN_vkAddMemoryMarkupRegionTRACETOOLTEST vkAddMemoryMarkupRegion = nullptr;
-	PFN_vkClearMemoryMarkupTRACETOOLTEST vkClearMemoryMarkup = nullptr;
+	PFN_vkMemoryMarkupTRACETOOLTEST vkMemoryMarkup = nullptr;
 	PFN_vkCmdUpdateBuffer2TRACETOOLTEST vkCmdUpdateBuffer2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
 	uint32_t apiVersion = VK_API_VERSION_1_1;

@@ -46,22 +46,20 @@ typedef enum VkMemoryMarkupTargetTRACETOOLTEST
 } VkMemoryMarkupTargetTRACETOOLTEST;
 
 // Passed to vkCreatePipelineLayout for specialization constants, vkCmdPushConstants2KHR for push constants,
-// or vkCmdUpdateBuffer2TRACETOOLTEST for buffer updates. Any existing markup in the affected memory region is removed.
-typedef struct VkAddMemoryMarkupTRACETOOLTEST
+// or vkCmdUpdateBuffer2TRACETOOLTEST for buffer updates. Existing markup in the affected memory region may be removed.
+// When used with vkCmdPushConstants2KHR, offsets given here are relative to the start of its dstOffset.
+typedef struct VkMemoryMarkupTRACETOOLTEST
 {
 	VkStructureType sType; // must be VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST
 	const void* pNext;
 	VkMemoryMarkupTargetTRACETOOLTEST target; // this is just to make the intent explicit, not really needed
-	uint32_t count; // if passed to vkCmdPushConstants2KHR, count must be equal to the number of push constant ranges
-	VkDeviceSize* pMarkings;
+	VkDeviceSize clearSize; // size of region that will be cleared of old markers, set to zero to not clear old markers; may be VK_WHOLE_SIZE
+	uint32_t count; // the number of offsets in pOffsets; may be zero if all you want to do is clear old markers
+	VkDeviceSize* pOffsets; // memory marker offsets
 } VkMemoryMarkupTRACETOOLTEST;
 
-// Add markup contents of a buffer as containing buffer device addresses or shader group handles. This function is meant for tools.
-typedef void (VKAPI_PTR *PFN_vkAddMemoryMarkupTRACETOOLTEST)(VkDevice device, VkBuffer buffer, uint32_t count, VkDeviceSize* pOffsets);
-// This is a more convenient or logical method for human users.
-typedef void (VKAPI_PTR *PFN_vkAddMemoryMarkupRegionTRACETOOLTEST)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, VkDeviceSize stride);
-// Clear markup from a region of a buffer. Size may be VK_WHOLE_SIZE.
-typedef void (VKAPI_PTR *PFN_vkClearMemoryMarkupTRACETOOLTEST)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size);
+// Change markup contents of a buffer as containing buffer device addresses or shader group handles. This function is meant for tools.
+typedef void (VKAPI_PTR *PFN_vkMemoryMarkupTRACETOOLTEST)(VkDevice device, VkBuffer buffer, VkMemoryMarkupTRACETOOLTEST* pInfo);
 
 // Adding a 2 version of vkCmdUpdateBuffer since it lacks a pNext chain.
 typedef struct VkUpdateBufferInfoTRACETOOLTEST

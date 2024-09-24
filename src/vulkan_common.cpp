@@ -521,9 +521,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (vulkan.memory_marking_supported)
 	{
-		vulkan.vkAddMemoryMarkup = reinterpret_cast<PFN_vkAddMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkAddMemoryMarkupTRACETOOLTEST"));
-		vulkan.vkAddMemoryMarkupRegion = reinterpret_cast<PFN_vkAddMemoryMarkupRegionTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkAddMemoryMarkupRegionTRACETOOLTEST"));
-		vulkan.vkClearMemoryMarkup = reinterpret_cast<PFN_vkClearMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkClearMemoryMarkupTRACETOOLTEST"));
+		vulkan.vkMemoryMarkup = reinterpret_cast<PFN_vkMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkMemoryMarkupTRACETOOLTEST"));
 		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
 	}
 
