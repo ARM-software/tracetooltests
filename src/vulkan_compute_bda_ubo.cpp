@@ -39,6 +39,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	p__loops = 3; // default to 3 loops
 	vulkan_req_t reqs;
 	reqs.options["width"] = 640;
 	reqs.options["height"] = 480;
@@ -178,17 +179,21 @@ int main(int argc, char** argv)
 
 	compute_create_pipeline(vulkan, r, reqs);
 
-	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
-	check(result);
-	vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
-	vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
-	vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
-	result = vkEndCommandBuffer(r.commandBuffer);
-	check(result);
+	for (int frame = 0; frame < p__loops; frame++)
+	{
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
+		check(result);
+		vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
+		vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
+		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
+		result = vkEndCommandBuffer(r.commandBuffer);
+		check(result);
 
-	compute_submit(vulkan, r, reqs);
+		compute_submit(vulkan, r, reqs);
+	}
+
 	compute_done(vulkan, r, reqs);
 	vkDestroyBuffer(vulkan.device, ubo, nullptr);
 	vkFreeMemory(vulkan.device, ubo_memory, nullptr);

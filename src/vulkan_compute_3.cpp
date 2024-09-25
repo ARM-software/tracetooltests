@@ -18,22 +18,17 @@ struct pixel
 
 static void show_usage()
 {
-	printf("-t/--times N           Times to repeat\n");
 	compute_usage();
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-t", "--times"))
-	{
-		p__loops = get_arg(argv, ++i, argc);
-		return true;
-	}
 	return compute_cmdopt(i, argc, argv, reqs);
 }
 
 int main(int argc, char** argv)
 {
+	p__loops = 1; // default to one loop
 	vulkan_req_t req;
 	req.options["width"] = 640;
 	req.options["height"] = 480;
@@ -94,8 +89,6 @@ int main(int argc, char** argv)
 
 	for (int frame = 0; frame < p__loops; frame++)
 	{
-		vkResetCommandBuffer(r.commandBuffer, 0);
-
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);

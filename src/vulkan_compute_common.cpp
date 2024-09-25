@@ -14,6 +14,7 @@ void compute_usage()
 	printf("-pc/--pipelinecache    Add a pipeline cache to compute pipeline. By default it is empty.\n");
 	printf("-pcf/--cachefile N     Save and restore pipeline cache to/from file N\n");
 	printf("-fb/--frame-boundary   Use frameboundary extension to publicize output\n");
+	printf("-t/--times N           Times to repeat (default %d)\n", (int)p__loops);
 }
 
 bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -21,6 +22,11 @@ bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-i", "--image-output"))
 	{
 		reqs.options["image_output"] = true;
+		return true;
+	}
+	else if (match(argv[i], "-t", "--times"))
+	{
+		p__loops = get_arg(argv, ++i, argc);
 		return true;
 	}
 	else if (match(argv[i], "-pc", "--pipelinecache"))
@@ -159,13 +165,12 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	result = vkBindImageMemory2(vulkan.device, 1, &bindInfo);
 	check(result);
 
-	bench_start_scene(vulkan.bench, "compute");
-
 	return r;
 }
 
 void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
 {
+	bench_start_scene(vulkan.bench, "compute");
 	bench_start_iteration(vulkan.bench);
 
 	VkFence fence;
@@ -221,17 +226,19 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	vkDestroyFence(vulkan.device, fence, nullptr);
 
 	bench_stop_iteration(vulkan.bench);
+	if (reqs.options.count("image_output"))
+	{
+		std::string filename = "compute_" + std::to_string(r.frame) + ".png";
+		test_save_image(vulkan, filename.c_str(), r.memory, 0, std::get<int>(reqs.options.at("width")), std::get<int>(reqs.options.at("height")));
+		bench_stop_scene(vulkan.bench, filename.c_str());
+	}
+	else bench_stop_scene(vulkan.bench);
+
+	vkResetCommandBuffer(r.commandBuffer, 0);
 }
 
 void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
 {
-	if (reqs.options.count("image_output"))
-	{
-		test_save_image(vulkan, "compute.png", r.memory, 0, std::get<int>(reqs.options.at("width")), std::get<int>(reqs.options.at("height")));
-		bench_stop_scene(vulkan.bench, "compute.png");
-	}
-	else bench_stop_scene(vulkan.bench);
-
 	if (reqs.options.count("pipelinecache") && reqs.options.count("cachefile"))
 	{
 		std::string file = std::get<std::string>(reqs.options.at("cachefile"));

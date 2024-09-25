@@ -129,6 +129,7 @@ static void bda_pushconstant_create_pipeline(vulkan_setup_t& vulkan, compute_res
 
 int main(int argc, char** argv)
 {
+	p__loops = 3; // default to 3 loops
 	vulkan_req_t reqs;
 	reqs.options["width"] = 640;
 	reqs.options["height"] = 480;
@@ -156,32 +157,36 @@ int main(int argc, char** argv)
 	bdainfo.buffer = r.buffer;
 	constants.address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 
-	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
-	check(result);
-	vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
+	for (int frame = 0; frame < p__loops; frame++)
+	{
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
+		check(result);
+		vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
 
-	VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
-	pushinfo.layout = r.pipelineLayout;
-	pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	pushinfo.offset = 0;
-	pushinfo.size = sizeof(PushConstants);
-	pushinfo.pValues = &constants;
-	VkDeviceSize markup_location = 0;
-	VkMemoryMarkupTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST, pushinfo.pNext };
-	mm.target = VK_MEMORY_MARKUP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST;
-	mm.count = 1;
-	mm.clearSize = 0;
-	mm.pOffsets = &markup_location;
-	if (vulkan.memory_marking_supported) pushinfo.pNext = &mm;
-	vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
+		VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
+		pushinfo.layout = r.pipelineLayout;
+		pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		pushinfo.offset = 0;
+		pushinfo.size = sizeof(PushConstants);
+		pushinfo.pValues = &constants;
+		VkDeviceSize markup_location = 0;
+		VkMemoryMarkupTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST, pushinfo.pNext };
+		mm.target = VK_MEMORY_MARKUP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST;
+		mm.count = 1;
+		mm.clearSize = 0;
+		mm.pOffsets = &markup_location;
+		if (vulkan.memory_marking_supported) pushinfo.pNext = &mm;
+		vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
 
-	vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
-	result = vkEndCommandBuffer(r.commandBuffer);
-	check(result);
+		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
+		result = vkEndCommandBuffer(r.commandBuffer);
+		check(result);
 
-	compute_submit(vulkan, r, reqs);
+		compute_submit(vulkan, r, reqs);
+	}
+
 	compute_done(vulkan, r, reqs);
 	test_done(vulkan);
 }

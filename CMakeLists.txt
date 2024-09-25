@@ -202,6 +202,7 @@ vulkan_test(compute_aliasing)
 vulkan_test(compute_bda_sc) # buffer device address through specialization constants
 vulkan_test(compute_bda_pushconstant) # buffer device address through push constants
 vulkan_test(compute_bda_ubo) # buffer device address through uniform buffer objects
+vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
 
 vulkan_test(deferred_1)
 vulkan_test(pipelinecache_1)
