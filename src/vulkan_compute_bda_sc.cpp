@@ -68,11 +68,11 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 	shaderStageCreateInfo.pSpecializationInfo = &specInfo;
 
 	VkDeviceSize markup_location = 5;
-	VkMemoryMarkupTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST, shaderStageCreateInfo.pNext };
-	mm.target = VK_MEMORY_MARKUP_TARGET_SPECIALIZATION_CONSTANTS_TRACETOOLTEST;
+	VkAddressRemapTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST, shaderStageCreateInfo.pNext };
+	mm.target = VK_ADDRESS_REMAP_TARGET_SPECIALIZATION_CONSTANTS_TRACETOOLTEST;
 	mm.count = 1;
 	mm.pOffsets = &markup_location;
-	if (vulkan.memory_marking_supported) shaderStageCreateInfo.pNext = &mm;
+	if (vulkan.has_trace_helpers) shaderStageCreateInfo.pNext = &mm;
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
 	pipelineLayoutCreateInfo.setLayoutCount = 0;

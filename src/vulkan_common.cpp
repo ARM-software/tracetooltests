@@ -441,10 +441,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			has_tooling_obj_property = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_MEMORY_MARKUP_EXTENSION_NAME) == 0)
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
-			vulkan.memory_marking_supported = true;
+			vulkan.has_trace_helpers = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
 
@@ -519,9 +519,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		assert(vulkan.vkGetBufferDeviceAddress);
 	}
 
-	if (vulkan.memory_marking_supported)
+	if (vulkan.has_trace_helpers)
 	{
-		vulkan.vkMemoryMarkup = reinterpret_cast<PFN_vkMemoryMarkupTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkMemoryMarkupTRACETOOLTEST"));
+		vulkan.vkUpdateBuffer = reinterpret_cast<PFN_vkUpdateBufferTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
+		vulkan.vkUpdateImage = reinterpret_cast<PFN_vkUpdateImageTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
+		vulkan.vkPatchBuffer = reinterpret_cast<PFN_vkPatchBufferTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkPatchBufferTRACETOOLTEST"));
+		vulkan.vkPatchImage = reinterpret_cast<PFN_vkPatchImageTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkPatchImageTRACETOOLTEST"));
+		vulkan.vkThreadBarrier = reinterpret_cast<PFN_vkThreadBarrierTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkThreadBarrierTRACETOOLTEST"));
 		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
 	}
 

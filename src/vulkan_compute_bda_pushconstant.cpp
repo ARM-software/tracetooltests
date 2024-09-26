@@ -172,12 +172,11 @@ int main(int argc, char** argv)
 		pushinfo.size = sizeof(PushConstants);
 		pushinfo.pValues = &constants;
 		VkDeviceSize markup_location = 0;
-		VkMemoryMarkupTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_MEMORY_MARKUP_TRACETOOLTEST, pushinfo.pNext };
-		mm.target = VK_MEMORY_MARKUP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST;
+		VkAddressRemapTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST, pushinfo.pNext };
+		mm.target = VK_ADDRESS_REMAP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST;
 		mm.count = 1;
-		mm.clearSize = 0;
 		mm.pOffsets = &markup_location;
-		if (vulkan.memory_marking_supported) pushinfo.pNext = &mm;
+		if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
 		vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
 
 		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);

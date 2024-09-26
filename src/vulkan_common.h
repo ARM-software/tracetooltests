@@ -71,21 +71,28 @@ struct vulkan_setup_t
 	VkInstance instance = VK_NULL_HANDLE;
 	VkDevice device = VK_NULL_HANDLE;
 	VkPhysicalDevice physical = VK_NULL_HANDLE;
-	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
-	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
+
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
-	PFN_vkMemoryMarkupTRACETOOLTEST vkMemoryMarkup = nullptr;
+
+	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
+	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
 	PFN_vkCmdUpdateBuffer2TRACETOOLTEST vkCmdUpdateBuffer2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
+	PFN_vkUpdateBufferTRACETOOLTEST vkUpdateBuffer = nullptr;
+	PFN_vkUpdateImageTRACETOOLTEST vkUpdateImage = nullptr;
+	PFN_vkPatchBufferTRACETOOLTEST vkPatchBuffer = nullptr;
+	PFN_vkPatchImageTRACETOOLTEST vkPatchImage = nullptr;
+	PFN_vkThreadBarrierTRACETOOLTEST vkThreadBarrier = nullptr;
+
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
 	VkPhysicalDeviceProperties device_properties = {};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
-	bool memory_marking_supported = false;
+	bool has_trace_helpers = false;
 };
 
 namespace acceleration_structures
