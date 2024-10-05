@@ -10,8 +10,6 @@
 #include "vulkan_compute_bda_ubo.inc"
 #include "vulkan_compute_bda_ssbo.inc"
 
-#include <cmath>
-
 #define UBO_SIZE 32
 
 static bool use_ssbo = false;
@@ -182,15 +180,11 @@ int main(int argc, char** argv)
 
 	if (use_ssbo)
 	{
-		uint32_t code_size = long(ceil(vulkan_compute_bda_ssbo_spirv_len / 4.0)) * 4;
-		r.code.resize(code_size);
-		memcpy(r.code.data(), vulkan_compute_bda_ssbo_spirv, vulkan_compute_bda_ssbo_spirv_len);
+		r.code = copy_shader(vulkan_compute_bda_ssbo_spirv, vulkan_compute_bda_ssbo_spirv_len);
 	}
-	else
+	else // ubo
 	{
-		uint32_t code_size = long(ceil(vulkan_compute_bda_ubo_spirv_len / 4.0)) * 4;
-		r.code.resize(code_size);
-		memcpy(r.code.data(), vulkan_compute_bda_ubo_spirv, vulkan_compute_bda_ubo_spirv_len);
+		r.code = copy_shader(vulkan_compute_bda_ubo_spirv, vulkan_compute_bda_ubo_spirv_len);
 	}
 
 	compute_create_pipeline(vulkan, r, reqs);

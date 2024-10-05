@@ -8,8 +8,6 @@
 //   xxd -i vulkan_compute_2.spirv > vulkan_compute_2.inc
 #include "vulkan_compute_2.inc"
 
-#include <cmath>
-
 static int queues = 2;
 static int job_variant = 0;
 static bool output = false;
@@ -96,14 +94,12 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
 {
-	uint32_t code_size = long(ceil(vulkan_compute_2_spirv_len / 4.0)) * 4;
-	std::vector<uint32_t> code(code_size);
-	memcpy(code.data(), vulkan_compute_2_spirv, vulkan_compute_2_spirv_len);
+	const std::vector<uint32_t> code = copy_shader(vulkan_compute_2_spirv,vulkan_compute_2_spirv_len);
 
 	VkShaderModuleCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.pCode = code.data();
-	createInfo.codeSize = code_size;
+	createInfo.codeSize = code.size();
 	VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
 	check(result);
 

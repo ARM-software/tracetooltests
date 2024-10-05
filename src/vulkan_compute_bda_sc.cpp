@@ -9,8 +9,6 @@
 //   xxd -i vulkan_compute_bda_sc.spirv > vulkan_compute_bda_sc.inc
 #include "vulkan_compute_bda_sc.inc"
 
-#include <cmath>
-
 struct pixel
 {
 	float r, g, b, a;
@@ -142,9 +140,7 @@ int main(int argc, char** argv)
 	const int workgroup_size = std::get<int>(reqs.options.at("wg_size"));
 	VkResult result;
 
-	uint32_t code_size = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4;
-	r.code.resize(code_size);
-	memcpy(r.code.data(), vulkan_compute_bda_sc_spirv, vulkan_compute_bda_sc_spirv_len);
+	r.code = copy_shader(vulkan_compute_bda_sc_spirv, vulkan_compute_bda_sc_spirv_len);
 
 	VkBufferDeviceAddressInfo bdainfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	bdainfo.buffer = r.buffer;

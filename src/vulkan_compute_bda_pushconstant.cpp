@@ -9,8 +9,6 @@
 //   xxd -i vulkan_compute_bda_pushconstant.spirv > vulkan_compute_bda_pushconstant.inc
 #include "vulkan_compute_bda_pushconstant.inc"
 
-#include <cmath>
-
 struct PushConstants
 {
 	uintptr_t address;
@@ -147,9 +145,7 @@ int main(int argc, char** argv)
 	PushConstants constants;
 	VkResult result;
 
-	uint32_t code_size = long(ceil(vulkan_compute_bda_pushconstant_spirv_len / 4.0)) * 4;
-	r.code.resize(code_size);
-	memcpy(r.code.data(), vulkan_compute_bda_pushconstant_spirv, vulkan_compute_bda_pushconstant_spirv_len);
+	r.code = copy_shader(vulkan_compute_bda_pushconstant_spirv, vulkan_compute_bda_pushconstant_spirv_len);
 
 	bda_pushconstant_create_pipeline(vulkan, r, reqs);
 

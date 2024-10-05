@@ -31,4 +31,3 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 void compute_submit(vulkan_setup_t& vulkan, compute_resources&  r, vulkan_req_t& reqs);
 void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs);
 void compute_usage();
-bool enable_frame_boundary(vulkan_req_t& reqs);

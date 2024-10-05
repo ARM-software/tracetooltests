@@ -93,5 +93,6 @@ typedef void (VKAPI_PTR *PFN_vkPatchImageTRACETOOLTEST)(VkDevice device, VkImage
 
 // All pending Vulkan work has been host synchronized at this point to prevent race conditions. On trace replay, all other threads
 // must also synchronize to this point. When called outside of a replay context, this is a no-op. You should never need to add this
-// yourself to code, but it could be useful as a debug tool for tracing issues.
-typedef void (VKAPI_PTR *PFN_vkThreadBarrierTRACETOOLTEST)();
+// yourself to code, but it could be useful as a debug tool for tracing issues. To call it yourself, set count to zero and pValues
+// to null, and tools will fill it out with their internal tracking data for your threads.
+typedef void (VKAPI_PTR *PFN_vkThreadBarrierTRACETOOLTEST)(uint32_t count, uint32_t* pValues);

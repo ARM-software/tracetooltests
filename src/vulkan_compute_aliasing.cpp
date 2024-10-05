@@ -9,8 +9,6 @@
 //   xxd -i vulkan_compute_1.spirv > vulkan_compute_1.inc
 #include "vulkan_compute_1.inc"
 
-#include <cmath>
-
 static void show_usage()
 {
 	compute_usage();
@@ -76,9 +74,7 @@ int main(int argc, char** argv)
 	writeDescriptorSet.pBufferInfo = &descriptorBufferInfo;
 	vkUpdateDescriptorSets(vulkan.device, 1, &writeDescriptorSet, 0, NULL);
 
-	uint32_t code_size = long(ceil(vulkan_compute_1_spirv_len / 4.0)) * 4;
-	r.code.resize(code_size);
-	memcpy(r.code.data(), vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
+	r.code = copy_shader(vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
 
 	compute_create_pipeline(vulkan, r, reqs);
 

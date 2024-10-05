@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <cmath>
 #include <vector>
 #include <string>
 #include <variant>
@@ -159,3 +160,13 @@ void select_gpu(int chosen_gpu);
 void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height);
 
 bool shader_has_buffer_devices_addresses(const uint32_t* code, uint32_t codeSize);
+bool enable_frame_boundary(vulkan_req_t& reqs);
+
+static inline std::vector<uint32_t> copy_shader(unsigned char* arr, uint32_t size)
+{
+	std::vector<uint32_t> code;
+	const uint32_t code_size = long(ceil(size / 4.0)) * 4;
+	code.resize(code_size);
+	memcpy(code.data(), arr, size);
+	return code;
+}
