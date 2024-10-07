@@ -66,6 +66,7 @@ parents = collections.OrderedDict() # dictionary of lists
 externally_synchronized = OrderedSet() # tuples with (vulkan command, parameter name)
 enums = [] # list of actually used, valid Vulkan enums
 types = [] # list of actually used, valid Vulkan types
+feature_structs = OrderedSet() # list of pNext feature structs
 
 externally_synchronized_members = {
 	'VkDescriptorSetAllocateInfo' : [ 'descriptorPool' ],
@@ -185,6 +186,7 @@ def scan_type(v):
 	if api and api == 'vulkansc': return
 	category = v.attrib.get('category')
 	name = v.attrib.get('name')
+	alias = v.attrib.get('alias')
 	if category == 'struct':
 		sType = None
 		for m in v.findall('member'):
@@ -200,6 +202,8 @@ def scan_type(v):
 		if name in ['VkBaseOutStructure', 'VkBaseInStructure']: return
 		if name in packed_bitfields: return
 		structures.append(name)
+		if 'Features' in name and not alias and not name in ['VkPhysicalDeviceFeatures2', 'VkPhysicalDeviceFeatures', 'VkValidationFeaturesEXT']:
+			feature_structs.add(name)
 		if name in protected_types:
 			return # TBD: need a better way?
 		if extendstr:
