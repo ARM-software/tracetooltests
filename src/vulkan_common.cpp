@@ -90,11 +90,18 @@ static void print_usage(const vulkan_req_t& reqs)
 
 bool enable_frame_boundary(vulkan_req_t& reqs)
 {
+	if (reqs.options.count("frame_boundary") > 0) // this will fail badly if we run it twice
+	{
+		printf("enable_frame_boundary already enabled!\n");
+		return true;
+	}
 	reqs.options["frame_boundary"] = true;
 	reqs.device_extensions.push_back("VK_EXT_frame_boundary");
-	static VkPhysicalDeviceFrameBoundaryFeaturesEXT fbfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr, VK_TRUE };
-	fbfeats.pNext = reqs.extension_features; // chain them if there are any existing ones
-	reqs.extension_features = (VkBaseInStructure*)&fbfeats;
+	// yes, this is a memory leak... fix later...
+	VkPhysicalDeviceFrameBoundaryFeaturesEXT* fbfeats = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)malloc(sizeof(VkPhysicalDeviceFrameBoundaryFeaturesEXT));
+	fbfeats->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT;
+	fbfeats->pNext = reqs.extension_features; // chain them if there are any existing ones
+	reqs.extension_features = (VkBaseInStructure*)fbfeats;
 	printf("Enabling frame boundary extension\n");
 	return true;
 }
@@ -408,13 +415,15 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	}
+
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 2)
 	{
 		deviceInfo.pNext = &reqs.reqfeat2;
 	}
-	else
+	else // Vulkan 1.1 or below
 	{
 		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
+		deviceInfo.pNext = &reqs.reqfeat11;
 	}
 
 	std::vector<const char*> enabledExtensions;
@@ -424,7 +433,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);
 	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
 	assert(result == VK_SUCCESS);
-	VkPhysicalDeviceFrameBoundaryFeaturesEXT pdfbfinfo = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, nullptr };
 
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
@@ -453,14 +461,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			enabledExtensions.push_back(str.c_str());
 			device_required.erase(str);
 
-			// Official frame boundary extension required and supported
-			if (strcmp(s.extensionName, VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME) == 0)
-			{
-				pdfbfinfo.pNext = (void*)deviceInfo.pNext;
-				pdfbfinfo.frameBoundary = VK_TRUE;
-				deviceInfo.pNext = (VkPhysicalDeviceFrameBoundaryFeaturesEXT*)&pdfbfinfo;
-			}
-			else if (strcmp(s.extensionName, VK_KHR_MAINTENANCE_6_EXTENSION_NAME) == 0)
+			if (strcmp(s.extensionName, VK_KHR_MAINTENANCE_6_EXTENSION_NAME) == 0)
 			{
 				req_maintenance_6 = true;
 			}
@@ -478,6 +479,16 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (enabledExtensions.size() > 0)
 	{
 		deviceInfo.ppEnabledExtensionNames = enabledExtensions.data();
+	}
+
+	// Logging
+	const VkBaseOutStructure* pNext = (const VkBaseOutStructure*)deviceInfo.pNext;
+	if (pNext) DLOG("Our vkCreateDevice pNext chain contains:");
+	else DLOG("Our vkCreateDevice pNext chain is empty");
+	while (pNext)
+	{
+		DLOG("\t%d", (int)pNext->sType);
+		pNext = pNext->pNext;
 	}
 
 	result = vkCreateDevice(vulkan.physical, &deviceInfo, NULL, &vulkan.device);
