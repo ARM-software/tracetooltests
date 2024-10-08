@@ -1,3 +1,5 @@
+#include "benchmarking/benchmarking.hpp"
+
 #include "gles_common.h"
 #include <EGL/eglext.h>
 
@@ -50,38 +52,37 @@ static void debug_callback(GLenum source, GLenum type, GLuint id, GLenum severit
 
 static bool check_bench(TOOLSTEST& b, const TOOLSTEST_INIT& reqs)
 {
-	const char* enable_json = getenv("BENCHMARKING_ENABLE_JSON");
-	const char* enable_path = getenv("BENCHMARKING_ENABLE_PATH");
-	const std::string our_name = "gles_" + b.name;
-	char* content = nullptr;
-
-	if (enable_path && enable_json) fprintf(stderr, "Both BENCHMARKING_ENABLE_JSON and BENCHMARKING_ENABLE_PATH are set -- this is an error!\n");
-
-	if (enable_path)
+	std::string enableFileJson;
+	bench::getEnableFileJson(enableFileJson);
+	if (enableFileJson.empty())
 	{
-		printf("Reading benchmarking enable file: %s\n", enable_path);
-		uint32_t size = 0;
-		content = load_blob(enable_path, &size);
-	}
-	else if (enable_json)
-	{
-		printf("Reading benchmarking enable file directly from the environment variable\n");
-		content = strdup(enable_json);
-	}
-	else return false;
-
-	nlohmann::json data = nlohmann::json::parse(content);
-	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); return false; }
-	if (data.value("target", "no target") != our_name) { printf("Name in benchmarking enable file is not ours - skipping\n"); return false; }
-
-	if (data.count("capabilities"))
-	{
-		nlohmann::json caps = data.at("capabilities");
-
-		p__loops = caps.value("loops", p__loops);
+		return false;
 	}
 
-	bench_init(b.bench, our_name.c_str(), content, data.value("results", "results.json").c_str());
+	std::string testName = "gles_" + b.name;
+	std::string capabilitiesFilePath = testName + ".bench";
+	uint32_t capabilitiesFileJsonSize = 0;
+	char* capabilitiesFileJson = load_blob(capabilitiesFilePath.c_str(), &capabilitiesFileJsonSize);
+
+	bench::CapabilitiesFile capabilitiesFile;
+	bench::loadCapabilitiesFile(capabilitiesFileJson, capabilitiesFile);
+	
+	bench::EnableFile enableFile;
+	bench::loadEnableFile(capabilitiesFile, enableFileJson.c_str(), enableFile, true);
+
+	if (enableFile.capabilities.loops.has_value())
+	{
+		p__loops = enableFile.capabilities.loops->value;
+	}
+
+	if (enableFile.results.empty())
+	{
+		bench_init(b.bench, testName.c_str(), enableFileJson, "results.json");
+	}
+	else
+	{
+		bench_init(b.bench, testName.c_str(), enableFileJson, enableFile.results);
+	}
 
 	return true;
 }

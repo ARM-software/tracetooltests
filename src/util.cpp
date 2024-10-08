@@ -35,11 +35,11 @@ uint_fast8_t p__validation = get_env_int("TOOLSTEST_VALIDATION", 0);
 
 void bench_save_results_file(const benchmarking& b)
 {
-	printf("Writing benchmarking results file (%d iterations): %s\n", (int)b.results.size(), b.results_file.c_str());
+	printf("Writing benchmarking results file (%d iterations): %s\n", (int)b.results.size(), b.results_path.c_str());
 	nlohmann::json data;
 	data["app_version"] = "1.0";
 	data["std_version"] = 1;
-	data["enable_file"] = nlohmann::json::parse(b.enable_file);
+	data["enable_file"] = nlohmann::json::parse(b.enable_file_json);
 	if (!b.backend_name.empty()) data["rendering_backend"] = b.backend_name;
 	data["init_time"] = b.init_time;
 	data["end_time"] = gettime();
@@ -63,7 +63,7 @@ void bench_save_results_file(const benchmarking& b)
 		results.push_back(result);
 	}
 	data["results"] = results;
-	std::ofstream file(b.results_file);
+	std::ofstream file(b.results_path);
 	file << data.dump(4);
 	file.close();
 }

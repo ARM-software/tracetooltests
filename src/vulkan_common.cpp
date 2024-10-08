@@ -6,6 +6,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb_image_write.h"
 
+#include "benchmarking/benchmarking.hpp"
+
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int selected_gpu = 0;
 
@@ -101,56 +103,72 @@ bool enable_frame_boundary(vulkan_req_t& reqs)
 
 static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* testname)
 {
-	const char* enable_json = getenv("BENCHMARKING_ENABLE_JSON");
-	const char* enable_path = getenv("BENCHMARKING_ENABLE_FILE");
-	char* content = nullptr;
-
-	if (enable_path && enable_json) fprintf(stderr, "Both BENCHMARKING_ENABLE_JSON and BENCHMARKING_ENABLE_PATH are set -- this is an error!\n");
-
-	if (enable_path)
+	std::string enableFileJson;
+	bench::getEnableFileJson(enableFileJson);
+	if (enableFileJson.empty())
 	{
-		printf("Reading benchmarking enable file: %s\n", enable_path);
-		uint32_t size = 0;
-		content = load_blob(enable_path, &size);
-	}
-	else if (enable_json)
-	{
-		printf("Reading benchmarking enable file directly from the environment variable\n");
-		content = strdup(enable_json);
-	}
-	else return false;
-
-	nlohmann::json data = nlohmann::json::parse(content);
-	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); return false; }
-	if (data.value("target", "no target") != testname) { printf("Name in benchmarking enable file is not ours - skipping\n"); return false; }
-
-	if (data.count("capabilities"))
-	{
-		nlohmann::json caps = data.at("capabilities");
-
-		reqs.fence_delay = caps.value("gpu_delay_reuse", false);
-		if (caps.count("frameless") && caps.value("frameless", true) == false) enable_frame_boundary(reqs);
-		p__loops = caps.value("loops", p__loops);
-		// TBD: gpu_no_coherent
+		return false;
 	}
 
-	if (data.count("settings"))
-	{
-		nlohmann::json settings = data.at("settings");
+	std::string capabilitiesFilePath = std::string(testname) + ".bench";
+	uint32_t capabilitiesFileJsonSize = 0;
+	char* capabilitiesFileJson = load_blob(capabilitiesFilePath.c_str(), &capabilitiesFileJsonSize);
 
-		if (settings.count("vulkan_variant"))
+	bench::CapabilitiesFile capabilitiesFile;
+	bench::loadCapabilitiesFile(capabilitiesFileJson, capabilitiesFile);
+	
+	bench::EnableFile enableFile;
+	bench::loadEnableFile(capabilitiesFile, enableFileJson.c_str(), enableFile, true);
+
+	if (enableFile.capabilities.gpu_delay_reuse.has_value())
+	{
+		reqs.fence_delay = enableFile.capabilities.gpu_delay_reuse->value;
+	}
+
+	if (enableFile.capabilities.frameless.has_value())
+	{
+		enable_frame_boundary(reqs);
+	}
+
+	if (enableFile.capabilities.loops.has_value())
+	{
+		p__loops = enableFile.capabilities.loops->value;
+	}
+
+	// TBD: gpu_no_coherent
+
+	const auto settingsEnd = enableFile.settings.end();
+
+	auto it = enableFile.settings.find("vulkan_variant");
+	if (it != settingsEnd)
+	{
+		const bench::SettingSelection& setting = *reinterpret_cast<const bench::SettingSelection*>(it->second.get());
+		if (setting.value.has_value())
 		{
-			std::string api = settings.value("vulkan_variant", "1.1");
-			if (api == "1.0") reqs.apiVersion = VK_API_VERSION_1_0;
-			else if (api == "1.1") reqs.apiVersion = VK_API_VERSION_1_1;
-			else if (api == "1.2") reqs.apiVersion = VK_API_VERSION_1_2;
-			else if (api == "1.3") reqs.apiVersion = VK_API_VERSION_1_3;
-			else { printf("Bad vulkan_variant: %s\n", api.c_str()); return false; }
+			reqs.apiVersion = VK_MAKE_API_VERSION(0, 1, *setting.value, 0);
 		}
-
-		if (settings.count("queue_count")) reqs.queues = settings.value("queue_count", 1);
 	}
-	bench_init(vulkan.bench, testname, content, data.value("results", "results.json").c_str());
+
+	it = enableFile.settings.find("queue_count");
+	if (it != settingsEnd)
+	{
+		const bench::SettingInteger& setting = *reinterpret_cast<const bench::SettingInteger*>(it->second.get());
+		if (setting.value.has_value())
+		{
+			reqs.queues = *setting.value;
+		}
+	}
+
+	if (enableFile.results.empty())
+	{
+		bench_init(vulkan.bench, testname, enableFileJson, "results.json");
+	}
+	else
+	{
+		bench_init(vulkan.bench, testname, enableFileJson, enableFile.results);
+	}
+
+	printf("Prout\n");
 
 	return true;
 }

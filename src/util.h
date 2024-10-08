@@ -120,25 +120,25 @@ struct benchmarking
 	std::vector<result_t> results; // store all results
 	uint64_t init_time = 0; // to track start of whole run
 	uint64_t latest_time = 0; // if we need it, to track start of latest iteration
-	char* enable_file = nullptr; // copy of the enable file for the results file
+	std::string enable_file_json; // copy of the enable file for the results file
 	std::string test_name;
-	std::string results_file; // path to results file
+	std::string results_path; // path to results file
 	std::vector<std::string> scene_name;
 	std::vector<std::string> scene_result_file;
 	std::string backend_name;
 };
 
 void bench_save_results_file(const benchmarking& b);
-static inline void bench_init(benchmarking& b, const char* test_name, char* enable_file, const char* results_file)
+static inline void bench_init(benchmarking& b, const char* test_name, const std::string& enable_file_json, const std::string& results_path)
 {
 	b.test_name = test_name;
 	b.init_time = gettime();
-	b.enable_file = enable_file;
-	b.results_file = results_file;
+	b.enable_file_json = enable_file_json;
+	b.results_path = results_path;
 }
 static inline void bench_done(benchmarking& b)
 {
-	if (b.enable_file) { bench_save_results_file(b); free(b.enable_file); }
+	if (!b.enable_file_json.empty()){ bench_save_results_file(b); }
 }
 static inline void bench_start_iteration(benchmarking& b) { b.latest_time = gettime(); }
 static inline void bench_stop_iteration(benchmarking& b) { b.results.push_back({ b.latest_time, gettime(), std::max<int>(0, (int)b.scene_name.size() - 1) }); }
