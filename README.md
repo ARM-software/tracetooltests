@@ -90,8 +90,9 @@ vkGetLayerObjectPropertyTRACETOOLTEST(VkInstance instance, VkObjectType objectTy
 uint64_t objectHandle, VkLayerObjectPropertyTRACETOOLTEST valueType) which can request
 layer internal information from the layer supporting this extension.
 
-VK_TRACETOOLTEST_memory_markup - defines ways to mark buffer device addresses and
-shader group handles in memory for identification by tools.
+VK_TRACETOOLTEST_trace_helpers - various helper commands for tracing tools. Defines
+ways to mark buffer device addresses and shader group handles in memory for
+identification by tools.
 
 Private GLES extensions
 -----------------------
