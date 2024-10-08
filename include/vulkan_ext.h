@@ -47,7 +47,7 @@ typedef enum VkAddressRemapTargetTRACETOOLTEST
 
 // Mark where in memory buffer device addresses or shader group handles are stored, as they may need to be
 // remapped for trace replay.
-// Passed to vkCreatePipelineLayout for specialization constants, vkCmdPushConstants2KHR for push constants,
+// Passed to VkPipelineShaderStageCreateInfo for specialization constants, vkCmdPushConstants2KHR for push constants,
 // vkCmdUpdateBuffer2TRACETOOLTEST for commandbuffer buffer updates, or vkUpdateBufferTRACETOOLTEST for mapped
 // memory buffer updates. When used with vkCmdPushConstants2KHR, offsets given here are relative to the start
 // of its dstOffset.
@@ -93,5 +93,6 @@ typedef void (VKAPI_PTR *PFN_vkPatchImageTRACETOOLTEST)(VkDevice device, VkImage
 
 // All pending Vulkan work has been host synchronized at this point to prevent race conditions. On trace replay, all other threads
 // must also synchronize to this point. When called outside of a replay context, this is a no-op. You should never need to add this
-// yourself to code, but it could be useful as a debug tool for tracing issues.
-typedef void (VKAPI_PTR *PFN_vkThreadBarrierTRACETOOLTEST)();
+// yourself to code, but it could be useful as a debug tool for tracing issues. To call it yourself, set count to zero and pValues
+// to null, and tools will find it and fill it out with their internal tracking data for your threads.
+typedef void (VKAPI_PTR *PFN_vkThreadBarrierTRACETOOLTEST)(uint32_t count, uint32_t* pValues);
