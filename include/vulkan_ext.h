@@ -47,7 +47,7 @@ typedef enum VkAddressRemapTargetTRACETOOLTEST
 
 // Mark where in memory buffer device addresses or shader group handles are stored, as they may need to be
 // remapped for trace replay.
-// Passed to vkCreatePipelineLayout for specialization constants, vkCmdPushConstants2KHR for push constants,
+// Passed to VkPipelineShaderStageCreateInfo for specialization constants, vkCmdPushConstants2KHR for push constants,
 // vkCmdUpdateBuffer2TRACETOOLTEST for commandbuffer buffer updates, or vkUpdateBufferTRACETOOLTEST for mapped
 // memory buffer updates. When used with vkCmdPushConstants2KHR, offsets given here are relative to the start
 // of its dstOffset.

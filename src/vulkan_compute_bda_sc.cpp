@@ -65,7 +65,7 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 	shaderStageCreateInfo.pName = "main";
 	shaderStageCreateInfo.pSpecializationInfo = &specInfo;
 
-	VkDeviceSize markup_location = 5;
+	VkDeviceSize markup_location = 5 * sizeof(int32_t); // address in bytes
 	VkAddressRemapTRACETOOLTEST mm = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST, shaderStageCreateInfo.pNext };
 	mm.target = VK_ADDRESS_REMAP_TARGET_SPECIALIZATION_CONSTANTS_TRACETOOLTEST;
 	mm.count = 1;

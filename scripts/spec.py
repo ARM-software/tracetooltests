@@ -59,6 +59,7 @@ all_handles = []
 platforms = collections.OrderedDict()
 extension_structs = OrderedSet() # list of extension structs
 type2sType = collections.OrderedDict() # map struct type -> sType enum
+sType2type = collections.OrderedDict() # map stype -> struct type
 function_aliases = collections.OrderedDict() # goes from vendor extension -> core extension -> core
 aliases_to_functions_map = collections.OrderedDict()
 extension_tags = []
@@ -193,12 +194,13 @@ def scan_type(v):
 			sType = m.attrib.get('values')
 			if sType and 'VK_STRUCTURE_TYPE' in sType:
 				break
+		if str_contains_vendor(sType) or not name in types: return
 		if sType:
 			type2sType[name] = sType
+			sType2type[sType] = name
 		# Look for extensions
 		extendstr = v.attrib.get('structextends')
 		extends = []
-		if str_contains_vendor(sType) or not name in types: return
 		if name in ['VkBaseOutStructure', 'VkBaseInStructure']: return
 		if name in packed_bitfields: return
 		structures.append(name)
