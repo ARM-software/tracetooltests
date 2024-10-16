@@ -22,7 +22,8 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-f", "--fence-variant"))
 	{
 		const int fence_delay = get_arg(argv, ++i, argc);
-		if (fence_delay >= 0 && fence_delay <= 1) { reqs.fence_delay = true; return true; }
+		if (fence_delay == 1) { reqs.fence_delay = true; return true; }
+		else if (fence_delay == 0) { reqs.fence_delay = false; return true; }
 		else return false;
 	}
 	return false;
