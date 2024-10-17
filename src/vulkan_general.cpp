@@ -121,8 +121,14 @@ int main(int argc, char** argv)
 	r = vkGetFenceStatus(vulkan.device, fence2);
 	assert(r == VK_NOT_READY);
 
-	r = vkGetFenceStatus(vulkan.device, fence1);
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
 	assert(r == VK_SUCCESS); // Third call NOT delayed
+
+	r = vkGetFenceStatus(vulkan.device, fence1);
+	assert(r == VK_SUCCESS); // Fourth call is always a success
+
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
+	assert(r == VK_SUCCESS); // Also a success
 
 	std::vector<VkFence> fences = { fence1, fence2 }; // one signaled, one unsignaled
 	r = vkWaitForFences(vulkan.device, 2, fences.data(), VK_TRUE, 10);
@@ -130,6 +136,25 @@ int main(int argc, char** argv)
 
 	r = vkResetFences(vulkan.device, 2, fences.data());
 	check(r);
+
+	r = vkGetFenceStatus(vulkan.device, fence1);
+	assert(r == VK_NOT_READY); // now not ready
+
+	r = vkGetFenceStatus(vulkan.device, fence2);
+	assert(r == VK_NOT_READY); // still not ready
+
+	r = vkQueueSubmit(queue, 0, nullptr, fence1);
+	check(r);
+	r = vkQueueSubmit(queue, 0, nullptr, fence2);
+	check(r);
+
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
+	else assert(r == VK_TIMEOUT); // First call delayed
+
+	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, UINT32_MAX / 2);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
+	else assert(r == VK_TIMEOUT); // First call delayed
 
 	// Test private data
 	bool private_data_support = false;
