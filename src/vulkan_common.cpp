@@ -423,7 +423,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	else // Vulkan 1.1 or below
 	{
 		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
-		deviceInfo.pNext = &reqs.reqfeat11;
 	}
 
 	std::vector<const char*> enabledExtensions;
