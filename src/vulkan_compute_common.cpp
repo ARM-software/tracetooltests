@@ -81,6 +81,10 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	bufferCreateInfo.size = r.buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (reqs.options.count("frame_boundary"))
+	{
+		bufferCreateInfo.usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	}
 	if (reqs.bufferDeviceAddress)
 	{
 		bufferCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR;
@@ -164,6 +168,32 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	bindInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
 	result = vkBindImageMemory2(vulkan.device, 1, &bindInfo);
 	check(result);
+
+	// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
+	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
+	check(result);
+	VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr };
+	barrier.srcAccessMask = VK_ACCESS_NONE;
+	barrier.dstAccessMask = VK_ACCESS_NONE;
+	barrier.image = r.image;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
+	check(result);
+	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &r.commandBufferFrameBoundary;
+	result = vkQueueSubmit(r.queue, 1, &submitInfo, VK_NULL_HANDLE);
+	check(result);
+	vkQueueWaitIdle(r.queue);
 
 	return r;
 }
