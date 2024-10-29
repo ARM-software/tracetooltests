@@ -10,7 +10,7 @@
 #include "vulkan_compute_1.inc"
 
 static bool indirect = false;
-static int indirectOffset = 0;
+static int indirectOffset = 0; // in units of indirect structs
 
 struct pushconstants
 {
@@ -96,6 +96,7 @@ int main(int argc, char** argv)
 	VkDeviceMemory indirectMemory = VK_NULL_HANDLE;
 	VkBuffer indirectBuffer = VK_NULL_HANDLE;
 
+	const int start_offset = indirectOffset * sizeof(VkDispatchIndirectCommand);
 	if (indirect)
 	{
 		VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
@@ -118,16 +119,16 @@ int main(int argc, char** argv)
 			pAllocateMemInfo.pNext = &flaginfo;
 		}
 		pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-		pAllocateMemInfo.allocationSize = aligned_size * (indirectOffset + 1);
+		pAllocateMemInfo.allocationSize = aligned_size;
 		result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &indirectMemory);
 		check(result);
 		assert(indirectMemory != VK_NULL_HANDLE);
 
-		result = vkBindBufferMemory(vulkan.device, indirectBuffer, indirectMemory, indirectOffset * aligned_size);
+		result = vkBindBufferMemory(vulkan.device, indirectBuffer, indirectMemory, 0);
 		check(result);
 
 		uint32_t* data = nullptr;
-		result = vkMapMemory(vulkan.device, indirectMemory, indirectOffset * aligned_size, aligned_size, 0, (void**)&data);
+		result = vkMapMemory(vulkan.device, indirectMemory, start_offset, VK_WHOLE_SIZE, 0, (void**)&data);
 		assert(result == VK_SUCCESS);
 		data[0] = ceil(width / float(workgroup_size));
 		data[1] = ceil(height / float(workgroup_size));
@@ -149,7 +150,7 @@ int main(int argc, char** argv)
 		vkCmdBindDescriptorSets(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipelineLayout, 0, 1, &r.descriptorSet, 0, NULL);
 		if (indirect)
 		{
-			vkCmdDispatchIndirect(r.commandBuffer, indirectBuffer, indirectOffset * sizeof(VkDispatchIndirectCommand));
+			vkCmdDispatchIndirect(r.commandBuffer, indirectBuffer, start_offset);
 		}
 		else
 		{
