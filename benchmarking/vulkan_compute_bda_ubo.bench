@@ -1,6 +1,6 @@
 {
-	"name": "vulkan_compute_3",
-	"description": "Test of compute shaders",
+	"name": "vulkan_compute_bda_ubo",
+	"description": "Test of buffer device address in compute shader from a UBO",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",

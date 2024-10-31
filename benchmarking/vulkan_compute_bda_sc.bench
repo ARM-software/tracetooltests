@@ -1,6 +1,6 @@
 {
-	"name": "vulkan_compute_3",
-	"description": "Test of compute shaders",
+	"name": "vulkan_compute_bda_sc",
+	"description": "Test of buffer device address in compute shader from specialization constants",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",

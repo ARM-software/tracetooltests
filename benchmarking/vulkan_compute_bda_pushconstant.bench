@@ -1,6 +1,6 @@
 {
-	"name": "vulkan_compute_3",
-	"description": "Test of compute shaders",
+	"name": "vulkan_compute_bda_pushconstant",
+	"description": "Test of buffer device address in compute shader from push constants",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",
