@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import os
 import xml.etree.ElementTree as ET
 import re
 import collections
@@ -41,9 +42,10 @@ class OrderedSet(t.MutableSet[T]):
 INSTANCE_CHAIN_PARAMETERS = ["VkInstance", "VkPhysicalDevice"]
 DEVICE_CHAIN_PARAMETERS = ["VkDevice", "VkQueue", "VkCommandBuffer"]
 
-tree = ET.parse('external/Vulkan-Headers/registry/vk.xml')
+our_path = os.path.dirname(__file__)
+tree = ET.parse('%s/../external/Vulkan-Headers/registry/vk.xml' % our_path)
 root = tree.getroot()
-videotree = ET.parse('external/Vulkan-Headers/registry/video.xml')
+videotree = ET.parse('%s/../external/Vulkan-Headers/registry/video.xml' % our_path)
 videoroot = videotree.getroot()
 
 disabled = OrderedSet()
