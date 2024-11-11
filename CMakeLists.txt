@@ -210,10 +210,10 @@ vulkan_test(multidevice_1)
 vulkan_test(multiinstance)
 vulkan_test(stress_1)
 vulkan_test(pnext_chain)
+vulkan_test(mesh_1)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)
 vulkan_test_build(memory_mprotect)
-vulkan_test_build(mesh_1)
 
 endif()

@@ -1,6 +1,6 @@
 {
 	"name": "vulkan_as_1",
-	"description": "Test of accelleration structures",
+	"description": "Test of acceleration structures",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",

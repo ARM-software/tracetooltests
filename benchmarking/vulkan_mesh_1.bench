@@ -1,6 +1,6 @@
 {
-	"name": "vulkan_as_2",
-	"description": "Test of acceleration structures",
+	"name": "vulkan_as_1",
+	"description": "Test of mesh shading basic functions",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",
