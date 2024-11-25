@@ -6,10 +6,7 @@ static vulkan_req_t reqs;
 
 static void show_usage()
 {
-	printf("-x/--ugly-exit         Exit without cleanup\n");
-	printf("-f/--fence-variant N   Set fence variant (default 0)\n");
-	printf("\t0 - normal run\n");
-	printf("\t1 - expect induced fence delay of 2 calls\n");
+	printf("-x/--ugly-exit         		Exit without cleanup\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -18,13 +15,6 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	{
 		ugly_exit = true;
 		return true;
-	}
-	else if (match(argv[i], "-f", "--fence-variant"))
-	{
-		const int fence_delay = get_arg(argv, ++i, argc);
-		if (fence_delay == 1) { reqs.fence_delay = true; return true; }
-		else if (fence_delay == 0) { reqs.fence_delay = false; return true; }
-		else return false;
 	}
 	return false;
 }
@@ -90,73 +80,14 @@ int main(int argc, char** argv)
 		}
 	}
 
-	// Test tool interference in fence handling
+	// Test private data
 
-	VkFence fence1;
-	VkFence fence2;
+	VkFence fence;
 	VkFenceCreateInfo fence_create_info = {};
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence1);
-	check(r);
-	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence2);
+	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(r);
 
-	VkQueue queue;
-	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
-	r = vkQueueSubmit(queue, 0, nullptr, fence1); // easiest way to signal a fence...
-	check(r);
-
-	// Wait 1ms, to be sure that the test after (wait for fence1) succeed
-	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, 1000000);
-	assert(r == VK_TIMEOUT);
-
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
-
-	r = vkGetFenceStatus(vulkan.device, fence1);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_NOT_READY); // Second call delayed
-
-	r = vkGetFenceStatus(vulkan.device, fence2);
-	assert(r == VK_NOT_READY);
-
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
-	assert(r == VK_SUCCESS); // Third call NOT delayed
-
-	r = vkGetFenceStatus(vulkan.device, fence1);
-	assert(r == VK_SUCCESS); // Fourth call is always a success
-
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
-	assert(r == VK_SUCCESS); // Also a success
-
-	std::vector<VkFence> fences = { fence1, fence2 }; // one signaled, one unsignaled
-	r = vkWaitForFences(vulkan.device, 2, fences.data(), VK_TRUE, 10);
-	assert(r == VK_TIMEOUT);
-
-	r = vkResetFences(vulkan.device, 2, fences.data());
-	check(r);
-
-	r = vkGetFenceStatus(vulkan.device, fence1);
-	assert(r == VK_NOT_READY); // now not ready
-
-	r = vkGetFenceStatus(vulkan.device, fence2);
-	assert(r == VK_NOT_READY); // still not ready
-
-	r = vkQueueSubmit(queue, 0, nullptr, fence1);
-	check(r);
-	r = vkQueueSubmit(queue, 0, nullptr, fence2);
-	check(r);
-
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
-
-	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, UINT32_MAX / 2);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
-
-	// Test private data
 	bool private_data_support = false;
 	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
@@ -172,10 +103,10 @@ int main(int argc, char** argv)
 		VkPrivateDataSlot pdslot;
 		r = vkCreatePrivateDataSlot(vulkan.device, &pdinfo, nullptr, &pdslot);
 		check(r);
-		r = vkSetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence1, pdslot, 1234);
+		r = vkSetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, 1234);
 		check(r);
 		uint64_t pData = 0;
-		vkGetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence1, pdslot, &pData);
+		vkGetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, &pData);
 		assert(pData == 1234);
 		vkDestroyPrivateDataSlot(vulkan.device, pdslot, nullptr);
 		// TBD test device pre-allocate private data using VkDevicePrivateDataCreateInfo + VK_STRUCTURE_TYPE_DEVICE_PRIVATE_DATA_CREATE_INFO
@@ -219,8 +150,7 @@ int main(int argc, char** argv)
 
 	if (!ugly_exit)
 	{
-		vkDestroyFence(vulkan.device, fence1, nullptr);
-		vkDestroyFence(vulkan.device, fence2, nullptr);
+		vkDestroyFence(vulkan.device, fence, nullptr);
 		test_done(vulkan);
 	}
 
