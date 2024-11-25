@@ -1,15 +1,16 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
+#include <thread>
 
 static bool ugly_exit = false;
+static uint64_t fence_threshold = 0;
 static vulkan_req_t reqs;
 
 static void show_usage()
 {
-	printf("-x/--ugly-exit         Exit without cleanup\n");
-	printf("-f/--fence-variant N   Set fence variant (default 0)\n");
-	printf("\t0 - normal run\n");
-	printf("\t1 - expect induced fence delay of 2 calls\n");
+	printf("-x/--ugly-exit         		Exit without cleanup\n");
+	printf("-f/--fence-delay	   		If set, assume that the capture tool is introducing a fence delay of two (2) calls.\n");
+	printf("-t/--fence-threshold <T>	Specify the timeout threshold in nanoseconds under which a vkWaitForFences call is delayed. (Default 0).\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -19,12 +20,15 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		ugly_exit = true;
 		return true;
 	}
-	else if (match(argv[i], "-f", "--fence-variant"))
+	else if (match(argv[i], "-f", "--fence-delay"))
 	{
-		const int fence_delay = get_arg(argv, ++i, argc);
-		if (fence_delay == 1) { reqs.fence_delay = true; return true; }
-		else if (fence_delay == 0) { reqs.fence_delay = false; return true; }
-		else return false;
+		reqs.fence_delay = true;
+		return true;
+	}
+	else if (match(argv[i], "-t", "--fence-threshold"))
+	{
+		fence_threshold = get_arg(argv, ++i, argc);
+		return true;
 	}
 	return false;
 }
@@ -110,24 +114,21 @@ int main(int argc, char** argv)
 	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, 1000000);
 	assert(r == VK_TIMEOUT);
 
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
-
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_NOT_READY); // Second call delayed
+	else assert(r == VK_NOT_READY); // First call delayed
+
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, fence_threshold);
+	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
+	else assert(r == VK_TIMEOUT); // Second call delayed
 
 	r = vkGetFenceStatus(vulkan.device, fence2);
-	assert(r == VK_NOT_READY);
-
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
-	assert(r == VK_SUCCESS); // Third call NOT delayed
+	assert(r == VK_NOT_READY);	// fence2 unchanged
 
 	r = vkGetFenceStatus(vulkan.device, fence1);
-	assert(r == VK_SUCCESS); // Fourth call is always a success
+	assert(r == VK_SUCCESS); // Third call NOT delayed
 
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, 0);
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, fence_threshold);
 	assert(r == VK_SUCCESS); // Also a success
 
 	std::vector<VkFence> fences = { fence1, fence2 }; // one signaled, one unsignaled
@@ -141,20 +142,27 @@ int main(int argc, char** argv)
 	assert(r == VK_NOT_READY); // now not ready
 
 	r = vkGetFenceStatus(vulkan.device, fence2);
-	assert(r == VK_NOT_READY); // still not ready
+	assert(r == VK_NOT_READY); // not ready either
 
 	r = vkQueueSubmit(queue, 0, nullptr, fence1);
 	check(r);
 	r = vkQueueSubmit(queue, 0, nullptr, fence2);
 	check(r);
 
-	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, UINT32_MAX / 2);
-	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
+	std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, UINT32_MAX / 2);
+	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, fence_threshold + 1);
+	assert(r == VK_SUCCESS); // Call is always a success as timeout > fence_threshold so not affected by fence delay
+
+	r = vkGetFenceStatus(vulkan.device, fence1);
+	assert(r == VK_SUCCESS); // Even if only second call, it shouldn't be delayed
+
+	r = vkGetFenceStatus(vulkan.device, fence2);
 	if (!reqs.fence_delay) assert(r == VK_SUCCESS);
-	else assert(r == VK_TIMEOUT); // First call delayed
+	else assert(r == VK_NOT_READY); // First call should be delayed
+
+	r = vkWaitForFences(vulkan.device, 1, &fence2, VK_TRUE, fence_threshold + 1);
+	assert(r == VK_SUCCESS); // Call is always a success as timeout > fence_threshold so not affected by fence delay
 
 	// Test private data
 	bool private_data_support = false;
