@@ -110,9 +110,9 @@ int main(int argc, char** argv)
 		ar.pOffsets = &offset;
 		VkUpdateMemoryInfoTRACETOOLTEST ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_TRACETOOLTEST, &ar };
 		ui.dstOffset = 0;
-		ui.dataSize = 8;
+		ui.dataSize = aligned_buffer_size;
 		ui.pData = &address;
-		vulkan.vkUpdateBuffer(vulkan.device, r.buffer, &ui);
+		vulkan.vkUpdateBuffer(vulkan.device, ubo, &ui);
 	}
 
 	// generic setup
