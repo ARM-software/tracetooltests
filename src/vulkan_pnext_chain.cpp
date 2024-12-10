@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.queueFamilyIndexCount = 1;
 	imageCreateInfo.pQueueFamilyIndices = &queueFamilyIndex;
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	VkImage image;
 	result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &image);
@@ -168,6 +168,12 @@ int main(int argc, char** argv)
 		assert(result == VK_SUCCESS);
 
 		delete deviceGroupInfo.pDeviceIndices;
+
+		// recreate the image so that we can rebind on it
+		vkDestroyImage(vulkan.device, image, nullptr);
+		result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &image);
+		assert(result == VK_SUCCESS);
+		bindInfo.image = image;
 	}
 
 	// Free/Destroy everything
