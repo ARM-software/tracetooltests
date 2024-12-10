@@ -131,6 +131,7 @@ int main(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.apiVersion = VK_API_VERSION_1_2;
+	reqs.minApiVersion = VK_API_VERSION_1_2;
 	reqs.bufferDeviceAddress = true;
 	reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_sc", reqs);

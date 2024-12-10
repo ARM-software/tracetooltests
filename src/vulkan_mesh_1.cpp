@@ -19,6 +19,7 @@ int main(int argc, char** argv)
 	reqs.device_extensions.push_back("VK_KHR_spirv_1_4"); // required for VK_EXT_mesh_shader
 	reqs.device_extensions.push_back("VK_EXT_mesh_shader");
 	reqs.apiVersion = VK_API_VERSION_1_1;
+	reqs.minApiVersion = VK_API_VERSION_1_1;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_mesh", reqs);
 
 	VkPhysicalDeviceMeshShaderFeaturesEXT meshfeats { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT, nullptr };

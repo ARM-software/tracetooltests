@@ -80,9 +80,9 @@ static void print_usage(const vulkan_req_t& reqs)
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
-	printf("\t0 - Vulkan 1.0\n");
-	printf("\t1 - Vulkan 1.1\n");
-	printf("\t2 - Vulkan 1.2\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_0) printf("\t0 - Vulkan 1.0\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
 	printf("\t3 - Vulkan 1.3\n");
 	if (reqs.usage) reqs.usage();
 	exit(1);
@@ -207,6 +207,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		else if (match(argv[i], "-V", "--vulkan-variant")) // overrides version req from test itself
 		{
 			int vulkan_variant = get_arg(argv, ++i, argc);
+
+			if (apiversion2variant(reqs.minApiVersion) > vulkan_variant)
+			{
+				ELOG("Given Vulkan version too low for this test!");
+				print_usage(reqs);
+			}
+
 			if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
 			else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
 			else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;

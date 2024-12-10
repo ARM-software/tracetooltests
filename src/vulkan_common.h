@@ -50,6 +50,7 @@ struct vulkan_req_t // Vulkan context requirements
 	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t apiVersion = VK_API_VERSION_1_1;
+	uint32_t minApiVersion = VK_API_VERSION_1_0; // the minimum required for the test
 	uint32_t queues = 1;
 	std::vector<std::string> instance_extensions;
 	std::vector<std::string> device_extensions;

@@ -134,6 +134,7 @@ int main(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.apiVersion = VK_API_VERSION_1_2;
+	reqs.minApiVersion = VK_API_VERSION_1_2;
 	reqs.bufferDeviceAddress = true;
 	reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	reqs.device_extensions.push_back("VK_KHR_maintenance6");
