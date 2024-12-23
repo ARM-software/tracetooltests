@@ -142,6 +142,11 @@ indirect_command_c_struct_names = {
 	'vkCmdDrawIndexedIndirectCountAMD': 'VkDrawIndexedIndirectCommand',
 }
 
+draw_commands = [] # vkCmdDraw*
+compute_commands = [] # vkCmdDispatch*
+raytracing_commands = [] # vkCmdTraceRays*
+pipeline_execute_commands = [] # draw_commands + compute_commands + raytracing_commands
+
 # special call-me-twice query functions
 special_count_funcs = collections.OrderedDict()
 
@@ -176,7 +181,8 @@ def scan(req):
 	if api and api == 'vulkansc': return
 	for sc in req.findall('command'):
 		sname = sc.attrib.get('name')
-		if sname not in valid_functions and not str_contains_vendor(sname): valid_functions.append(sname)
+		if sname not in valid_functions and not str_contains_vendor(sname):
+			valid_functions.append(sname)
 	for sc in req.findall('enum'):
 		sname = sc.attrib.get('name')
 		if not sname in enums and not str_contains_vendor(sname): enums.append(sname)
@@ -340,6 +346,12 @@ def init():
 			is_instance_chain_command = False
 			is_device_chain_command = False
 
+			if not name in valid_functions: continue
+
+			if 'vkCmdDraw' in name: draw_commands.append(name)
+			if 'vkCmdDispatch' in name: compute_commands.append(name)
+			if 'vkCmdTraceRays' in name: raytracing_commands.append(name)
+
 			if 'vkGet' in name or 'vkEnum' in name: # find special call-me-twice functions
 				typename = None
 				lastname = None
@@ -427,6 +439,13 @@ def init():
 					if name not in device_chain_commands: device_chain_commands.append(name)
 				else:
 					if name not in special_commands: special_commands.append(name)
+
+	assert len(draw_commands) == len(set(draw_commands)), 'Duplicates in %s' % ', '.join(draw_commands)
+	assert len(compute_commands) == len(set(compute_commands)), 'Duplicates in 5s' % ', '.join(compute_commands)
+	assert len(raytracing_commands) == len(set(raytracing_commands)), 'Duplicates in 5s' % ', '.join(raytracing_commands)
+	pipeline_execute_commands.extend(draw_commands)
+	pipeline_execute_commands.extend(compute_commands)
+	pipeline_execute_commands.extend(raytracing_commands)
 
 if __name__ == '__main__':
 	init()
