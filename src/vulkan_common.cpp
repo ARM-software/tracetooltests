@@ -135,7 +135,7 @@ static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* 
 	{
 		nlohmann::json caps = data.at("capabilities");
 
-		reqs.fence_delay = caps.value("gpu_delay_reuse", false);
+		reqs.fence_delay = caps.value("gpu_delay_reuse", 0);
 		if (caps.count("frameless") && caps.value("frameless", true) == false) enable_frame_boundary(reqs);
 		p__loops = caps.value("loops", p__loops);
 		// TBD: gpu_no_coherent
