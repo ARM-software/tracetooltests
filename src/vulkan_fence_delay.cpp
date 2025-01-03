@@ -161,7 +161,7 @@ int main(int argc, char** argv)
 		for (uint64_t i = 0; i < reqs.fence_delay + 1; ++i)
 		{
 			r = vkGetFenceStatus(vulkan.device, fence);
-			assert(r == VK_NOT_READY);
+			assert((r == VK_NOT_READY) || (reqs.fence_delay == 0 && r == VK_SUCCESS));
 		}
 
 		for (uint64_t i = 0; i < reqs.fence_delay; ++i)
