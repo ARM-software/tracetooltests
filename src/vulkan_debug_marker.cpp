@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 	submit_info.pCommandBuffers = &command_buffer;
 	result = vkQueueSubmit(queue, 1, &submit_info, fence);
 	check(result);
-	vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
+	vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
 
 	// Cleanup...
 	vkDestroyFence(vulkan.device, fence, nullptr);

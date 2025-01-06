@@ -280,7 +280,7 @@ int main(int argc, char** argv)
 		else if (sync_variant == 1) { for (VkQueue q : r.queues) vkQueueWaitIdle(q); }
 		else if (sync_variant == 2)
 		{
-			result = vkWaitForFences(vulkan.device, nodes, fences.data(), VK_TRUE, UINT32_MAX);
+			result = vkWaitForFences(vulkan.device, nodes, fences.data(), VK_TRUE, UINT64_MAX);
 			check(result);
 			result = vkResetFences(vulkan.device, nodes, fences.data());
 			check(result);
