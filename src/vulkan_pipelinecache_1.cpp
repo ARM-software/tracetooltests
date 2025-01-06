@@ -53,7 +53,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
 {
-	VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
+	VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
 	check(result);
 }
 

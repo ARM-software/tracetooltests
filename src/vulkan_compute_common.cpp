@@ -250,7 +250,7 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	result = vkQueueSubmit(r.queue, 1, &submitInfo, fence);
 	check(result);
 
-	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
 	check(result);
 
 	vkDestroyFence(vulkan.device, fence, nullptr);

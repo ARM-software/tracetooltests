@@ -37,7 +37,7 @@ static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
 {
 	if (fence_variant == 0)
 	{
-		VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT32_MAX);
+		VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
 		check(result);
 	}
 	else if (fence_variant == 1)
