@@ -159,15 +159,32 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	check(result);
 	assert(r.memory != VK_NULL_HANDLE);
 
-	result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
-	check(result);
+	if (vulkan.apiVersion >= VK_API_VERSION_1_1)
+	{
+		VkBindBufferMemoryInfo bindBufferInfo = { VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr };
+		bindBufferInfo.buffer = r.buffer;
+		bindBufferInfo.memory = r.memory;
+		bindBufferInfo.memoryOffset = 0;
 
-	VkBindImageMemoryInfo bindInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
-	bindInfo.image = r.image;
-	bindInfo.memory = r.memory;
-	bindInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
-	result = vkBindImageMemory2(vulkan.device, 1, &bindInfo);
-	check(result);
+		result = vkBindBufferMemory2(vulkan.device, 1, &bindBufferInfo);
+		check(result);
+
+		VkBindImageMemoryInfo bindImageInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
+		bindImageInfo.image = r.image;
+		bindImageInfo.memory = r.memory;
+		bindImageInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
+
+		result = vkBindImageMemory2(vulkan.device, 1, &bindImageInfo);
+		check(result);
+	}
+	else
+	{
+		result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
+		check(result);
+
+		result = vkBindImageMemory(vulkan.device, r.image, r.memory, aligned_buffer_size);
+		check(result);
+	}
 
 	// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
 	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
