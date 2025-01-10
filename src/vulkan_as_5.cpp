@@ -25,8 +25,6 @@ static std::vector<uint32_t> indices = {0, 1, 2};
 static uint32_t index_count = static_cast<uint32_t>(indices.size());
 
 static uint32_t handle_size;
-static uint32_t handle_alignment;
-static uint32_t handle_size_aligned;
 
 struct Resources
 {
@@ -368,7 +366,7 @@ void prepare_ray_tracing_pipeline(const vulkan_setup_t & vulkan, Resources & res
 void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & resources)
 {
 	const uint32_t group_count = 1;
-	const uint32_t sbt_size = group_count * handle_size_aligned;
+	const uint32_t sbt_size = group_count * handle_size;
 
 	std::vector<uint8_t> shader_handle_storage(sbt_size);
 	check(resources.functions.vkGetRayTracingShaderGroupHandlesKHR(vulkan.device, resources.pipeline, 0, group_count, sbt_size, shader_handle_storage.data()));
@@ -481,8 +479,6 @@ int main(int argc, char** argv)
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_5", reqs);
 
 	handle_size = vulkan.device_ray_tracing_pipeline_properties.shaderGroupHandleSize;
-	handle_alignment = vulkan.device_ray_tracing_pipeline_properties.shaderGroupBaseAlignment;
-	handle_size_aligned = (handle_size + handle_alignment - 1) & ~(handle_alignment - 1);
 
 	Resources resources{};
 
