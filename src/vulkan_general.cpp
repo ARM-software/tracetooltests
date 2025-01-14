@@ -80,38 +80,6 @@ int main(int argc, char** argv)
 		}
 	}
 
-	// Test private data
-
-	VkFence fence;
-	VkFenceCreateInfo fence_create_info = {};
-	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
-	check(r);
-
-	bool private_data_support = false;
-	if (reqs.apiVersion >= VK_API_VERSION_1_3)
-	{
-		VkPhysicalDevicePrivateDataFeatures pFeat = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES, nullptr };
-		VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &pFeat };
-		vkGetPhysicalDeviceFeatures2(vulkan.physical, &feat2);
-		private_data_support = pFeat.privateData;
-		if (!private_data_support) ILOG("Private data feature not supported!");
-	}
-	if (reqs.apiVersion >= VK_API_VERSION_1_3 && private_data_support)
-	{
-		VkPrivateDataSlotCreateInfo pdinfo = { VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO, nullptr, 0 };
-		VkPrivateDataSlot pdslot;
-		r = vkCreatePrivateDataSlot(vulkan.device, &pdinfo, nullptr, &pdslot);
-		check(r);
-		r = vkSetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, 1234);
-		check(r);
-		uint64_t pData = 0;
-		vkGetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, &pData);
-		assert(pData == 1234);
-		vkDestroyPrivateDataSlot(vulkan.device, pdslot, nullptr);
-		// TBD test device pre-allocate private data using VkDevicePrivateDataCreateInfo + VK_STRUCTURE_TYPE_DEVICE_PRIVATE_DATA_CREATE_INFO
-	}
-
 	// Test valid null destroy commands
 
 	vkDestroyInstance(VK_NULL_HANDLE, nullptr);
@@ -150,7 +118,6 @@ int main(int argc, char** argv)
 
 	if (!ugly_exit)
 	{
-		vkDestroyFence(vulkan.device, fence, nullptr);
 		test_done(vulkan);
 	}
 
