@@ -97,6 +97,9 @@ struct vulkan_setup_t
 	bool has_trace_helpers = false;
 };
 
+extern vulkan_setup_t vulkan2;
+extern vulkan_req_t req2;
+
 namespace acceleration_structures
 {
 	struct functions
