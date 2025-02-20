@@ -6,9 +6,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb_image_write.h"
 
-vulkan_setup_t vulkan2;
-vulkan_req_t req2;
-
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int selected_gpu = 0;
 
