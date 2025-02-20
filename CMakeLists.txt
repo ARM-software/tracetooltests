@@ -63,12 +63,12 @@ endfunction()
 
 function(vulkan_test_build test_name)
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
-		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
+		src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
 	target_link_directories(vulkan_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
 	set_target_properties(vulkan_${ARGV0} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
-	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
 	install(TARGETS vulkan_${ARGV0} DESTINATION tests)
 endfunction()
 
