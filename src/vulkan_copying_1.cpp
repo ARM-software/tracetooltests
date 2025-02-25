@@ -155,8 +155,7 @@ static void copying_1(int argc, char** argv)
 		assert(a != 0);
 	}
 
-	VkCommandPoolCreateInfo command_pool_create_info = {};
-	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
 	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	command_pool_create_info.queueFamilyIndex = 0; // TBD - add transfer queue variant
 
@@ -164,19 +163,16 @@ static void copying_1(int argc, char** argv)
 	result = vkCreateCommandPool(vulkan.device, &command_pool_create_info, NULL, &command_pool);
 	check(result);
 
-	VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
-	command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	VkCommandBufferAllocateInfo command_buffer_allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
 	command_buffer_allocate_info.commandPool = command_pool;
 	command_buffer_allocate_info.commandBufferCount = num_buffers + 1;
 	std::vector<VkCommandBuffer> command_buffers(num_buffers + 1);
 	result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_allocate_info, command_buffers.data());
 	check(result);
-	VkCommandBufferBeginInfo command_buffer_begin_info = {};
-	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	VkCommandBufferBeginInfo command_buffer_begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	VkFence fence;
-	VkFenceCreateInfo fence_create_info = {};
-	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(result);
 	// Many commands

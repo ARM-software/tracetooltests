@@ -10,6 +10,9 @@ int main(int argc, char** argv)
 	reqs.apiVersion = VK_API_VERSION_1_2;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_1", reqs);
 	VkResult result;
+	VkQueue queue;
+
+	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accel = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
 	VkPhysicalDeviceFeatures2 feat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &accel };
@@ -67,6 +70,9 @@ int main(int argc, char** argv)
 	VkAccelerationStructureDeviceAddressInfoKHR dai = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr, as };
 	VkDeviceAddress addr = ttGetAccelerationStructureDeviceAddressKHR(vulkan.device, &dai);
 	(void)addr; // do nothing with it
+
+	// just submit it somewhere
+	testQueueBuffer(vulkan, queue, { buffer });
 
 	ttDestroyAccelerationStructureKHR(vulkan.device, as, nullptr);
 	vkDestroyBuffer(vulkan.device, buffer, nullptr);

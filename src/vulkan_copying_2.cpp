@@ -65,7 +65,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-F", "--flush-variant"))
 	{
 		flush_variant = get_arg(argv, ++i, argc);
-		return (map_variant >= 0 && map_variant <= 1);
+		return (flush_variant >= 0 && flush_variant <= 1);
 	}
 	return false;
 }
@@ -146,16 +146,7 @@ static void copying_2(int argc, char** argv)
 		memset(data + offset, i, aligned_size);
 		offset += aligned_size;
 	}
-	if (flush_variant == 1)
-	{
-		VkMappedMemoryRange range = {};
-		range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		range.memory = origin_memory;
-		range.size = VK_WHOLE_SIZE;
-		range.offset = 0;
-		result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
-		check(result);
-	}
+	if (flush_variant == 1) testFlushMemory(vulkan, origin_memory, 0, VK_WHOLE_SIZE);
 	if (map_variant == 1 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
 	if (map_variant == 2) vkMapMemory(vulkan.device, origin_memory, 10, 20, 0, (void**)&data);
 
@@ -205,16 +196,7 @@ static void copying_2(int argc, char** argv)
 		bench_start_iteration(vulkan.bench);
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			if (flush_variant == 1) // add useless flush
-			{
-				VkMappedMemoryRange range = {};
-				range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-				range.memory = origin_memory;
-				range.size = aligned_size;
-				range.offset = aligned_size * i;
-				result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
-				check(result);
-			}
+			if (flush_variant == 1) testFlushMemory(vulkan, origin_memory, aligned_size * i, aligned_size); // add useless flush
 			VkPipelineStageFlags flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			VkQueue q = queue1;
 			if (queue_variant == 0 && i % 2 == 1) q = queue2; // interleave mode

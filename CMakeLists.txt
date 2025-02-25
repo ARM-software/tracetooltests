@@ -34,7 +34,7 @@ elseif (WINDOWSYSTEM MATCHES "pbuffers")
 else()
 	message(FATAL_ERROR "Invalid window system: ${WINDOWSYSTEM}")
 endif()
-set(IT_CFLAGS "-Wall -g")
+set(IT_CFLAGS "-Wall -g -std=c++17")
 
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:
@@ -214,6 +214,7 @@ vulkan_test(multiinstance)
 vulkan_test(stress_1)
 vulkan_test(pnext_chain)
 vulkan_test(mesh_1)
+vulkan_test(aliasing_1)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)

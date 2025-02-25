@@ -925,3 +925,115 @@ bool shader_has_buffer_devices_addresses(const uint32_t* code, uint32_t code_siz
 	while (insn != code + code_size && opcode != SpvOpMemoryModel);
 	return false;
 }
+
+void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size)
+{
+	VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr };
+	range.memory = memory;
+	range.size = size;
+	range.offset = offset;
+	VkResult result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
+	check(result);
+}
+
+void testCopyBuffer(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer target, VkBuffer origin, VkDeviceSize size)
+{
+	VkCommandPool command_pool;
+	VkCommandBuffer command_buffer;
+	VkFence fence;
+
+	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
+	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	VkResult result = vkCreateCommandPool(vulkan.device, &command_pool_create_info, NULL, &command_pool);
+	check(result);
+
+	VkCommandBufferAllocateInfo command_buffer_allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
+	command_buffer_allocate_info.commandPool = command_pool;
+	command_buffer_allocate_info.commandBufferCount = 1;
+	result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_allocate_info, &command_buffer);
+	check(result);
+
+	VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
+	check(result);
+
+	VkCommandBufferBeginInfo command_buffer_begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	result = vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info);
+	check(result);
+
+	testCmdCopyBuffer(vulkan, command_buffer, { origin }, { target }, size);
+
+	result = vkEndCommandBuffer(command_buffer);
+	check(result);
+
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &command_buffer;
+	result = vkQueueSubmit(queue, 1, &submit_info, fence);
+	check(result);
+
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
+	check(result);
+
+	vkDestroyFence(vulkan.device, fence, nullptr);
+	vkFreeCommandBuffers(vulkan.device, command_pool, 1, &command_buffer);
+	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
+}
+
+void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vector<VkBuffer>& buffers)
+{
+	VkCommandPool command_pool;
+	VkCommandBuffer command_buffer;
+	VkFence fence;
+
+	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
+	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	VkResult result = vkCreateCommandPool(vulkan.device, &command_pool_create_info, NULL, &command_pool);
+	check(result);
+
+	VkCommandBufferAllocateInfo command_buffer_allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
+	command_buffer_allocate_info.commandPool = command_pool;
+	command_buffer_allocate_info.commandBufferCount = 1;
+	result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_allocate_info, &command_buffer);
+	check(result);
+
+	VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
+	check(result);
+
+	VkCommandBufferBeginInfo command_buffer_begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	result = vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info);
+	check(result);
+
+	for (VkBuffer buffer : buffers)
+	{
+		VkMemoryBarrier memory_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
+		memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		VkBufferMemoryBarrier buffer_barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr };
+		buffer_barrier.buffer = buffer;
+		buffer_barrier.offset = 0;
+		buffer_barrier.size = VK_WHOLE_SIZE;
+		buffer_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		buffer_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memory_barrier, 1, &buffer_barrier, 0, NULL);
+	}
+
+	result = vkEndCommandBuffer(command_buffer);
+	check(result);
+
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &command_buffer;
+	result = vkQueueSubmit(queue, 1, &submit_info, fence);
+	check(result);
+
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
+	check(result);
+
+	vkDestroyFence(vulkan.device, fence, nullptr);
+	vkFreeCommandBuffers(vulkan.device, command_pool, 1, &command_buffer);
+	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
+}

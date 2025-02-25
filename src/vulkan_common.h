@@ -150,6 +150,13 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, VkDeviceMemory memory, VkDeviceSize offset, const char* name = nullptr);
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size);
 void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory);
+void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size);
+
+/// Adds a dummy queue submit with a pipeline barrier that references the passed buffers in order to make tools not ignore them.
+void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vector<VkBuffer>& buffers);
+
+/// Copy one buffer into another
+void testCopyBuffer(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer target, VkBuffer origin, VkDeviceSize size);
 
 /// Get default number of repeated loops to be done, taken from an environment variable if available.
 int repeats();
