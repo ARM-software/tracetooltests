@@ -1,5 +1,4 @@
 // Unit test to try out vulkan graphic with variations
-// Based on https://github.com/Erkaman/vulkan_minimal_compute
 
 #include "vulkan_common.h"
 #include "vulkan_graphics_common.h"
@@ -13,6 +12,10 @@
 #include "vulkan_graphics_1_vert.inc"
 #include "vulkan_graphics_1_frag.inc"
 
+// contains image data
+//   xxd -i girl.jpg > girl.inc
+#include "asset/image/girl.inc"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -21,36 +24,22 @@
 #include <chrono>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
-static bool indirect = false;
-static int indirectOffset = 0; // in units of indirect structs
+#include <external/stb_image.h>
 
 struct pushconstants
 {
-	float width;
-	float height;
+    float width;
+    float height;
 };
 
 static void show_usage()
 {
-//	graphics_usage();
-	printf("TBD\n");
+    graphic_usage();
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-ioff", "--indirect-offset"))
-	{
-		indirectOffset = get_arg(argv, ++i, argc);
-		return true;
-	}
-	else if (match(argv[i], "-I", "--indirect"))
-	{
-		indirect = true;
-		return true;
-	}
-	return graphic_cmdopt(i, argc, argv, reqs);
+    return graphic_cmdopt(i, argc, argv, reqs);
 }
 
 using namespace tracetooltests;
@@ -92,13 +81,14 @@ public:
     ~benchmarkContext() { destroy(); }
     void destroy()
     {
+        DLOG3("MEM detection: graphic_1 benchmark destroy().");
         m_vertexBuffer = nullptr;
         m_indexBuffer = nullptr;
         m_transformUniformBuffer = nullptr;
         m_bgSampler = nullptr;
         m_bgImageView = nullptr;
-        m_pipeline = nullptr;
         m_descriptor = nullptr;
+        m_pipeline = nullptr;
 
         if (m_frameFence != VK_NULL_HANDLE)
         {
@@ -110,15 +100,15 @@ public:
     // contexts and resources related with benchmark
     uint32_t width = 0 ;
     uint32_t height = 0;
-    std::shared_ptr<Buffer> m_vertexBuffer;
-    std::shared_ptr<Buffer> m_indexBuffer;
-    std::shared_ptr<Buffer> m_transformUniformBuffer;
+    std::unique_ptr<Buffer> m_vertexBuffer;
+    std::unique_ptr<Buffer> m_indexBuffer;
+    std::unique_ptr<Buffer> m_transformUniformBuffer;
 
-    std::shared_ptr<Sampler> m_bgSampler;
-    std::shared_ptr<ImageView> m_bgImageView;
+    std::unique_ptr<Sampler> m_bgSampler;
+    std::unique_ptr<ImageView> m_bgImageView;
 
-    std::shared_ptr<GraphicPipeline> m_pipeline;
-    std::shared_ptr<DescriptorSet> m_descriptor;
+    std::unique_ptr<GraphicPipeline> m_pipeline;
+    std::unique_ptr<DescriptorSet> m_descriptor;
 
     VkFence m_frameFence = VK_NULL_HANDLE;
 
@@ -129,54 +119,52 @@ static void render(const vulkan_setup_t& vulkan);
 
 int main(int argc, char** argv)
 {
-	vulkan_req_t req;
-	req.usage = show_usage;
-	req.cmdopt = test_cmdopt;
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_graphics_1", req);
-
-    p__loops = 1;
+    vulkan_req_t req;
+    req.usage = show_usage;
+    req.cmdopt = test_cmdopt;
+    vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_graphics_1", req);
 
     g_benchmark.initBasic(vulkan, req);
 
-	const uint32_t width = static_cast<uint32_t>(std::get<int>(req.options.at("width")));
-	const uint32_t height = static_cast<uint32_t>(std::get<int>(req.options.at("height")));
+    const uint32_t width = static_cast<uint32_t>(std::get<int>(req.options.at("width")));
+    const uint32_t height = static_cast<uint32_t>(std::get<int>(req.options.at("height")));
     g_benchmark.width = width;
     g_benchmark.height = height;
 
     // ------------------------ vulkan resources created -----------------------------
 
     /*************************** shader module **************************************/
-    auto vertShader = std::make_shared<Shader>(vulkan.device);
+    auto vertShader = std::make_unique<Shader>(vulkan.device);
     vertShader->create(vulkan_graphics_1_vert_spirv, vulkan_graphics_1_vert_spirv_len);
 
-    auto fragShader = std::make_shared<Shader>(vulkan.device);
+    auto fragShader = std::make_unique<Shader>(vulkan.device);
     fragShader->create(vulkan_graphics_1_frag_spirv, vulkan_graphics_1_frag_spirv_len);
 
     /******************* vertex/index buffers & uniform buffers *********************/
     VkDeviceSize size;
     // vbo
     size = sizeof(Vertex)*vertices.size();
-    auto vertexBuffer = std::make_shared<Buffer>(vulkan.device);
+    auto vertexBuffer = std::make_unique<Buffer>(vulkan.device);
     vertexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    g_benchmark.updateBuffer(vertices, vertexBuffer);
+    g_benchmark.updateBuffer(vertices, *vertexBuffer);
 
     // index buffer
     size = sizeof(uint16_t)*indices.size();
-    auto indexBuffer = std::make_shared<Buffer>(vulkan.device);
+    auto indexBuffer = std::make_unique<Buffer>(vulkan.device);
     indexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    g_benchmark.updateBuffer(indices, indexBuffer);
+    g_benchmark.updateBuffer(indices, *indexBuffer);
 
     // ubo
-    auto transformUniformBuffer = std::make_shared<Buffer>(vulkan.device);
+    auto transformUniformBuffer = std::make_unique<Buffer>(vulkan.device);
     transformUniformBuffer->create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, (VkDeviceSize)sizeof(Transform), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     transformUniformBuffer->map();
 
     /******************** sampled texture image for background **********************/
     // loading image
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("texture/girl.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load_from_memory(girl_jpg, girl_jpg_len, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels) {
@@ -188,15 +176,15 @@ int main(int argc, char** argv)
     auto bgImage = std::make_shared<Image>(vulkan.device);
     bgImage->create( {(uint32_t)texWidth, (uint32_t)texHeight, 1}, VK_FORMAT_R8G8B8A8_SRGB, 
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    auto bgImageView = std::make_shared<ImageView>(bgImage);
-    bgImageView->create(VK_IMAGE_VIEW_TYPE_2D /*, VK_IMAGE_ASPECT_COLOR_BIT*/);
+    auto bgImageView = std::make_unique<ImageView>(bgImage);
+    bgImageView->create(VK_IMAGE_VIEW_TYPE_2D);
 
     // create sampler for bg image. sampler ptr is stored in benchmark
-    auto bgSampler = std::make_shared<Sampler>(vulkan.device);
+    auto bgSampler = std::make_unique<Sampler>(vulkan.device);
     bgSampler->create(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
             req.samplerAnisotropy, vulkan.device_properties.limits.maxSamplerAnisotropy);
 
-    g_benchmark.updateImage((char*)pixels, imageSize, bgImage, {(uint32_t)texWidth, (uint32_t)texHeight, 1});
+    g_benchmark.updateImage((char*)pixels, imageSize, *bgImage, {(uint32_t)texWidth, (uint32_t)texHeight, 1});
 
     /*********************** initialize data and submit staging commandBuffer ***************************/
     g_benchmark.submitStaging(true, {}, {}, false);
@@ -218,12 +206,12 @@ int main(int argc, char** argv)
     mainDescSetPool->create(MAX_DESCRIPTOR_SET_SIZE);
 
     // descritorSet
-    auto descriptor = std::make_shared<DescriptorSet>(mainDescSetPool);
+    auto descriptor = std::make_unique<DescriptorSet>(mainDescSetPool);
     descriptor->create();
     //configure descriptor set, and then update
-    descriptor->setBuffer(0, transformUniformBuffer);  //layout(set=0,binding=0) uniform transformBuffer { }
-    descriptor->setCombinedImageSampler(1, bgImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, bgSampler);  //layout(set=0, binding=1) uniform sampler2D
-    descriptor->update(); // automatically upate according to your setting above
+    descriptor->setBuffer(0, *transformUniformBuffer);  //layout(set=0,binding=0) uniform transformBuffer { }
+    descriptor->setCombinedImageSampler(1, *bgImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *bgSampler);  //layout(set=0, binding=1) uniform sampler2D
+    descriptor->update();
 
 
     // ------------------------- graphic pipeline setup ------------------------------
@@ -233,17 +221,17 @@ int main(int argc, char** argv)
             layoutMap = { {0, mainDescSetLayout} };
 
     auto pipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
-    pipelineLayout->create(layoutMap, {});
+    pipelineLayout->create(layoutMap);
 
 
     /*************************** pipeline shader stage ******************************/
-    ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, vertShader);
-    ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader);
+    ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, std::move(vertShader));
+    ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, std::move(fragShader));
 
     /*************************** graphicPipeline state*******************************/
     // input vertext
     GraphicPipelineState pipelineState;
-    pipelineState.setVertexBinding(0, vertexBuffer, sizeof(Vertex)); // vertexBuffer 
+    pipelineState.setVertexBinding(0, *vertexBuffer, sizeof(Vertex)); // vertexBuffer
     pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));  //pos, color and texCoord Attrib in vertexBuffer
     pipelineState.setVertexAttribute(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::color));
     pipelineState.setVertexAttribute(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Vertex::texCoord));
@@ -276,7 +264,7 @@ int main(int argc, char** argv)
     subpass.setDepthStencilAttachment(depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     // create renderpass
-    auto renderpass = std::make_shared<RenderPass>(vulkan.device);
+    auto renderpass = std::make_unique<RenderPass>(vulkan.device);
     renderpass->create({color,depth}, {subpass});
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment;
@@ -289,18 +277,18 @@ int main(int argc, char** argv)
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-    //continue: graphicPipeline state 
+    //continue: graphicPipeline state
     pipelineState.setColorBlendAttachment(color.m_location, colorBlendAttachment);
 
 
     /********************************** framebuffer *********************************/
     auto framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-    framebuffer->create(renderpass, {width, height});
+    framebuffer->create(*renderpass, {width, height});
 
     /*************************** graphic pipeline creation **************************/
     std::vector<ShaderPipelineState> shaderStages = {vertShaderState, fragShaderState};
-    auto pipeline = std::make_shared<GraphicPipeline>(pipelineLayout);
-    pipeline->create(shaderStages, pipelineState, renderpass);
+    auto pipeline = std::make_unique<GraphicPipeline>(pipelineLayout);
+    pipeline->create(shaderStages, pipelineState, *renderpass);
 
     /****************************** save all resources ******************************/
     g_benchmark.m_vertexBuffer = std::move(vertexBuffer);
@@ -323,12 +311,14 @@ int main(int argc, char** argv)
 
     /********************************** rendering ***********************************/
     render(vulkan);
-	test_done(vulkan);
+
+    /****************** exiting with destructor automatically ***********************/
+    vkDeviceWaitIdle(vulkan.device);
 
     return 1;
 }
 
-void updateTransformData(std::shared_ptr<Buffer> dstBuffer)
+void updateTransformData(const Buffer& dstBuffer)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -341,8 +331,8 @@ void updateTransformData(std::shared_ptr<Buffer> dstBuffer)
     ubo.proj = glm::perspective(glm::radians(45.0f), g_benchmark.width / (float) g_benchmark.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
-    assert(dstBuffer->m_mappedAddress!=nullptr);
-    memcpy(dstBuffer->m_mappedAddress, &ubo, sizeof(ubo));
+    assert(dstBuffer.m_mappedAddress!=nullptr);
+    memcpy(dstBuffer.m_mappedAddress, &ubo, sizeof(ubo));
 }
 
 static void render(const vulkan_setup_t& vulkan)
@@ -352,16 +342,16 @@ static void render(const vulkan_setup_t& vulkan)
         VkCommandBuffer defaultCmd = g_benchmark.m_defaultCommandBuffer->getHandle();
 
         vkWaitForFences(vulkan.device, 1, &g_benchmark.m_frameFence, VK_TRUE, UINT64_MAX);
-        updateTransformData(g_benchmark.m_transformUniformBuffer);
+        updateTransformData(*g_benchmark.m_transformUniformBuffer);
 
         vkResetFences(vulkan.device, 1, &g_benchmark.m_frameFence);
         vkResetCommandBuffer(defaultCmd, 0);
 
         g_benchmark.m_defaultCommandBuffer->begin();
-        g_benchmark.m_defaultCommandBuffer->beginRenderPass(g_benchmark.m_renderPass, g_benchmark.m_framebuffer);
+        g_benchmark.m_defaultCommandBuffer->beginRenderPass(*g_benchmark.m_renderPass, *g_benchmark.m_framebuffer);
 
         vkCmdBindPipeline(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_benchmark.m_pipeline->getHandle());
-        //one alternative: g_benchmark.m_defaultCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, g_benchmark.m_pipeline);
+        //one alternative: g_benchmark.m_defaultCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *g_benchmark.m_pipeline);
 
         // bind vertex buffer to bindings
         VkBuffer vertexBuffers[] = {g_benchmark.m_vertexBuffer->getHandle()};

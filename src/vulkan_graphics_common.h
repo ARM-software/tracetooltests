@@ -170,15 +170,15 @@ public:
     VkResult create(VkCommandBufferLevel commandBufferLevel);
     VkResult destroy();
 
-    VkResult begin(VkCommandBufferUsageFlags flags = 0, std::shared_ptr<CommandBuffer> baseCommandBuffer = nullptr);
+    VkResult begin(VkCommandBufferUsageFlags flags = 0, const CommandBuffer* baseCommandBuffer = nullptr);
     VkResult end();
-    void beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shared_ptr<FrameBuffer> frameBuffer);
+    void beginRenderPass(const RenderPass& renderPass, const FrameBuffer& frameBuffer);
     void endRenderPass();
-    void bindPipeline(VkPipelineBindPoint bindpoint, std::shared_ptr<GraphicPipeline> pipeline);
+    void bindPipeline(VkPipelineBindPoint bindpoint, const GraphicPipeline& pipeline);
     void imageMemoryBarrier(Image& image, VkImageLayout oldLayout, VkImageLayout newLayout,
                             VkAccessFlags srcAccess, VkAccessFlags dstAccess, 
                             VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
-    void copyBuffer(const   Buffer& srcBuffer, Buffer& dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset =0);
+    void copyBuffer(const Buffer& srcBuffer, const Buffer& dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset =0);
     void copyBufferToImage(const Buffer& srcBuffer, Image& image, VkDeviceSize srcOffset, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0});
 
     inline VkCommandBuffer getHandle() const { return m_handle;}
@@ -194,10 +194,8 @@ private:
 typedef struct ShaderResource
 {
     std::string        m_name;
-    //ShaderResourceType m_type            = ShaderResourceType::Invalid;
     int32_t            m_type            = -1;
 
-    //SpirvDataType      m_dataType        = SpirvDataType::Unknown;
     uint32_t           m_dataType        = 0;
     uint32_t           m_location        = 0;
     uint32_t           m_attachmentIndex = 0;
@@ -206,7 +204,7 @@ typedef struct ShaderResource
 
 
     ShaderResource() {}
-    ShaderResource(int32_t /*ShaderResourceType*/ type, const std::string& name)
+    ShaderResource(int32_t type, const std::string& name)
         : m_name(name)
         , m_type(type)
     {
@@ -322,7 +320,7 @@ typedef struct DescriptorSetState
     // acceleration Structure related
 
     DescriptorSetState() {}
-    void setBuffer(uint32_t binding, const    VkDescriptorBufferInfo& info)
+    void setBuffer(uint32_t binding, const VkDescriptorBufferInfo& info)
     {
         m_buffers[binding].emplace_back(info);
     }
@@ -347,10 +345,10 @@ public:
     VkResult destroy();
 
     void update();
-    void setBuffer(uint32_t binding, std::shared_ptr<Buffer> pBuffer, VkDeviceSize offsetInBytes = 0, VkDeviceSize sizeInBytes = VK_WHOLE_SIZE);
-    void setCombinedImageSampler(uint32_t binding, std::shared_ptr<ImageView> imageView, VkImageLayout imageLayout, std::shared_ptr<Sampler> sampler);
-    void setImage(uint32_t binding, std::shared_ptr<ImageView> imageView, VkImageLayout imageLayout);
-    void setTexelBufferView(uint32_t binding, std::shared_ptr<TexelBufferView> bufferView);
+    void setBuffer(uint32_t binding, const Buffer& buffer, VkDeviceSize offsetInBytes = 0, VkDeviceSize sizeInBytes = VK_WHOLE_SIZE);
+    void setCombinedImageSampler(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler);
+    void setImage(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout);
+    void setTexelBufferView(uint32_t binding, const TexelBufferView& bufferView);
     void setAccelerationStructure();
 
     inline VkDescriptorSet getHandle() const { return m_handle; }
@@ -369,7 +367,7 @@ public:
     PipelineLayout(VkDevice device) : m_device(device) { }
     ~PipelineLayout() { destroy(); }
 
-    VkResult create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges);
+    VkResult create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
     VkResult create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap,
                     uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges);
     VkResult destroy();
@@ -391,8 +389,9 @@ private:
     std::vector<VkPushConstantRange> m_pushConstantRanges;
 };
 
-typedef struct AttachmentInfo
+class AttachmentInfo
 {
+public:
     uint32_t m_location;
     std::shared_ptr<ImageView> m_pImageView; // we need some members of ImageView
     VkAttachmentDescription m_description;
@@ -400,15 +399,7 @@ typedef struct AttachmentInfo
 
     AttachmentInfo ()
     {
-        m_description.flags          = 0;
-        m_description.format         = VK_FORMAT_UNDEFINED;
-        m_description.samples        = VK_SAMPLE_COUNT_1_BIT;
-        m_description.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        m_description.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-        m_description.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        m_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        m_description.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-        m_description.finalLayout    = VK_IMAGE_LAYOUT_GENERAL;
+        resetDescription();
         m_clear.color        = { 0.0, 0.0, 0.0, 1.0 };
         m_clear.depthStencil = {1.0, 0};
     }
@@ -425,7 +416,28 @@ typedef struct AttachmentInfo
         m_description.initialLayout = createInfo.initialLayout;
         m_description.finalLayout = finalLayout;
     }
-}AttachmentInfo;
+
+    ~AttachmentInfo()
+    {
+        DLOG3("MEM detection: attacmentInfo destructor().");
+        resetDescription();
+        m_pImageView = nullptr;
+    }
+
+private:
+    void resetDescription()
+    {
+        m_description.flags          = 0;
+        m_description.format         = VK_FORMAT_UNDEFINED;
+        m_description.samples        = VK_SAMPLE_COUNT_1_BIT;
+        m_description.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        m_description.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+        m_description.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        m_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        m_description.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+        m_description.finalLayout    = VK_IMAGE_LAYOUT_GENERAL;
+    }
+};
 
 typedef struct SubpassInfo
 {
@@ -491,7 +503,7 @@ public:
     FrameBuffer(VkDevice device) : m_device(device) { }
     ~FrameBuffer() { destroy(); }
 
-    VkResult create(std::shared_ptr<RenderPass> renderPass, VkExtent2D extent, uint32_t layers = 1);
+    VkResult create(const RenderPass& renderPass, VkExtent2D extent, uint32_t layers = 1);
     VkResult destroy();
 
     inline VkFramebuffer getHandle() const { return m_handle;}
@@ -515,10 +527,7 @@ public:
     ~ShaderPipelineState() { destroy(); }
 
     void setSpecialization(const std::vector<VkSpecializationMapEntry>& mapEntries, size_t dataSize, void *pdata);
-    void destroy() {
-    // clear m_mapEntries, m_data
-    // reset member variable to default
-    }
+    void destroy();
     inline VkPipelineShaderStageCreateInfo getCreateInfo () const { return m_createInfo; }
 
     std::shared_ptr<Shader> m_pShader;
@@ -536,27 +545,24 @@ class GraphicPipelineState
 public:
     GraphicPipelineState();
     ~GraphicPipelineState() { destroy(); }
-    void destroy() {
-    // clear vector,map
-    // reset member to default
-    }
+    void destroy();
 
-    /* set the vertexBuffer to the binding which is used in vkBindVertexBuffers */
-    /*     binding may be uncontinoius */
-    /* describe the vertexBuffer binding info, VkVertexBindingDescription, including binding,stride */
-    /*     stride: related with the data structure stored in the vertexBuffer */
-    void setVertexBinding(uint32_t binding, std::shared_ptr<Buffer> vertexBuffer , uint32_t stride, uint32_t offset = 0, VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
+    // set the vertexBuffer to the binding which is used in vkBindVertexBuffers
+    //     binding may be uncontinoius
+    // describe the vertexBuffer binding info, VkVertexBindingDescription, including binding,stride
+    //     stride: related with the data structure stored in the vertexBuffer
+    void setVertexBinding(uint32_t binding, const Buffer& vertexBuffer , uint32_t stride, uint32_t offset = 0, VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX);
 
-    /* set each attrib for vertex, VkVertexInputAttributeDescription */
-    /*     offset: offset to access the attrib within the binding */
-    /* one binding(that's also one vertexBuffer) could contain one or more attribs, depending on user definition */
+    // set each attrib for vertex, VkVertexInputAttributeDescription
+    //     offset: offset to access the attrib within the binding
+    // one binding(that's also one vertexBuffer) could contain one or more attribs, depending on user definition
     void setVertexAttribute(uint32_t location, uint32_t binding, VkFormat format, uint32_t offset);
     void setDynamic(uint32_t index, VkDynamicState dynamicState);
     void setViewport(uint32_t index, const VkViewport& viewport);
     void setScissor(uint32_t index, const VkRect2D& scissor);
     void setColorBlendAttachment(uint32_t index, const VkPipelineColorBlendAttachmentState& state);
 
-    //the following info is used with the default value in most cases. For special cases, provide the interfaces.
+    // the following info is used with the default value in most cases. For special cases, provide the interfaces.
     void setAssembly(const VkPipelineInputAssemblyStateCreateInfo& info);
     void setTessellation(const VkPipelineTessellationStateCreateInfo& info);
     void setRasterization(const VkPipelineRasterizationStateCreateInfo& info);
@@ -564,7 +570,7 @@ public:
     void setDepthStencil(const VkPipelineDepthStencilStateCreateInfo& info);
     void setColorBlend(const VkPipelineColorBlendStateCreateInfo& info);
 
-    std::unordered_map<uint32_t, VkVertexInputBindingDescription> m_vertexInputBindings; /* binding -> vertextBuffer Bindingdescription*/
+    std::unordered_map<uint32_t, VkVertexInputBindingDescription> m_vertexInputBindings; // binding -> vertextBuffer Bindingdescription
     std::vector<VkVertexInputAttributeDescription> m_vertexInputAttribs;
     VkPipelineInputAssemblyStateCreateInfo m_inputAssemblyState;
     VkPipelineTessellationStateCreateInfo m_tessellationState;
@@ -588,7 +594,7 @@ public:
     GraphicPipeline(std::shared_ptr<PipelineLayout> pipelineLayout) : m_pipelineLayout(pipelineLayout) {}
     ~GraphicPipeline() { destroy(); }
 
-	VkResult create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, std::shared_ptr<RenderPass> renderPass, uint32_t subpassIndex = 0);
+    VkResult create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, uint32_t subpassIndex = 0);
     VkResult destroy();
     bool hasDynamicState(VkDynamicState dynamic) const;
     inline VkPipeline getHandle() const { return m_handle; }
@@ -605,6 +611,7 @@ private:
     std::vector<VkSpecializationInfo>                  m_specializationInfos;
     std::vector<std::vector<VkSpecializationMapEntry>> m_specializationMapEntries;
     std::vector<std::vector<char>>                     m_specializationData;
+    std::unordered_map<VkShaderStageFlagBits, std::shared_ptr<Shader>> m_shaders;
 
     VkPipelineVertexInputStateCreateInfo               m_vertexInputStateCreateInfo;
     std::vector<VkVertexInputBindingDescription>       m_vertexInputBindingDescriptions;
@@ -645,7 +652,7 @@ public:
     std::shared_ptr<CommandBuffer> m_frameBoundaryCommandBuffer;
 
     vulkan_setup_t m_vulkanSetup { };
-	VkQueue m_defaultQueue = VK_NULL_HANDLE;
+    VkQueue m_defaultQueue = VK_NULL_HANDLE;
     uint32_t frameNo = 0;
 
 protected:
@@ -659,6 +666,8 @@ protected:
         m_frameBoundaryCommandBuffer = nullptr;
         m_defaultCommandPool = nullptr;
         frameNo = 0;
+
+        test_done(m_vulkanSetup);
     }
 
 };
@@ -670,23 +679,17 @@ public:
     virtual ~GraphicContext() { destroy(); }
 
     //implying the image layout transition, current->TRANSFER_DST, before CopyBufferToImage
-    void updateImage(const char* srcData, VkDeviceSize size, std :: shared_ptr<Image> dstImage, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0}, VkDeviceSize srcOffset = 0, bool submitOnce = false);
-    void updateBuffer(const char* srcData, VkDeviceSize size, std::shared_ptr<Buffer> dstBuffer, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0, bool submitOnce = false);
+    void updateImage(const char* srcData, VkDeviceSize size, Image& dstImage, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0}, VkDeviceSize srcOffset = 0, bool submitOnce = false);
+    void updateBuffer(const char* srcData, VkDeviceSize size, const Buffer& dstBuffer, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0, bool submitOnce = false);
 
     template <class T>
-    inline void updateImage(const std::vector<T>& srcData, std :: shared_ptr<Image> dstImage, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0}, VkDeviceSize srcOffset = 0, bool submitOnce = false)
+    inline void updateImage(const std::vector<T>& srcData, Image& dstImage, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0}, VkDeviceSize srcOffset = 0, bool submitOnce = false)
     {
         updateImage(reinterpret_cast<const char*>(srcData.data()), sizeof(T)*srcData.size(), dstImage, dstExtent, dstOffset, srcOffset, submitOnce);
     }
 
-/*    template <class T>
-    inline void updateImage(const T& srcData, VkDeviceSize size, std :: shared_ptr<Image> dstImage, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0}, VkDeviceSize srcOffset = 0, bool submitOnce = false)
-    {
-        updateImage(reinterpret_cast<const char*>(&srcData), size, dstImage, dstExtent, dstOffset, srcOffset, submitOnce);
-    }*/
-
     template <class T>
-    inline void updateBuffer(const std::vector<T>& srcData, std::shared_ptr<Buffer> dstBuffer, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0, bool submitOnce = false)
+    inline void updateBuffer(const std::vector<T>& srcData, const Buffer& dstBuffer, VkDeviceSize dstOffset = 0, VkDeviceSize srcOffset = 0, bool submitOnce = false)
     {
         updateBuffer(reinterpret_cast<const char*>(srcData.data()), sizeof(T)*srcData.size(), dstBuffer, dstOffset, srcOffset, submitOnce);
     }
@@ -706,16 +709,24 @@ public:
     virtual void destroy()
     {
         DLOG3("MEM detection: GraphicContext destroy().");
-        m_renderPass = nullptr;
         m_framebuffer = nullptr;
+        m_renderPass = nullptr;
+
+        for (auto semaphore : m_returnSignalSemaphores)
+        {
+            vkDestroySemaphore(m_vulkanSetup.device, semaphore, nullptr);
+        }
+        m_returnSignalSemaphores.clear();
         m_usingBuffers.clear();
-        m_stagingCommandBuffers.clear();
+        if (m_stagingCommandBuffers.size() > 0)
+            m_stagingCommandBuffers.clear();
     }
+
+    std::vector<VkSemaphore> m_returnSignalSemaphores;
     std::shared_ptr<RenderPass> m_renderPass;
     std::shared_ptr<FrameBuffer> m_framebuffer; // vector future
-
     std::vector<std::shared_ptr<CommandBuffer>> m_stagingCommandBuffers;
-    std::vector<std::shared_ptr<Buffer>> m_usingBuffers; // recyling
+    std::vector<std::unique_ptr<Buffer>> m_usingBuffers; // recyling
 
 };
 
@@ -726,11 +737,6 @@ public:
 #include <iostream>
 #include <fstream>
 
-bool graphic_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
-/*
-void graphic_done(vulkan_setup_t& vulkan, graphic_resources& r, vulkan_req_t& reqs);
-void graphic_submit(vulkan_setup_t& vulkan, graphic_resources&  r, vulkan_req_t& reqs);
-void graphic_create_pipeline(vulkan_setup_t& vulkan, graphic_resources& r, vulkan_req_t& reqs);
 void graphic_usage();
-*/
+bool graphic_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
 std::vector<char> readFile(const std::string& filename);
