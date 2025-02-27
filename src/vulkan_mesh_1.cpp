@@ -17,6 +17,7 @@ int main(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.device_extensions.push_back("VK_KHR_spirv_1_4"); // required for VK_EXT_mesh_shader
+	reqs.device_extensions.push_back("VK_KHR_shader_float_controls"); // required for VK_EXT_mesh_shader
 	reqs.device_extensions.push_back("VK_EXT_mesh_shader");
 	reqs.apiVersion = VK_API_VERSION_1_1;
 	reqs.minApiVersion = VK_API_VERSION_1_1;
