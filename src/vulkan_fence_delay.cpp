@@ -259,7 +259,7 @@ int main(int argc, char** argv)
 			assert(r == VK_SUCCESS);    // Because then we already submitted the N frames in the first loop, and fence are forced to be decremented at the same time
 		}
 	}
-	
+
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_SUCCESS);
 	r = vkGetFenceStatus(vulkan.device, fence2);
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
 		assert(r == VK_NOT_READY);
 		submitFrame();
 	}
-	
+
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_SUCCESS);
 	r = vkGetFenceStatus(vulkan.device, fence2);
@@ -308,7 +308,7 @@ int main(int argc, char** argv)
 		}
 		submitFrame();
 	}
-	
+
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_SUCCESS);
 	r = vkGetFenceStatus(vulkan.device, fence2);
@@ -358,12 +358,12 @@ int main(int argc, char** argv)
 		assert(r == VK_NOT_READY);
 		submitFrame();
 	}
-	
+
 	r = vkGetFenceStatus(vulkan.device, fence1);
 	assert(r == VK_SUCCESS);
 	r = vkGetFenceStatus(vulkan.device, fence2);
 	assert(r == VK_SUCCESS);
-	
+
 	// Ends the test
 
 	bench_stop_iteration(vulkan.bench);

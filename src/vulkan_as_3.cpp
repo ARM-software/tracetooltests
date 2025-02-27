@@ -64,7 +64,7 @@ static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
 		tl_as_build_count = get_arg(argv, ++i, argc);
 		return true;
 	}
-	if(match(argv[i], "-hb", "--host-build"))
+	if (match(argv[i], "-hb", "--host-build"))
 	{
 		as_host_build = true;
 		return true;
@@ -96,7 +96,7 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 	resources.original_bl_acc_buffers = std::vector<Buffer>(bl_as_build_count);
 	resources.optimized_bl_acc_buffers = std::vector<Buffer>(bl_as_build_count);
 
-	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		resources.vertex_buffers[as_index] = acceleration_structures::prepare_buffer(
 			vulkan,
@@ -118,29 +118,31 @@ void prepare_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
 	}
 }
 
-void free_test_resources(const vulkan_setup_t& vulkan, Resources & resources){
-    vkDestroyQueryPool(vulkan.device, resources.query_pool, nullptr);
+void free_test_resources(const vulkan_setup_t& vulkan, Resources & resources)
+{
+	vkDestroyQueryPool(vulkan.device, resources.query_pool, nullptr);
 	vkDestroyCommandPool(vulkan.device, resources.command_pool, nullptr);
 
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.tl_acc_structure.handle, nullptr);
 	vkFreeMemory(vulkan.device, resources.tl_acc_buffer.memory, nullptr);
-    vkDestroyBuffer(vulkan.device, resources.tl_acc_buffer.handle, nullptr);
+	vkDestroyBuffer(vulkan.device, resources.tl_acc_buffer.handle, nullptr);
 
-    for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index){
-        resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.bl_acc_structures[as_index].handle, nullptr);
-        vkFreeMemory(vulkan.device, resources.original_bl_acc_buffers[as_index].memory, nullptr);
-        vkDestroyBuffer(vulkan.device, resources.original_bl_acc_buffers[as_index].handle, nullptr);
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	{
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.bl_acc_structures[as_index].handle, nullptr);
+		vkFreeMemory(vulkan.device, resources.original_bl_acc_buffers[as_index].memory, nullptr);
+		vkDestroyBuffer(vulkan.device, resources.original_bl_acc_buffers[as_index].handle, nullptr);
 
-        resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.opt_bl_acc_structures[as_index].handle, nullptr);
-	    vkFreeMemory(vulkan.device, resources.optimized_bl_acc_buffers[as_index].memory, nullptr);
-	    vkDestroyBuffer(vulkan.device, resources.optimized_bl_acc_buffers[as_index].handle, nullptr);
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.opt_bl_acc_structures[as_index].handle, nullptr);
+		vkFreeMemory(vulkan.device, resources.optimized_bl_acc_buffers[as_index].memory, nullptr);
+		vkDestroyBuffer(vulkan.device, resources.optimized_bl_acc_buffers[as_index].handle, nullptr);
 
-	    vkFreeMemory(vulkan.device, resources.vertex_buffers[as_index].memory, nullptr);
-	    vkDestroyBuffer(vulkan.device, resources.vertex_buffers[as_index].handle, nullptr);
+		vkFreeMemory(vulkan.device, resources.vertex_buffers[as_index].memory, nullptr);
+		vkDestroyBuffer(vulkan.device, resources.vertex_buffers[as_index].handle, nullptr);
 
-	    vkFreeMemory(vulkan.device, resources.index_buffers[as_index].memory, nullptr);
-	    vkDestroyBuffer(vulkan.device, resources.index_buffers[as_index].handle, nullptr);
-    }
+		vkFreeMemory(vulkan.device, resources.index_buffers[as_index].memory, nullptr);
+		vkDestroyBuffer(vulkan.device, resources.index_buffers[as_index].handle, nullptr);
+	}
 }
 
 void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Resources & resources)
@@ -153,74 +155,62 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR*> as_build_range_infos(bl_as_build_count);
 	std::vector<VkAccelerationStructureKHR> as_handles(bl_as_build_count);
 
-	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
-    {
-        as_geometries[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        as_geometries[as_index].pNext = nullptr;
-        as_geometries[as_index].flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
-        as_geometries[as_index].geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-        as_geometries[as_index].geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-        as_geometries[as_index].geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-        as_geometries[as_index].geometry.triangles.vertexData = resources.vertex_buffers[as_index].address;
-        as_geometries[as_index].geometry.triangles.maxVertex = 3;
-        as_geometries[as_index].geometry.triangles.vertexStride = sizeof(Vertex);
-        as_geometries[as_index].geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
-        as_geometries[as_index].geometry.triangles.indexData = resources.index_buffers[as_index].address;
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	{
+		as_geometries[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		as_geometries[as_index].pNext = nullptr;
+		as_geometries[as_index].flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		as_geometries[as_index].geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		as_geometries[as_index].geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+		as_geometries[as_index].geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+		as_geometries[as_index].geometry.triangles.vertexData = resources.vertex_buffers[as_index].address;
+		as_geometries[as_index].geometry.triangles.maxVertex = 3;
+		as_geometries[as_index].geometry.triangles.vertexStride = sizeof(Vertex);
+		as_geometries[as_index].geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+		as_geometries[as_index].geometry.triangles.indexData = resources.index_buffers[as_index].address;
 
-        as_build_geometry_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-        as_build_geometry_infos[as_index].pNext = nullptr;
-        as_build_geometry_infos[as_index].type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-        as_build_geometry_infos[as_index].flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
-        as_build_geometry_infos[as_index].geometryCount = 1;
-        as_build_geometry_infos[as_index].pGeometries = &as_geometries[as_index];
+		as_build_geometry_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		as_build_geometry_infos[as_index].pNext = nullptr;
+		as_build_geometry_infos[as_index].type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		as_build_geometry_infos[as_index].flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+		as_build_geometry_infos[as_index].geometryCount = 1;
+		as_build_geometry_infos[as_index].pGeometries = &as_geometries[as_index];
 
-        as_build_size_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-        as_build_size_infos[as_index].pNext = nullptr;
-        resources.functions.vkGetAccelerationStructureBuildSizesKHR(
-            vulkan.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_OR_DEVICE_KHR, &as_build_geometry_infos[as_index], &num_triangles, &as_build_size_infos[as_index]
-        );
+		as_build_size_infos[as_index].sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+		as_build_size_infos[as_index].pNext = nullptr;
+		resources.functions.vkGetAccelerationStructureBuildSizesKHR(vulkan.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_OR_DEVICE_KHR, &as_build_geometry_infos[as_index], &num_triangles, &as_build_size_infos[as_index]);
 
-        resources.original_bl_acc_buffers[as_index] = acceleration_structures::prepare_buffer(
-	    	vulkan, as_build_size_infos[as_index].accelerationStructureSize,
-	    	nullptr,
-	    	VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-	    	VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
-	    );
+		resources.original_bl_acc_buffers[as_index] = acceleration_structures::prepare_buffer(vulkan, as_build_size_infos[as_index].accelerationStructureSize,
+			nullptr, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR);
 
-        VkAccelerationStructureCreateInfoKHR as_create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
-        as_create_info.buffer = resources.original_bl_acc_buffers[as_index].handle;
-        as_create_info.size = as_build_size_infos[as_index].accelerationStructureSize;
-        as_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		VkAccelerationStructureCreateInfoKHR as_create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
+		as_create_info.buffer = resources.original_bl_acc_buffers[as_index].handle;
+		as_create_info.size = as_build_size_infos[as_index].accelerationStructureSize;
+		as_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
-        check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &as_create_info, nullptr, &resources.bl_acc_structures[as_index].handle));
-        as_handles[as_index] = resources.bl_acc_structures[as_index].handle;
+		check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &as_create_info, nullptr, &resources.bl_acc_structures[as_index].handle));
+		as_handles[as_index] = resources.bl_acc_structures[as_index].handle;
 
-        as_scratch_buffers[as_index] = acceleration_structures::prepare_buffer(
-	    	vulkan,
-	    	as_build_size_infos[as_index].buildScratchSize,
-	    	nullptr,
-	    	VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-	    	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	    );
-        as_scratch_buffers[as_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, as_scratch_buffers[as_index].handle);
+		as_scratch_buffers[as_index] = acceleration_structures::prepare_buffer(vulkan, as_build_size_infos[as_index].buildScratchSize, nullptr,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		as_scratch_buffers[as_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, as_scratch_buffers[as_index].handle);
 
-        as_build_geometry_infos[as_index].mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-        as_build_geometry_infos[as_index].dstAccelerationStructure = resources.bl_acc_structures[as_index].handle;
-        as_build_geometry_infos[as_index].scratchData.deviceAddress = as_scratch_buffers[as_index].address.deviceAddress;
+		as_build_geometry_infos[as_index].mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		as_build_geometry_infos[as_index].dstAccelerationStructure = resources.bl_acc_structures[as_index].handle;
+		as_build_geometry_infos[as_index].scratchData.deviceAddress = as_scratch_buffers[as_index].address.deviceAddress;
 
-        auto* build_range = new VkAccelerationStructureBuildRangeInfoKHR();
-        build_range->primitiveCount = num_triangles;
-        build_range->primitiveOffset = 0;
-        as_build_range_infos[as_index] = build_range;
-    }
+		auto* build_range = new VkAccelerationStructureBuildRangeInfoKHR();
+		build_range->primitiveCount = num_triangles;
+		build_range->primitiveOffset = 0;
+		as_build_range_infos[as_index] = build_range;
+	}
 
 	std::vector<VkDeviceSize> compacted_sizes(bl_as_build_count);
-	if(as_host_build)
+	if (as_host_build)
 	{
 		resources.functions.vkBuildAccelerationStructuresKHR(vulkan.device, VK_NULL_HANDLE, bl_as_build_count, as_build_geometry_infos.data(), as_build_range_infos.data());
 		resources.functions.vkWriteAccelerationStructuresPropertiesKHR(
-			vulkan.device, bl_as_build_count, as_handles.data(), VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, sizeof(VkDeviceSize)*bl_as_build_count, compacted_sizes.data(), 0
-		);
+			vulkan.device, bl_as_build_count, as_handles.data(), VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, sizeof(VkDeviceSize)*bl_as_build_count, compacted_sizes.data(), 0);
 	}
 	else
 	{
@@ -257,10 +247,10 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 	}
 
 	std::vector<VkCopyAccelerationStructureInfoKHR> copy_infos;
-	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		assert(compacted_sizes[as_index] <= as_build_size_infos[as_index].accelerationStructureSize);
-		if(compacted_sizes[as_index] == as_build_size_infos[as_index].accelerationStructureSize)
+		if (compacted_sizes[as_index] == as_build_size_infos[as_index].accelerationStructureSize)
 		{
 			continue;
 		}
@@ -287,9 +277,9 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 		copy_infos.push_back(copy_info);
 	}
 
-	if(as_host_build)
+	if (as_host_build)
 	{
-		for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+		for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 		{
 			resources.functions.vkCopyAccelerationStructureKHR(vulkan.device, VK_NULL_HANDLE, &copy_infos[as_index]);
 		}
@@ -306,7 +296,7 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 		VkCommandBufferBeginInfo command_buffer_begin_info {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
 		check(vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info));
 
-		for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+		for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 		{
 			resources.functions.vkCmdCopyAccelerationStructureKHR(command_buffer, &copy_infos[as_index]);
 		}
@@ -324,14 +314,14 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 	// After copying the compacted acceleration structures, record their device addresses for next test stage
 	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
-	for(uint32_t as_index = 0; as_index <bl_as_build_count; ++as_index)
+	for (uint32_t as_index = 0; as_index <bl_as_build_count; ++as_index)
 	{
 		blas_device_adress_info.accelerationStructure = resources.opt_bl_acc_structures[as_index].handle;
 		resources.opt_bl_acc_structures[as_index].address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
 		assert(resources.opt_bl_acc_structures[as_index].address.deviceAddress);
 	}
 
-	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		delete as_build_range_infos[as_index];
 		vkDestroyBuffer(vulkan.device, as_scratch_buffers[as_index].handle, nullptr);
@@ -350,7 +340,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 
 	// Instances of BLAS build before - for the simplicity, each BLAS has one instance with identity transform
 	std::vector<VkAccelerationStructureInstanceKHR> as_instances(bl_as_build_count);
-	for(uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		as_instances[as_index].transform = identity;
 		as_instances[as_index].instanceCustomIndex = 0;
@@ -364,7 +354,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 	std::vector<VkAccelerationStructureGeometryInstancesDataKHR> as_instances_data(tl_as_build_count);
 	Buffer scratch_buffer;
 
-	for(uint32_t build_command_index = 0; build_command_index < tl_as_build_count; ++build_command_index)
+	for (uint32_t build_command_index = 0; build_command_index < tl_as_build_count; ++build_command_index)
 	{
 		as_instance_buffers[build_command_index] = acceleration_structures::prepare_buffer(
 			vulkan,
@@ -439,10 +429,10 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 
 	VkAccelerationStructureBuildRangeInfoKHR * as_range_infos = &as_range_info;
 
-	if(as_host_build)
+	if (as_host_build)
 	{
 		resources.functions.vkBuildAccelerationStructuresKHR(vulkan.device, VK_NULL_HANDLE, 1, &as_build_info, &as_range_infos);
-		for(uint32_t build_command_index = 1; build_command_index < tl_as_build_count; ++build_command_index)
+		for (uint32_t build_command_index = 1; build_command_index < tl_as_build_count; ++build_command_index)
 		{
 			as_geometry.geometry.instances = as_instances_data[build_command_index];
 			resources.functions.vkBuildAccelerationStructuresKHR(vulkan.device, VK_NULL_HANDLE, 1, &as_build_info, &as_range_infos);
@@ -470,7 +460,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 		check(vkQueueWaitIdle(resources.queue));
 
 		// After the first build, do k more rebuilds - this would account for instance buffer changing and thus geometry moving in the scene
-		for(uint32_t build_command_index = 1; build_command_index < tl_as_build_count; ++build_command_index)
+		for (uint32_t build_command_index = 1; build_command_index < tl_as_build_count; ++build_command_index)
 		{
 			as_geometry.geometry.instances = as_instances_data[build_command_index];
 
@@ -490,7 +480,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 	vkFreeMemory(vulkan.device, scratch_buffer.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_buffer.handle, nullptr);
 
-	for(uint32_t build_command_index = 0; build_command_index < tl_as_build_count; ++build_command_index)
+	for (uint32_t build_command_index = 0; build_command_index < tl_as_build_count; ++build_command_index)
 	{
 		vkFreeMemory(vulkan.device, as_instance_buffers[build_command_index].memory, nullptr);
 		vkDestroyBuffer(vulkan.device, as_instance_buffers[build_command_index].handle, nullptr);
@@ -511,7 +501,7 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_3", reqs);
 
-	if(as_host_build)
+	if (as_host_build)
 	{
 		assert(accfeats.accelerationStructureHostCommands && "Host build is not supported by the GPU");
 	}

@@ -14,8 +14,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
-	VkPhysicalDevicePrivateDataFeatures privfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES, nullptr, VK_TRUE };
-	reqs.extension_features = (VkBaseInStructure*)&privfeats;
+	reqs.reqfeat13.privateData = VK_TRUE;
 	reqs.minApiVersion = VK_API_VERSION_1_3;
 	reqs.apiVersion = VK_API_VERSION_1_3;
 	reqs.usage = show_usage;
@@ -43,6 +42,7 @@ int main(int argc, char** argv)
 	vkGetPrivateData(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, &pData);
 	assert(pData == 1234);
 	vkDestroyPrivateDataSlot(vulkan.device, pdslot, nullptr);
+	vkDestroyFence(vulkan.device, fence, nullptr);
 
 	bench_stop_iteration(vulkan.bench);
 	test_done(vulkan);
