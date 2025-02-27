@@ -8,11 +8,11 @@ int main(int argc, char** argv)
 	VkResult result;
 
 	// Test VK_EXT_debug_marker
-	PFN_vkDebugMarkerSetObjectTagEXT ppDebugMarkerSetObjectTagEXT = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetDeviceProcAddr(vulkan.device, "PFN_vkDebugMarkerSetObjectTagEXT");
-	PFN_vkDebugMarkerSetObjectNameEXT ppDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "PFN_vkDebugMarkerSetObjectNameEXT");
-	PFN_vkCmdDebugMarkerBeginEXT ppCmdDebugMarkerBeginEXT = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(vulkan.device, "PFN_vkCmdDebugMarkerBeginEXT");
-	PFN_vkCmdDebugMarkerEndEXT ppCmdDebugMarkerEndEXT = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(vulkan.device, "PFN_vkCmdDebugMarkerEndEXT");
-	PFN_vkCmdDebugMarkerInsertEXT ppCmdDebugMarkerInsertEXT = (PFN_vkCmdDebugMarkerInsertEXT)vkGetDeviceProcAddr(vulkan.device, "PFN_vkCmdDebugMarkerInsertEXT");
+	PFN_vkDebugMarkerSetObjectTagEXT ppDebugMarkerSetObjectTagEXT = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetDeviceProcAddr(vulkan.device, "vkDebugMarkerSetObjectTagEXT");
+	PFN_vkDebugMarkerSetObjectNameEXT ppDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkDebugMarkerSetObjectNameEXT");
+	PFN_vkCmdDebugMarkerBeginEXT ppCmdDebugMarkerBeginEXT = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdDebugMarkerBeginEXT");
+	PFN_vkCmdDebugMarkerEndEXT ppCmdDebugMarkerEndEXT = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdDebugMarkerEndEXT");
+	PFN_vkCmdDebugMarkerInsertEXT ppCmdDebugMarkerInsertEXT = (PFN_vkCmdDebugMarkerInsertEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdDebugMarkerInsertEXT");
 
 	VkQueue queue;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
