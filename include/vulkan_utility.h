@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <string.h>
 #include <spirv/unified1/spirv.h>
 #include <vulkan/vulkan.h>
 
