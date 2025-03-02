@@ -40,10 +40,10 @@ extern uint_fast8_t p__validation;
 #define DLOG(_format, ...)
 #endif
 
-#define ILOG(_format, ...) ((void)__android_log_print(ANDROID_LOG_INFO, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__))
-#define WLOG(_format, ...) ((void)__android_log_print(ANDROID_LOG_WARN, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__))
-#define ELOG(_format, ...) ((void)__android_log_print(ANDROID_LOG_ERROR, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__))
-#define FELOG(_format, ...) ((void)__android_log_print(ANDROID_LOG_FATAL, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__))
+#define ILOG(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_INFO, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } while(0)
+#define WLOG(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_WARN, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } while(0)
+#define ELOG(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_ERROR, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } while(0)
+#define FELOG(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_FATAL, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } while(0)
 #define ABORT(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_FATAL, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); abort(); } while(0)
 
 // Hack to workaround strange missing support for std::to_string in Android
@@ -92,10 +92,10 @@ static __attribute__((pure)) inline uint64_t gettime()
 #define DLOG2(_format, ...)
 #define DLOG(_format, ...)
 #endif
-#define ILOG(_format, ...) fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__);
-#define WLOG(_format, ...) fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__);
-#define ELOG(_format, ...) fprintf(stderr, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__);
-#define FELOG(_format, ...) fprintf(stderr, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__);
+#define ILOG(_format, ...) do { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)
+#define WLOG(_format, ...) do { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)
+#define ELOG(_format, ...) do { fprintf(stderr, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)
+#define FELOG(_format, ...) do { fprintf(stderr, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)
 #define ABORT(_format, ...) do { fprintf(stderr, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); abort(); } while(0)
 
 #define _to_string(_x) std::to_string(_x)

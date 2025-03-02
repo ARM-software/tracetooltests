@@ -18,6 +18,7 @@ int main(int argc, char** argv)
 	reqs.device_extensions.push_back("VK_EXT_private_data");
 	reqs.extension_features = (VkBaseInStructure*)&privfeats;
 	reqs.minApiVersion = VK_API_VERSION_1_1;
+	reqs.maxApiVersion = VK_API_VERSION_1_2;
 	reqs.apiVersion = VK_API_VERSION_1_1;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;

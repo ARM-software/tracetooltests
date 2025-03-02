@@ -36,7 +36,7 @@ static void bda_pushconstant_create_pipeline(vulkan_setup_t& vulkan, compute_res
 	createInfo.codeSize = r.code.size();
 	VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
 	check(result);
-	assert(shader_has_buffer_devices_addresses(r.code.data(), r.code.size()));
+	assert(shader_has_device_addresses(r.code.data(), r.code.size()));
 
 	std::vector<VkSpecializationMapEntry> smentries(5);
 	for (unsigned i = 0; i < smentries.size(); i++)

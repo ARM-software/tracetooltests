@@ -187,6 +187,7 @@ int main(int argc, char** argv)
 	{
 		r.code = copy_shader(vulkan_compute_bda_ubo_spirv, vulkan_compute_bda_ubo_spirv_len);
 	}
+	assert(shader_has_device_addresses(r.code.data(), r.code.size()));
 
 	compute_create_pipeline(vulkan, r, reqs);
 

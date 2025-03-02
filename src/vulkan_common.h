@@ -21,8 +21,7 @@
 #endif
 #endif
 
-#include <vulkan/vulkan.h>
-
+#include "vulkan_utility.h"
 #include "util.h"
 #include "vulkan_ext.h"
 
@@ -58,6 +57,7 @@ struct vulkan_req_t // Vulkan context requirements
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	uint32_t minApiVersion = VK_API_VERSION_1_0; // the minimum required for the test
+	uint32_t maxApiVersion = VK_API_VERSION_1_4; // the maximum allowed for the test
 	uint32_t queues = 1;
 	std::vector<std::string> instance_extensions;
 	std::vector<std::string> device_extensions;
@@ -174,7 +174,6 @@ void select_gpu(int chosen_gpu);
 /// Takes an RGBA8888 image and saves it to disk as PNG
 void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height);
 
-bool shader_has_buffer_devices_addresses(const uint32_t* code, uint32_t codeSize);
 bool enable_frame_boundary(vulkan_req_t& reqs);
 
 static inline std::vector<uint32_t> copy_shader(unsigned char* arr, uint32_t size)

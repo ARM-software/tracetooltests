@@ -68,6 +68,7 @@ static int apiversion2variant(uint32_t apiversion)
 	case VK_API_VERSION_1_1: return 1;
 	case VK_API_VERSION_1_2: return 2;
 	case VK_API_VERSION_1_3: return 3;
+	case VK_API_VERSION_1_4: return 4;
 	}
 	return -1;
 }
@@ -81,9 +82,10 @@ static void print_usage(const vulkan_req_t& reqs)
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
 	if (reqs.minApiVersion <= VK_API_VERSION_1_0) printf("\t0 - Vulkan 1.0\n");
-	if (reqs.minApiVersion <= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
-	if (reqs.minApiVersion <= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
-	printf("\t3 - Vulkan 1.3\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_1 && reqs.maxApiVersion >= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_2 && reqs.maxApiVersion >= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_3 && reqs.maxApiVersion >= VK_API_VERSION_1_3) printf("\t3 - Vulkan 1.3\n");
+	if (reqs.minApiVersion <= VK_API_VERSION_1_4 && reqs.maxApiVersion >= VK_API_VERSION_1_4) printf("\t4 - Vulkan 1.4\n");
 	if (reqs.usage) reqs.usage();
 	exit(1);
 }
@@ -214,11 +216,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				print_usage(reqs);
 			}
 
+			if (apiversion2variant(reqs.maxApiVersion) < vulkan_variant)
+			{
+				ELOG("Given Vulkan version too high for this test!");
+				print_usage(reqs);
+			}
+
 			if (vulkan_variant == 0) reqs.apiVersion = VK_API_VERSION_1_0;
 			else if (vulkan_variant == 1) reqs.apiVersion = VK_API_VERSION_1_1;
 			else if (vulkan_variant == 2) reqs.apiVersion = VK_API_VERSION_1_2;
 			else if (vulkan_variant == 3) reqs.apiVersion = VK_API_VERSION_1_3;
-			if (vulkan_variant < 0 || vulkan_variant > 3) print_usage(reqs);
+			else if (vulkan_variant == 4) reqs.apiVersion = VK_API_VERSION_1_4;
+			if (vulkan_variant < 0 || vulkan_variant > 4) print_usage(reqs);
 		}
 		else
 		{
@@ -238,9 +247,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	// Create instance
 	if (reqs.instance == VK_NULL_HANDLE)
 	{
-		VkInstanceCreateInfo pCreateInfo = {};
-		VkApplicationInfo app = {};
-		app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		VkInstanceCreateInfo pCreateInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, nullptr };
+		VkApplicationInfo app = { VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr };
 		app.pApplicationName = testname.c_str();
 		app.applicationVersion = VK_MAKE_VERSION( 1, 0, 0 );
 		app.pEngineName = "testEngine";
@@ -248,7 +256,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		app.apiVersion = reqs.apiVersion;
 		vulkan.apiVersion = reqs.apiVersion;
 		pCreateInfo.pApplicationInfo = &app;
-		pCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
 		std::vector<const char*> enabledExtensions;
 		uint32_t propertyCount = 0;
@@ -430,6 +437,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	else // Vulkan 1.1 or below
 	{
 		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
+		deviceInfo.pNext = reqs.extension_features;
 	}
 
 	std::vector<const char*> enabledExtensions;
@@ -907,23 +915,6 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		offset += aligned_size;
 	}
 	return aligned_size;
-}
-
-bool shader_has_buffer_devices_addresses(const uint32_t* code, uint32_t code_size)
-{
-	uint16_t opcode;
-	uint16_t word_count;
-	const uint32_t* insn = code + 5;
-	assert(code_size % 4 == 0); // aligned
-	code_size /= 4; // from bytes to words
-	do {
-		opcode = uint16_t(insn[0]);
-		word_count = uint16_t(insn[0] >> 16);
-		if (opcode == SpvOpExtension && strcmp((char*)&insn[2], "KHR_physical_storage_buffer") == 0) return true;
-		insn += word_count;
-	}
-	while (insn != code + code_size && opcode != SpvOpMemoryModel);
-	return false;
 }
 
 void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size)
