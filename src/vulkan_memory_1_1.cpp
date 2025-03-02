@@ -9,6 +9,9 @@ int main(int argc, char** argv)
 	reqs.apiVersion = VK_API_VERSION_1_1;
 	reqs.minApiVersion = VK_API_VERSION_1_1;
 	reqs.device_extensions.push_back("VK_KHR_get_memory_requirements2");
+	reqs.device_extensions.push_back("VK_KHR_maintenance1");
+	reqs.device_extensions.push_back("VK_KHR_maintenance2");
+	reqs.device_extensions.push_back("VK_KHR_maintenance3");
 	reqs.device_extensions.push_back("VK_KHR_maintenance4");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_memory_1_1", reqs);
 
@@ -42,29 +45,32 @@ int main(int argc, char** argv)
 		test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)buffer[i], "B for buffer");
 	}
 
+	VkMemoryRequirements req;
+	vkGetBufferMemoryRequirements(vulkan.device, buffer[0], &req);
+
 	VkBufferMemoryRequirementsInfo2 reqinfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2, nullptr, buffer[0] };
-	VkMemoryRequirements2 req = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
-	vkGetBufferMemoryRequirements2(vulkan.device, &reqinfo, &req);
-	uint32_t memoryTypeIndex = get_device_memory_type(req.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkMemoryRequirements2 reqnew = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+	vkGetBufferMemoryRequirements2(vulkan.device, &reqinfo, &reqnew);
+	assert(req.memoryTypeBits == reqnew.memoryRequirements.memoryTypeBits);
+	assert(req.size == reqnew.memoryRequirements.size);
+	assert(req.alignment == reqnew.memoryRequirements.alignment);
 
 	MAKEDEVICEPROCADDR(vulkan, vkGetBufferMemoryRequirements2KHR);
 	VkBufferMemoryRequirementsInfo2KHR reqinfokhr = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2_KHR, nullptr, buffer[0] };
 	VkMemoryRequirements2KHR reqkhr = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
 	pf_vkGetBufferMemoryRequirements2KHR(vulkan.device, &reqinfokhr, &reqkhr);
-	assert(reqkhr.memoryRequirements.memoryTypeBits == req.memoryRequirements.memoryTypeBits);
-	assert(reqkhr.memoryRequirements.size == req.memoryRequirements.size);
-	assert(reqkhr.memoryRequirements.alignment == req.memoryRequirements.alignment);
-	uint32_t memoryTypeIndexkhr = get_device_memory_type(reqkhr.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	assert(memoryTypeIndex == memoryTypeIndexkhr);
+	assert(reqkhr.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
+	assert(reqkhr.memoryRequirements.size == req.size);
+	assert(reqkhr.memoryRequirements.alignment == req.alignment);
 
 	MAKEDEVICEPROCADDR(vulkan, vkGetDeviceBufferMemoryRequirementsKHR);
 	VkDeviceBufferMemoryRequirementsKHR reqinfokhrmaint4 = { VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS_KHR, nullptr };
 	reqinfokhrmaint4.pCreateInfo = &bufferCreateInfo;
 	VkMemoryRequirements2KHR reqkhrmaint4 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
 	pf_vkGetDeviceBufferMemoryRequirementsKHR(vulkan.device, &reqinfokhrmaint4, &reqkhrmaint4);
-	assert(reqkhrmaint4.memoryRequirements.memoryTypeBits == req.memoryRequirements.memoryTypeBits);
-	assert(reqkhrmaint4.memoryRequirements.size == req.memoryRequirements.size);
-	assert(reqkhrmaint4.memoryRequirements.alignment == req.memoryRequirements.alignment);
+	assert(reqkhrmaint4.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
+	assert(reqkhrmaint4.memoryRequirements.size == req.size);
+	assert(reqkhrmaint4.memoryRequirements.alignment == req.alignment);
 
 	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
@@ -72,19 +78,20 @@ int main(int argc, char** argv)
 		reqinfo13.pCreateInfo = &bufferCreateInfo;
 		VkMemoryRequirements2 req13 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 		vkGetDeviceBufferMemoryRequirements(vulkan.device, &reqinfo13, &req13);
-		assert(req13.memoryRequirements.memoryTypeBits == req.memoryRequirements.memoryTypeBits);
-		assert(req13.memoryRequirements.size == req.memoryRequirements.size);
-		assert(req13.memoryRequirements.alignment == req.memoryRequirements.alignment);
+		assert(req13.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
+		assert(req13.memoryRequirements.size == req.size);
+		assert(req13.memoryRequirements.alignment == req.alignment);
 	}
 
+	const uint32_t memoryTypeIndex = get_device_memory_type(reqkhr.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = req.memoryRequirements.size * NUM_BUFFERS;
+	pAllocateMemInfo.allocationSize = req.size * NUM_BUFFERS;
 	VkDeviceMemory memory = 0;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
 
-	testBindBufferMemory(vulkan, buffer, memory, req.memoryRequirements.size);
+	testBindBufferMemory(vulkan, buffer, memory, req.size);
 
 	VkDescriptorSetLayoutCreateInfo cdslayout = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr };
 	cdslayout.bindingCount = 1;
@@ -95,6 +102,14 @@ int main(int argc, char** argv)
 	dslb.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	dslb.pImmutableSamplers = VK_NULL_HANDLE;
 	cdslayout.pBindings = &dslb;
+	VkDescriptorSetLayoutSupport support = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_SUPPORT, nullptr };
+	support.supported = VK_FALSE;
+	vkGetDescriptorSetLayoutSupport(vulkan.device, &cdslayout, &support);
+	assert(support.supported == VK_TRUE);
+	MAKEDEVICEPROCADDR(vulkan, vkGetDescriptorSetLayoutSupportKHR);
+	support.supported = VK_FALSE;
+	pf_vkGetDescriptorSetLayoutSupportKHR(vulkan.device, &cdslayout, &support);
+	assert(support.supported == VK_TRUE);
 	VkDescriptorSetLayout dslayout;
 	result = vkCreateDescriptorSetLayout(vulkan.device, &cdslayout, nullptr, &dslayout);
 	assert(result == VK_SUCCESS);
@@ -113,6 +128,9 @@ int main(int argc, char** argv)
 	vkResetDescriptorPool(vulkan.device, pool, 0);
 
 	vkTrimCommandPool(vulkan.device, cmdpool, 0);
+
+	MAKEDEVICEPROCADDR(vulkan, vkTrimCommandPoolKHR);
+	pf_vkTrimCommandPoolKHR(vulkan.device, cmdpool, 0);
 
 	// Cleanup...
 	vkDestroyDescriptorPool(vulkan.device, pool, nullptr);
