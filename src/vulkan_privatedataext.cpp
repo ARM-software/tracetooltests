@@ -34,22 +34,21 @@ int main(int argc, char** argv)
 	r = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
 	check(r);
 
-	// TBD get func ptrs
-	PFN_vkCreatePrivateDataSlotEXT ppCreatePrivateDataSlotEXT = (PFN_vkCreatePrivateDataSlotEXT)vkGetDeviceProcAddr(vulkan.device, "vkCreatePrivateDataSlotEXT");
-	PFN_vkDestroyPrivateDataSlotEXT ppDestroyPrivateDataSlotEXT = (PFN_vkDestroyPrivateDataSlotEXT)vkGetDeviceProcAddr(vulkan.device, "vkDestroyPrivateDataSlotEXT");
-	PFN_vkSetPrivateDataEXT ppSetPrivateDataEXT = (PFN_vkSetPrivateDataEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetPrivateDataEXT");
-	PFN_vkGetPrivateDataEXT ppGetPrivateDataEXT = (PFN_vkGetPrivateDataEXT)vkGetDeviceProcAddr(vulkan.device, "vkGetPrivateDataEXT");
+	MAKEDEVICEPROCADDR(vulkan, vkCreatePrivateDataSlotEXT);
+	MAKEDEVICEPROCADDR(vulkan, vkDestroyPrivateDataSlotEXT);
+	MAKEDEVICEPROCADDR(vulkan, vkSetPrivateDataEXT);
+	MAKEDEVICEPROCADDR(vulkan, vkGetPrivateDataEXT);
 
 	VkPrivateDataSlotCreateInfoEXT pdinfo = { VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO_EXT, nullptr, 0 };
 	VkPrivateDataSlotEXT pdslot;
-	r = ppCreatePrivateDataSlotEXT(vulkan.device, &pdinfo, nullptr, &pdslot);
+	r = pf_vkCreatePrivateDataSlotEXT(vulkan.device, &pdinfo, nullptr, &pdslot);
 	check(r);
-	r = ppSetPrivateDataEXT(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, 1234);
+	r = pf_vkSetPrivateDataEXT(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, 1234);
 	check(r);
 	uint64_t pData = 0;
-	ppGetPrivateDataEXT(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, &pData);
+	pf_vkGetPrivateDataEXT(vulkan.device, VK_OBJECT_TYPE_FENCE, (uint64_t)fence, pdslot, &pData);
 	assert(pData == 1234);
-	ppDestroyPrivateDataSlotEXT(vulkan.device, pdslot, nullptr);
+	pf_vkDestroyPrivateDataSlotEXT(vulkan.device, pdslot, nullptr);
 	vkDestroyFence(vulkan.device, fence, nullptr);
 
 	test_done(vulkan);

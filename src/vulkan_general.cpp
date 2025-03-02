@@ -40,6 +40,17 @@ int main(int argc, char** argv)
                        VK_VERSION_MINOR(pApiVersion), VK_VERSION_PATCH(pApiVersion));
 	}
 
+	// Test VkPhysicalDeviceDriverProperties
+
+	if (reqs.apiVersion >= VK_API_VERSION_1_2)
+	{
+		VkPhysicalDeviceDriverProperties driverprops = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, nullptr };
+		VkPhysicalDeviceProperties2 props = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &driverprops };
+		vkGetPhysicalDeviceProperties2(vulkan.physical, &props);
+		printf("Driver name: %s\n", driverprops.driverName);
+		printf("Driver info: %s\n", driverprops.driverInfo);
+	}
+
 	// Test tool interference in function lookups
 
 	PFN_vkVoidFunction badptr = vkGetInstanceProcAddr(nullptr, "vkNonsense");

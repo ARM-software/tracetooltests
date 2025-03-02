@@ -28,6 +28,13 @@
 
 // ---- Common code ----
 
+#define MAKEINSTANCEPROCADDR(v, name) \
+	PFN_ ## name pf_ ## name = (PFN_ ## name)vkGetInstanceProcAddr(v.instance, # name); \
+	assert(pf_ ## name);
+#define MAKEDEVICEPROCADDR(v, name) \
+	PFN_ ## name pf_ ## name = (PFN_ ## name)vkGetDeviceProcAddr(v.device, # name); \
+	assert(pf_ ## name);
+
 const char* errorString(const VkResult errorCode);
 
 inline void check(VkResult result)

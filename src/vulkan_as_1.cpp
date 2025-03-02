@@ -25,8 +25,7 @@ int main(int argc, char** argv)
 	printf("\tdescriptorBindingAccelerationStructureUpdateAfterBind = %s\n", accel.descriptorBindingAccelerationStructureUpdateAfterBind ? "true" : "false");
 
 	VkBuffer buffer;
-	VkBufferCreateInfo bufferCreateInfo = {};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = 1024 * 1024;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -48,15 +47,11 @@ int main(int argc, char** argv)
 
 	vkBindBufferMemory(vulkan.device, buffer, memory, 0);
 
-	auto ttCreateAccelerationStructureKHR = (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(vulkan.device, "vkCreateAccelerationStructureKHR");
-	assert(ttCreateAccelerationStructureKHR);
-	auto ttGetAccelerationStructureDeviceAddressKHR = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(vulkan.device, "vkGetAccelerationStructureDeviceAddressKHR");
-	assert(ttGetAccelerationStructureDeviceAddressKHR);
-	auto ttDestroyAccelerationStructureKHR = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(vulkan.device, "vkDestroyAccelerationStructureKHR");
-	assert(ttDestroyAccelerationStructureKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkCreateAccelerationStructureKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkGetAccelerationStructureDeviceAddressKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkDestroyAccelerationStructureKHR);
 
-	VkAccelerationStructureCreateInfoKHR asinfo = {};
-	asinfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+	VkAccelerationStructureCreateInfoKHR asinfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr };
 	asinfo.createFlags = 0;
 	asinfo.buffer = buffer;
 	asinfo.offset = 0; // "offset must be a multiple of 256 bytes"
@@ -64,17 +59,17 @@ int main(int argc, char** argv)
 	asinfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 	asinfo.deviceAddress = 0;
 	VkAccelerationStructureKHR as;
-	result = ttCreateAccelerationStructureKHR(vulkan.device, &asinfo, nullptr, &as);
+	result = pf_vkCreateAccelerationStructureKHR(vulkan.device, &asinfo, nullptr, &as);
 	check(result);
 
 	VkAccelerationStructureDeviceAddressInfoKHR dai = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr, as };
-	VkDeviceAddress addr = ttGetAccelerationStructureDeviceAddressKHR(vulkan.device, &dai);
+	VkDeviceAddress addr = pf_vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &dai);
 	(void)addr; // do nothing with it
 
 	// just submit it somewhere
 	testQueueBuffer(vulkan, queue, { buffer });
 
-	ttDestroyAccelerationStructureKHR(vulkan.device, as, nullptr);
+	pf_vkDestroyAccelerationStructureKHR(vulkan.device, as, nullptr);
 	vkDestroyBuffer(vulkan.device, buffer, nullptr);
 	testFreeMemory(vulkan, memory);
 

@@ -169,15 +169,14 @@ testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y
 	xcb.state_fullscreen_atom = lavaxcb_get_atom_reply(xcb.connection, "_NET_WM_STATE_FULLSCREEN", state_fullscreen_atom_cookie);
 	xcb.bypass_compositor_atom = lavaxcb_get_atom_reply(xcb.connection, "_NET_WM_BYPASS_COMPOSITOR", bypass_compositor_atom_cookie);
 
+	MAKEINSTANCEPROCADDR(vulkan, vkCreateXcbSurfaceKHR);
+
 	xcb_flush(xcb.connection);
-	VkXcbSurfaceCreateInfoKHR pInfo = {};
-	pInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+	VkXcbSurfaceCreateInfoKHR pInfo = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR, nullptr };
 	pInfo.flags = 0;
 	pInfo.connection = xcb.connection;
 	pInfo.window = xcb.window;
-	PFN_vkCreateXcbSurfaceKHR ttCreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)vkGetInstanceProcAddr(vulkan.instance, "vkCreateXcbSurfaceKHR");
-	assert(ttCreateXcbSurfaceKHR);
-	VkResult result = ttCreateXcbSurfaceKHR(vulkan.instance, &pInfo, nullptr, &xcb.surface);
+	VkResult result = pf_vkCreateXcbSurfaceKHR(vulkan.instance, &pInfo, nullptr, &xcb.surface);
 	if (result != VK_SUCCESS)
 	{
 		ABORT("Failed to create XCB Vulkan surface");
@@ -187,12 +186,13 @@ testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y
 	(void)fullscreen;
 	return xcb;
 #elif USE_HEADLESS
+
+	MAKEINSTANCEPROCADDR(vulkan, vkCreateHeadlessSurfaceEXT);
+
 	testwindow ret = {};
 	VkHeadlessSurfaceCreateInfoEXT pInfo = { VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT, nullptr };
 	pInfo.flags = 0;
-	PFN_vkCreateHeadlessSurfaceEXT ttCreateHeadlessSurfaceEXT = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(vkGetInstanceProcAddr(vulkan.instance,"vkCreateHeadlessSurfaceEXT"));
-	assert(ttCreateHeadlessSurfaceEXT);
-	VkResult result = ttCreateHeadlessSurfaceEXT(vulkan.instance, &pInfo, nullptr, &ret.surface);
+	VkResult result = pf_vkCreateHeadlessSurfaceEXT(vulkan.instance, &pInfo, nullptr, &ret.surface);
 	if (result != VK_SUCCESS)
 	{
 		ABORT("Failed to create headless surface");

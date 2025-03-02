@@ -8,15 +8,16 @@ int main(int argc, char** argv)
 	VkResult result;
 
 	// Test VK_EXT_tooling_info
+
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceToolPropertiesEXT);
+
 	std::vector<VkPhysicalDeviceToolPropertiesEXT> tools;
 	uint32_t toolCount = 0;
-	PFN_vkGetPhysicalDeviceToolPropertiesEXT ppGetPhysicalDeviceToolPropertiesEXT = (PFN_vkGetPhysicalDeviceToolPropertiesEXT)vkGetInstanceProcAddr(vulkan.instance, "vkGetPhysicalDeviceToolPropertiesEXT");
-	assert(ppGetPhysicalDeviceToolPropertiesEXT);
-	result = ppGetPhysicalDeviceToolPropertiesEXT(vulkan.physical, &toolCount, NULL);
+	result = pf_vkGetPhysicalDeviceToolPropertiesEXT(vulkan.physical, &toolCount, NULL);
 	assert(result == VK_SUCCESS);
 	tools.resize(toolCount);
 	printf("%u tools in use:\n", toolCount); // should be 1 for most runs
-	result = ppGetPhysicalDeviceToolPropertiesEXT(vulkan.physical, &toolCount, tools.data());
+	result = pf_vkGetPhysicalDeviceToolPropertiesEXT(vulkan.physical, &toolCount, tools.data());
 	assert(result == VK_SUCCESS);
 	for (VkPhysicalDeviceToolPropertiesEXT &tool : tools)
 	{
