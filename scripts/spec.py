@@ -117,6 +117,7 @@ packed_bitfields = [
 other_counts = {
 	'VkPipelineShaderStageModuleIdentifierCreateInfoEXT' : [ 'identifierSize' ],
 	'VkPushConstantsInfoKHR' : [ 'size' ],
+	'VkPushConstantsInfo' : [ 'size' ],
 	'VkShaderModuleIdentifierEXT' : [ 'identifierSize' ],
 	'vkCreateRayTracingPipelinesKHR' : [ 'dataSize' ],
 	'vkGetPipelineExecutableInternalRepresentationsKHR' : [ 'dataSize' ],
