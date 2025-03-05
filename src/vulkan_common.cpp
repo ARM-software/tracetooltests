@@ -7,21 +7,10 @@
 #include "external/stb_image_write.h"
 
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
-static int selected_gpu = 0;
 
 int repeats()
 {
 	return p__loops;
-}
-
-void select_gpu(int chosen_gpu)
-{
-	selected_gpu = chosen_gpu;
-}
-
-static int gpu()
-{
-	return get_env_int("TOOLSTEST_GPU", selected_gpu);
 }
 
 static VkBool32 messenger_callback(
@@ -77,7 +66,8 @@ static void print_usage(const vulkan_req_t& reqs)
 {
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
-	printf("-g/--gpu level N       Select GPU (default %d)\n", gpu());
+	printf("-N/--gpu-native        Use the native GPU (default), fails if not available\n");
+	printf("-L/--gpu-simulated     Use a software rasterizer as your GPU, fails if not available\n");
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
@@ -172,6 +162,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	bool has_tooling_obj_property = false;
 	bool has_debug_utils = false;
 	bool req_maintenance_6 = false;
+	bool force_native_gpu = false;
+	bool use_simulated_gpu = false;
 
 	std::string api;
 	switch (reqs.apiVersion)
@@ -202,9 +194,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		{
 			p__validation = true;
 		}
-		else if (match(argv[i], "-g", "--gpu"))
+		else if (match(argv[i], "-N", "--gpu-native"))
 		{
-			select_gpu(get_arg(argv, ++i, argc));
+			force_native_gpu = true;
+		}
+		else if (match(argv[i], "-L", "--gpu-simulated"))
+		{
+			use_simulated_gpu = true;
 		}
 		else if (match(argv[i], "-V", "--vulkan-variant")) // overrides version req from test itself
 		{
@@ -237,6 +233,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				print_usage(reqs);
 			}
 		}
+	}
+
+	if (force_native_gpu && use_simulated_gpu)
+	{
+		ELOG("You cannot combine --gpu-native and --gpu-simulated, choose one!\n");
+		print_usage(reqs);
 	}
 
 	std::unordered_set<std::string> instance_required(reqs.instance_extensions.begin(), reqs.instance_extensions.end()); // temp copy
@@ -345,26 +347,41 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	check(result);
 	assert(result == VK_SUCCESS);
 	assert(num_devices == physical_devices.size());
-	printf("Found %d physical devices (selecting %d)!\n", (int)num_devices, gpu());
+	int selected_gpu = -1;
+	for (unsigned i = 0; i < physical_devices.size(); i++)
+	{
+		VkPhysicalDeviceProperties device_properties = {};
+		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
+		if (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU && force_native_gpu) continue; // skip it
+		else if (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU && use_simulated_gpu) { selected_gpu = i; break; } // pick first simulated GPU
+		else if (device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU && !use_simulated_gpu) { selected_gpu = i; break; } // pick first native GPU
+		else selected_gpu = i;
+	}
+	if (selected_gpu == -1)
+	{
+		printf("No GPU of the desired type found\n");
+		exit(77);
+	}
+	printf("Found %d physical devices (selecting %d)\n", (int)num_devices, selected_gpu);
 	for (unsigned i = 0; i < physical_devices.size(); i++)
 	{
 		VkPhysicalDeviceProperties device_properties = {};
 		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
 		printf("\t%u : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
 		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion));
-		if (i == (unsigned)gpu() && device_properties.apiVersion < reqs.apiVersion)
+		if (i == (unsigned)selected_gpu && device_properties.apiVersion < reqs.apiVersion)
 		{
-			printf("Selected GPU %d does support required Vulkan version %d.%d.%d\n", gpu(), VK_VERSION_MAJOR(reqs.apiVersion),
+			printf("Selected GPU does support required Vulkan version %d.%d.%d\n", VK_VERSION_MAJOR(reqs.apiVersion),
 			       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
 			exit(77);
 		}
 	}
-	if (gpu() >= (int)num_devices)
+	if (selected_gpu >= (int)num_devices)
 	{
-		printf("Selected GPU %d does not exist!\n", gpu());
+		printf("Selected GPU %d does not exist!\n", selected_gpu);
 		exit(-1);
 	}
-	vulkan.physical = physical_devices[gpu()];
+	vulkan.physical = physical_devices.at(selected_gpu);
 
 	uint32_t family_count = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
