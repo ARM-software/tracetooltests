@@ -224,4 +224,10 @@ vulkan_test(fence_delay)
 vulkan_test_build(window_1)
 vulkan_test_build(memory_mprotect)
 
+add_executable(vulkan_featuretest src/vulkan_feature.cpp include/vulkan_feature_detect.h)
+target_include_directories(vulkan_featuretest PUBLIC include)
+target_link_libraries(vulkan_featuretest pthread)
+target_compile_options(vulkan_featuretest PRIVATE ${IT_FLAGS})
+add_test(NAME vulkan_feature_test COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_featuretest)
+
 endif()
