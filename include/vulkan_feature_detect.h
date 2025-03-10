@@ -249,7 +249,7 @@ struct feature_detection
 			}
 			insn += word_count;
 		}
-		while (insn != code + code_size);
+		while (insn != code + code_size && opcode != SpvOpMemoryModel);
 	}
 
 	// --- Checking structures Call these for all these structures after they are successfully used. ---
