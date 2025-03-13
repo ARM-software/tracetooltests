@@ -1,5 +1,8 @@
 #include "vulkan_utility.h"
 #include "vulkan_feature_detect.h"
+#include "vulkan_compute_bda_sc.inc"
+
+#include <cmath>
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
@@ -76,6 +79,8 @@ int main()
 	assert(exts.size() == 0);
 	detect.adjust_VkDeviceCreateInfo(&dci, exts);
 	assert(dci.pNext == nullptr);
+
+	detect.parse_SPIRV((uint32_t*)vulkan_compute_bda_sc_spirv, long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4);
 
 	return 0;
 }
