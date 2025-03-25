@@ -156,3 +156,5 @@ void save_blob(const std::string& filename, const char* data, uint32_t size);
 bool exists_blob(const std::string& filename);
 
 int get_env_int(const char* name, int fallback);
+
+static __attribute__((const)) inline uint64_t aligned_size(uint64_t size, uint64_t alignment) { return size + alignment - 1ull - (size + alignment - 1ull) % alignment; }

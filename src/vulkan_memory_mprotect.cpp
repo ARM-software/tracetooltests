@@ -2,7 +2,6 @@
 
 #include "vulkan_common.h"
 
-static __attribute__((const)) inline uint64_t aligned_size(uint64_t size, uint64_t alignment) { return size + alignment - 1ull - (size + alignment - 1ull) % alignment; }
 static __attribute__((const)) inline uint64_t aligned_start(uint64_t size, uint64_t alignment) { return (size & ~(alignment - 1)); }
 
 static VkPhysicalDeviceMemoryProperties memory_properties = {};

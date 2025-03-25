@@ -254,6 +254,11 @@ struct feature_detection
 
 	// --- Checking structures Call these for all these structures after they are successfully used. ---
 
+	void check_VkSemaphoreTypeCreateInfo(const VkSemaphoreTypeCreateInfo* info)
+	{
+		if (info->semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE) core12.timelineSemaphore = true;
+	}
+
 	void check_VkGraphicsPipelineCreateInfo(const VkGraphicsPipelineCreateInfo* info)
 	{
 		if (info->pRasterizationState && info->pRasterizationState->depthBiasClamp != 0.0) core10.depthBiasClamp = true;
@@ -409,6 +414,16 @@ struct feature_detection
 	}
 
 	// --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
+
+	void check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
+	{
+		core12.bufferDeviceAddress = true;
+	}
+
+	void check_vkGetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
+	{
+		core12.bufferDeviceAddressCaptureReplay = true;
+	}
 
 	void check_vkCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth)
 	{
@@ -587,6 +602,10 @@ struct feature_detection
 		CHECK_FEATURE12(drawIndirectCount);
 		CHECK_FEATURE12(hostQueryReset);
 		CHECK_FEATURE12(samplerMirrorClampToEdge);
+		CHECK_FEATURE12(bufferDeviceAddress);
+		CHECK_FEATURE12(bufferDeviceAddressCaptureReplay);
+		if (!core12.bufferDeviceAddress) incore12.bufferDeviceAddressMultiDevice = false; // partial support
+		CHECK_FEATURE12(timelineSemaphore);
 		#undef CHECK_FEATURE12
 	}
 
