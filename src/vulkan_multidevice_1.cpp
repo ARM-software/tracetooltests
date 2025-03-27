@@ -20,23 +20,21 @@ int main(int argc, char** argv)
 	reqs.instance = vulkan1.instance;
 	vulkan_setup_t vulkan2 = test_init(argc, argv, "vulkan_multidevice", reqs);
 
-	if (reqs.apiVersion >= VK_API_VERSION_1_1)
-	{
-		uint32_t devgrpcount = 0;
-		VkResult r = vkEnumeratePhysicalDeviceGroups(vulkan1.instance, &devgrpcount, nullptr);
-		check(r);
-		std::vector<VkPhysicalDeviceGroupProperties> devgrps(devgrpcount);
-		printf("Found %u physical device groups:\n", devgrpcount);
-		r = vkEnumeratePhysicalDeviceGroups(vulkan1.instance, &devgrpcount, devgrps.data());
-		for (auto& v : devgrps)
-		{
-			printf("\t%u devices (subsetAllocation=%s):", v.physicalDeviceCount, v.subsetAllocation ? "true" : "false");
-			for (unsigned i = 0; i < v.physicalDeviceCount; i++) printf(" 0x%" PRIx64 ",", (uint64_t)v.physicalDevices[i]);
-			printf("\n");
-		}
-	}
+	ILOG("Created device1 with physical=%lu and device2 with physical=%lu", (unsigned long)vulkan1.physical, (unsigned long)vulkan2.physical);
+
+	VkPhysicalDeviceFeatures features = {};
+	vkGetPhysicalDeviceFeatures(vulkan2.physical, &features);
+	void* ptr = (void*)vkGetDeviceProcAddr(vulkan2.device, "vkDestroyDevice");
+	assert(ptr);
 
 	test_done(vulkan2, true);
+
+	vkGetPhysicalDeviceFeatures(vulkan1.physical, &features);
+	ptr = (void*)vkGetInstanceProcAddr(vulkan1.instance, "vkGetPhysicalDeviceFeatures");
+	assert(ptr);
+	ptr = (void*)vkGetDeviceProcAddr(vulkan1.device, "vkDestroyDevice");
+	assert(ptr);
+
 	test_done(vulkan1);
 
 	return 0;
