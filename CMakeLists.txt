@@ -63,7 +63,7 @@ endfunction()
 
 function(vulkan_test_build test_name)
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
-		src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
+		src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
 	target_link_directories(vulkan_${ARGV0} PRIVATE ${API_LIBS})
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
@@ -221,6 +221,8 @@ vulkan_test(mesh_1)
 vulkan_test(aliasing_1)
 vulkan_test(timeline_semaphore_1)
 vulkan_test(fence_delay)
+
+vulkan_test(graphics_1)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)
