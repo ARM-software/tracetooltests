@@ -234,9 +234,9 @@ int main(int argc, char** argv)
 	// input vertext
 	GraphicPipelineState pipelineState;
 	pipelineState.setVertexBinding(0, *vertexBuffer, sizeof(Vertex)); // vertexBuffer
-	pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));  //pos, color and texCoord Attrib in vertexBuffer
-	pipelineState.setVertexAttribute(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::color));
-	pipelineState.setVertexAttribute(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Vertex::texCoord));
+	pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos));  //pos, color and texCoord Attrib in vertexBuffer
+	pipelineState.setVertexAttribute(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
+	pipelineState.setVertexAttribute(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord));
 
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_VIEWPORT);
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_SCISSOR);

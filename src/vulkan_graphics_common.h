@@ -456,8 +456,12 @@ public:
 	AttachmentInfo ()
 	{
 		resetDescription();
-		m_clear.color        = { 0.0, 0.0, 0.0, 1.0 };
-		m_clear.depthStencil = {1.0, 0};
+		m_clear.color.float32[0] = 0.0;
+		m_clear.color.float32[1] = 0.0;
+		m_clear.color.float32[2] = 0.0;
+		m_clear.color.float32[3] = 1.0;
+		m_clear.depthStencil.depth = 1.0;
+		m_clear.depthStencil.stencil = 0;
 	}
 
 	AttachmentInfo(uint32_t location, std::shared_ptr<ImageView> imageView, VkImageLayout finalLayout) : AttachmentInfo()
