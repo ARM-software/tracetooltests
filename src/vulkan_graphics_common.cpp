@@ -1,5 +1,7 @@
 #include "vulkan_graphics_common.h"
 
+#include <algorithm>
+
 // workround for passing compiling quicky
 vulkan_setup_t vulkan2;
 vulkan_req_t req2;

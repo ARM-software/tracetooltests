@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	{
 		uint32_t pApiVersion = 0;
 		r = vkEnumerateInstanceVersion(&pApiVersion); // new in Vulkan 1.1
-		assert(r == VK_SUCCESS);
+		check(r);
 		assert(pApiVersion > 0);
 		printf("vkEnumerateInstanceVersion says Vulkan %d.%d.%d)\n", VK_VERSION_MAJOR(pApiVersion),
                        VK_VERSION_MINOR(pApiVersion), VK_VERSION_PATCH(pApiVersion));
@@ -75,10 +75,15 @@ int main(int argc, char** argv)
 	goodptr = vkGetInstanceProcAddr(vulkan.instance, "vkGetInstanceProcAddr");
 	assert(goodptr);
 
+	// silence silly compilers
+	(void)badptr;
+	(void)goodptr;
+
 	if (reqs.apiVersion >= VK_API_VERSION_1_1)
 	{
 		uint32_t devgrpcount = 0;
 		r = vkEnumeratePhysicalDeviceGroups(vulkan.instance, &devgrpcount, nullptr);
+		check(r);
 		std::vector<VkPhysicalDeviceGroupProperties> devgrps(devgrpcount);
 		for (auto& v : devgrps) { v.pNext = nullptr; v.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES; }
 		printf("Found %u physical device groups:\n", devgrpcount);

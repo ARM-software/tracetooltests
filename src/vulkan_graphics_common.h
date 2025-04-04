@@ -440,8 +440,6 @@ private:
 
 	VkPipelineLayout m_handle = VK_NULL_HANDLE;
 	VkPipelineLayoutCreateInfo m_createInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
-	VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
-	VkPipelineCacheCreateInfo m_cacheCreateInfo { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO, nullptr };
 
 	std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 	std::vector<VkPushConstantRange> m_pushConstantRanges;
