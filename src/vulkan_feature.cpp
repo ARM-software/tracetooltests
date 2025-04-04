@@ -28,11 +28,14 @@ int main()
 	assert(feat10.logicOp == VK_TRUE); // not changed, still used
 
 	VkPhysicalDeviceVulkan12Features feat12 = {};
-	detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	auto adjusted = detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	assert(adjusted.size() == 0);
 	assert(feat12.drawIndirectCount == VK_FALSE);
 	assert(feat12.hostQueryReset == VK_FALSE);
 	feat12.drawIndirectCount = VK_TRUE;
-	detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	adjusted = detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	assert(adjusted.size() == 1);
+	for (auto s : adjusted) printf("Adjusted %s\n", s.c_str());
 	assert(feat12.drawIndirectCount == VK_FALSE); // was adjusted
 	feat12.drawIndirectCount = VK_TRUE;
 	detect.check_vkCmdDrawIndirectCount(0, 0, 0, 0, 0, 0, 0); // actually use feature

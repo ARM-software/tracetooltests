@@ -175,12 +175,13 @@ static __attribute__((pure)) inline const void* get_extension(const void* sptr, 
 	return ptr;
 }
 
-static inline void prune_extension(void* sptr, VkStructureType sType)
+static inline bool prune_extension(void* sptr, VkStructureType sType)
 {
 	VkBaseOutStructure* ptr = (VkBaseOutStructure*)sptr;
 	VkBaseOutStructure* prev = nullptr;
 	while (ptr != nullptr && ptr->sType != sType) { prev = ptr; ptr = ptr->pNext; }
-	if (prev && ptr && ptr->sType == sType) prev->pNext = ptr->pNext;
+	if (prev && ptr && ptr->sType == sType) { prev->pNext = ptr->pNext; return true; }
+	return false;
 }
 
 struct feature_detection
@@ -546,14 +547,20 @@ struct feature_detection
 
 	// --- Remove unused feature bits from these structures ---
 
-	void adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& exts)
+	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& exts)
 	{
-		if (exts.count("VK_KHR_shader_atomic_int64") == 0) prune_extension(info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
-		if (exts.count("VK_EXT_shader_image_atomic_int64") == 0) prune_extension(info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
+		std::unordered_set<std::string> found;
+		#define CHECK_PNEXT(_name, _stype) if (exts.count(_name) == 0) if (prune_extension(info, _stype)) found.insert(_name);
+		CHECK_PNEXT("VK_KHR_shader_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
+		CHECK_PNEXT("VK_EXT_shader_image_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
+		#undef CHECK_PNEXT
+		return found;
 	}
 
-	void adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& exts)
+	std::unordered_set<std::string> adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& removed)
 	{
+		std::unordered_set<std::string> found;
+		return found;
 	}
 
 	std::unordered_set<std::string> adjust_device_extensions(std::unordered_set<std::string>& exts)
@@ -572,10 +579,11 @@ struct feature_detection
 		return removed;
 	}
 
-	void adjust_VkPhysicalDeviceFeatures(VkPhysicalDeviceFeatures& incore10)
+	std::unordered_set<std::string> adjust_VkPhysicalDeviceFeatures(VkPhysicalDeviceFeatures& incore10)
 	{
+		std::unordered_set<std::string> found;
 		// Only turn off the features we have checking code for
-		#define CHECK_FEATURE10(_x) if (!core10._x) incore10._x = false;
+		#define CHECK_FEATURE10(_x) if (!core10._x && incore10._x) { incore10._x = false; found.insert(# _x); }
 		CHECK_FEATURE10(fullDrawIndexUint32);
 		CHECK_FEATURE10(dualSrcBlend);
 		CHECK_FEATURE10(geometryShader);
@@ -619,12 +627,14 @@ struct feature_detection
 		CHECK_FEATURE10(multiDrawIndirect);
 		CHECK_FEATURE10(occlusionQueryPrecise);
 		#undef CHECK_FEATURE10
+		return found;
 	}
 
-	void adjust_VkPhysicalDeviceVulkan11Features(VkPhysicalDeviceVulkan11Features& incore11)
+	std::unordered_set<std::string> adjust_VkPhysicalDeviceVulkan11Features(VkPhysicalDeviceVulkan11Features& incore11)
 	{
+		std::unordered_set<std::string> found;
 		// Only turn off the features we have checking code for
-		#define CHECK_FEATURE11(_x) if (!core11._x) incore11._x = false;
+		#define CHECK_FEATURE11(_x) if (!core11._x && incore11._x) { incore11._x = false; found.insert(# _x); }
 		CHECK_FEATURE11(storageBuffer16BitAccess);
 		CHECK_FEATURE11(uniformAndStorageBuffer16BitAccess);
 		CHECK_FEATURE11(storagePushConstant16);
@@ -633,12 +643,14 @@ struct feature_detection
 		CHECK_FEATURE11(variablePointers);
 		CHECK_FEATURE11(shaderDrawParameters);
 		#undef CHECK_FEATURE11
+		return found;
 	}
 
-	void adjust_VkPhysicalDeviceVulkan12Features(VkPhysicalDeviceVulkan12Features& incore12)
+	std::unordered_set<std::string> adjust_VkPhysicalDeviceVulkan12Features(VkPhysicalDeviceVulkan12Features& incore12)
 	{
+		std::unordered_set<std::string> found;
 		// Only turn off the features we have checking code for
-		#define CHECK_FEATURE12(_x) if (!core12._x) incore12._x = false;
+		#define CHECK_FEATURE12(_x) if (!core12._x && incore12._x) { incore12._x = false; found.insert(# _x); }
 		CHECK_FEATURE12(drawIndirectCount);
 		CHECK_FEATURE12(hostQueryReset);
 		CHECK_FEATURE12(samplerMirrorClampToEdge);
@@ -647,13 +659,16 @@ struct feature_detection
 		if (!core12.bufferDeviceAddress) incore12.bufferDeviceAddressMultiDevice = false; // partial support
 		CHECK_FEATURE12(timelineSemaphore);
 		#undef CHECK_FEATURE12
+		return found;
 	}
 
-	void adjust_VkPhysicalDeviceVulkan13Features(VkPhysicalDeviceVulkan13Features& incore13)
+	std::unordered_set<std::string> adjust_VkPhysicalDeviceVulkan13Features(VkPhysicalDeviceVulkan13Features& incore13)
 	{
+		std::unordered_set<std::string> found;
 		// Only turn off the features we have checking code for
-		#define CHECK_FEATURE13(_x) if (!core13._x) incore13._x = false;
+		#define CHECK_FEATURE13(_x) if (!core13._x && incore13._x) { incore13._x = false; found.insert(# _x); }
 		CHECK_FEATURE13(dynamicRendering);
 		#undef CHECK_FEATURE13
+		return found;
 	}
 };
