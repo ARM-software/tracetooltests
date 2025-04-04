@@ -252,46 +252,15 @@ struct feature_detection
 		while (insn != code + code_size && opcode != SpvOpMemoryModel);
 	}
 
-	// --- Checking structures Call these for all these structures after they are successfully used. ---
+	// --- Checking structures helper functions ---
 
-	void check_VkSemaphoreTypeCreateInfo(const VkSemaphoreTypeCreateInfo* info)
-	{
-		if (info->semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE) core12.timelineSemaphore = true;
-	}
-
-	void check_VkGraphicsPipelineCreateInfo(const VkGraphicsPipelineCreateInfo* info)
-	{
-		if (info->pRasterizationState && info->pRasterizationState->depthBiasClamp != 0.0) core10.depthBiasClamp = true;
-		if (info->pRasterizationState && info->pRasterizationState->lineWidth != 1.0) core10.wideLines = true;
-	}
-
-	void check_VkDeviceCreateInfo(const VkDeviceCreateInfo* info)
-	{
-		VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
-		if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) has_VkPhysicalDeviceShaderAtomicInt64Features = true;
-
-		VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
-		if (pdsiai64f && (pdsiai64f->shaderImageInt64Atomics || pdsiai64f->sparseImageInt64Atomics)) has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT = true;
-	}
-
-	void check_VkSurfaceCapabilities2KHR(const VkSurfaceCapabilities2KHR* info)
-	{
-		VkSharedPresentSurfaceCapabilitiesKHR* sc = (VkSharedPresentSurfaceCapabilitiesKHR*)get_extension(info, VK_STRUCTURE_TYPE_SHARED_PRESENT_SURFACE_CAPABILITIES_KHR);
-		if (sc && sc->sharedPresentSupportedUsageFlags) has_VK_KHR_shared_presentable_image = true;
-	}
-
-	void check_VkSwapchainCreateInfoKHR(const VkSwapchainCreateInfoKHR* info)
-	{
-		if (is_colorspace_ext(info->imageColorSpace)) has_VK_EXT_swapchain_colorspace = true;
-	}
-
-	void check_VkPipelineShaderStageCreateInfo(const VkPipelineShaderStageCreateInfo* info)
+	void struct_check_VkPipelineShaderStageCreateInfo(const VkPipelineShaderStageCreateInfo* info)
 	{
 		if (info->stage == VK_SHADER_STAGE_GEOMETRY_BIT) core10.geometryShader = true;
 		else if (info->stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT || info->stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) core10.tessellationShader = true;
 	}
 
-	void check_VkPipelineColorBlendAttachmentState(const VkPipelineColorBlendAttachmentState* info)
+	void struct_check_VkPipelineColorBlendAttachmentState(const VkPipelineColorBlendAttachmentState* info)
 	{
 		const VkBlendFactor factors[4] = { VK_BLEND_FACTOR_SRC1_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR, VK_BLEND_FACTOR_SRC1_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA };
 		for (int i = 0; i < 4; i++) if (info->srcColorBlendFactor == factors[i]) core10.dualSrcBlend = true;
@@ -300,21 +269,7 @@ struct feature_detection
 		for (int i = 0; i < 4; i++) if (info->dstAlphaBlendFactor == factors[i]) core10.dualSrcBlend = true;
 	}
 
-	void check_VkSamplerCreateInfo(const VkSamplerCreateInfo* info)
-	{
-		if (info->anisotropyEnable == VK_TRUE) core10.samplerAnisotropy = true;
-		if (info->addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
-		    || info->addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
-		    || info->addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE)
-			core12.samplerMirrorClampToEdge = true;
-	}
-
-	void check_VkQueryPoolCreateInfo(const VkQueryPoolCreateInfo* info)
-	{
-		if (info->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && info->pipelineStatistics != 0) core10.pipelineStatisticsQuery = true;
-	}
-
-	void check_VkPipelineColorBlendStateCreateInfo(const VkPipelineColorBlendStateCreateInfo* info)
+	void struct_check_VkPipelineColorBlendStateCreateInfo(const VkPipelineColorBlendStateCreateInfo* info)
 	{
 		if (info->logicOpEnable == VK_TRUE) core10.logicOp = true;
 
@@ -333,17 +288,125 @@ struct feature_detection
 				{
 					core10.independentBlend = true;
 				}
+				struct_check_VkPipelineColorBlendAttachmentState(&info->pAttachments[i]);
 			}
 		}
 	}
 
-	void check_VkPipelineMultisampleStateCreateInfo(const VkPipelineMultisampleStateCreateInfo* info)
+	void struct_check_VkPipelineMultisampleStateCreateInfo(const VkPipelineMultisampleStateCreateInfo* info)
 	{
 		if (info->alphaToOneEnable == VK_TRUE) core10.alphaToOne = true;
 		if (info->sampleShadingEnable == VK_TRUE) core10.sampleRateShading = true;
 	}
 
-	void check_VkImageCreateInfo(const VkImageCreateInfo* info)
+	void struct_check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasterizationStateCreateInfo* info)
+	{
+		if (info->depthClampEnable == VK_TRUE) core10.depthClamp = true;
+		if (info->polygonMode == VK_POLYGON_MODE_POINT || info->polygonMode == VK_POLYGON_MODE_LINE) core10.fillModeNonSolid = true;
+	}
+
+	void struct_check_VkPipelineDepthStencilStateCreateInfo(const VkPipelineDepthStencilStateCreateInfo* info)
+	{
+		if (info->depthBoundsTestEnable == VK_TRUE) core10.depthBounds = true;
+	}
+
+	void struct_check_VkPipelineViewportStateCreateInfo(const VkPipelineViewportStateCreateInfo* info)
+	{
+		if (info->viewportCount > 1 || info->scissorCount > 1)
+		{
+			core10.multiViewport = true;
+		}
+	}
+
+	// --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
+
+	void check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore)
+	{
+		VkSemaphoreTypeCreateInfo* stci = (VkSemaphoreTypeCreateInfo*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO);
+		if (stci && stci->semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE) core12.timelineSemaphore = true;
+	}
+
+	void check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	{
+		for (uint32_t i = 0; i < createInfoCount; i++)
+		{
+			if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->depthBiasClamp != 0.0) core10.depthBiasClamp = true;
+			if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->lineWidth != 1.0) core10.wideLines = true;
+
+			for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
+			{
+				struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
+			}
+			if (pCreateInfos[i].pColorBlendState) struct_check_VkPipelineColorBlendStateCreateInfo(pCreateInfos[i].pColorBlendState);
+			if (pCreateInfos[i].pMultisampleState) struct_check_VkPipelineMultisampleStateCreateInfo(pCreateInfos[i].pMultisampleState);
+			if (pCreateInfos[i].pRasterizationState) struct_check_VkPipelineRasterizationStateCreateInfo(pCreateInfos[i].pRasterizationState);
+			if (pCreateInfos[i].pDepthStencilState) struct_check_VkPipelineDepthStencilStateCreateInfo(pCreateInfos[i].pDepthStencilState);
+			if (pCreateInfos[i].pViewportState) struct_check_VkPipelineViewportStateCreateInfo(pCreateInfos[i].pViewportState);
+		}
+	}
+
+	void check_vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	{
+		for (uint32_t i = 0; i < createInfoCount; i++)
+		{
+			struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].stage);
+		}
+	}
+
+	void check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	{
+		for (uint32_t i = 0; i < createInfoCount; i++)
+		{
+			for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
+			{
+				struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
+			}
+		}
+	}
+
+	void check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
+	{
+		VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
+		if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) has_VkPhysicalDeviceShaderAtomicInt64Features = true;
+
+		VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
+		if (pdsiai64f && (pdsiai64f->shaderImageInt64Atomics || pdsiai64f->sparseImageInt64Atomics)) has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT = true;
+	}
+
+	void check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities)
+	{
+		VkSharedPresentSurfaceCapabilitiesKHR* sc = (VkSharedPresentSurfaceCapabilitiesKHR*)get_extension(pSurfaceCapabilities, VK_STRUCTURE_TYPE_SHARED_PRESENT_SURFACE_CAPABILITIES_KHR);
+		if (sc && sc->sharedPresentSupportedUsageFlags) has_VK_KHR_shared_presentable_image = true;
+	}
+
+	void check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains)
+	{
+		for (uint32_t i = 0; i < swapchainCount; i++)
+		{
+			if (is_colorspace_ext(pCreateInfos[i].imageColorSpace)) has_VK_EXT_swapchain_colorspace = true;
+		}
+	}
+
+	void check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain)
+	{
+		if (is_colorspace_ext(pCreateInfo->imageColorSpace)) has_VK_EXT_swapchain_colorspace = true;
+	}
+
+	void check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler)
+	{
+		if (pCreateInfo->anisotropyEnable == VK_TRUE) core10.samplerAnisotropy = true;
+		if (pCreateInfo->addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
+		    || pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
+		    || pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE)
+			core12.samplerMirrorClampToEdge = true;
+	}
+
+	void check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkQueryPool* pQueryPool)
+	{
+		if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) core10.pipelineStatisticsQuery = true;
+	}
+
+	void check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 	{
 		if (info->imageType == VK_IMAGE_TYPE_2D && info->flags & VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT)
 		{
@@ -360,7 +423,7 @@ struct feature_detection
 		if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) && info->samples != VK_SAMPLE_COUNT_1_BIT) core10.shaderStorageImageMultisample = true;
 	}
 
-	void check_VkBufferCreateInfo(const VkBufferCreateInfo* info)
+	void check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer)
 	{
 		if (info->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT)
 		{
@@ -373,47 +436,24 @@ struct feature_detection
 		if (info->flags & VK_BUFFER_CREATE_SPARSE_ALIASED_BIT) core10.sparseResidencyAliased = true;
 	}
 
-	void check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasterizationStateCreateInfo* info)
-	{
-		if (info->depthClampEnable == VK_TRUE) core10.depthClamp = true;
-		if (info->polygonMode == VK_POLYGON_MODE_POINT || info->polygonMode == VK_POLYGON_MODE_LINE) core10.fillModeNonSolid = true;
-	}
-
-	void check_VkPipelineDepthStencilStateCreateInfo(const VkPipelineDepthStencilStateCreateInfo* info)
-	{
-		if (info->depthBoundsTestEnable == VK_TRUE) core10.depthBounds = true;
-	}
-
-	void check_VkImageViewCreateInfo(const VkImageViewCreateInfo* info)
+	void check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 	{
 		if (info->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) core10.imageCubeArray = true;
 	}
 
-	void check_VkCommandBufferInheritanceInfo(const VkCommandBufferInheritanceInfo* info)
+	// Note that this is place where the Vulkan standard gets really awful. pInheritanceInfo is allowed to be a garbage invalid pointer
+	// if commandBuffer is a primary rather than secondary command buffer, and we have no way of knowing which by simply inspecting command
+	// inputs. So we have to special case this one and require an extra parameter.
+	void special_vkBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo* pBeginInfo, VkCommandBufferLevel level)
 	{
-		if (info->occlusionQueryEnable != VK_FALSE || ((info->queryFlags & ~(VK_QUERY_CONTROL_PRECISE_BIT)) == 0))
+		if (level == VK_COMMAND_BUFFER_LEVEL_SECONDARY && pBeginInfo->pInheritanceInfo)
 		{
-			core10.inheritedQueries = true;
+			if (pBeginInfo->pInheritanceInfo->occlusionQueryEnable != VK_FALSE || ((pBeginInfo->pInheritanceInfo->queryFlags & ~(VK_QUERY_CONTROL_PRECISE_BIT)) == 0))
+			{
+				core10.inheritedQueries = true;
+			}
 		}
 	}
-
-	void check_VkPipelineViewportStateCreateInfo(const VkPipelineViewportStateCreateInfo* info)
-	{
-		if (info->viewportCount > 1 || info->scissorCount > 1)
-		{
-			core10.multiViewport = true;
-		}
-	}
-
-	void check_VkPipelineViewportExclusiveScissorStateCreateInfoNV(const VkPipelineViewportExclusiveScissorStateCreateInfoNV* info)
-	{
-		if (info->exclusiveScissorCount != 0 && info->exclusiveScissorCount != 1)
-		{
-			core10.multiViewport = true;
-		}
-	}
-
-	// --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
 
 	void check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
 	{

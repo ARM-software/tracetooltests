@@ -13,7 +13,7 @@ int main()
 	VkPhysicalDeviceFeatures feat10 = {};
 	assert(feat10.logicOp == VK_FALSE); // not used
 	VkPipelineColorBlendStateCreateInfo pipeinfo = {};
-	detect.check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
+	detect.struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
 	detect.adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_FALSE); // still not used
 
@@ -23,7 +23,7 @@ int main()
 
 	feat10.logicOp = VK_TRUE; // set to used
 	pipeinfo.logicOpEnable = VK_TRUE; // used here
-	detect.check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
+	detect.struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
 	detect.adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_TRUE); // not changed, still used
 
@@ -58,21 +58,21 @@ int main()
 	const char** namelist = { &extname };
 	dci.ppEnabledExtensionNames = namelist;
 	dci.enabledExtensionCount = 1;
-	detect.check_VkDeviceCreateInfo(&dci);
+	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
 	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
 	VkPhysicalDeviceShaderAtomicInt64Features pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_FALSE, VK_FALSE };
 	dci.pNext = &pdsai64f;
-	detect.check_VkDeviceCreateInfo(&dci);
+	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
 	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
 	pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_TRUE, VK_TRUE };
-	detect.check_VkDeviceCreateInfo(&dci);
+	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
 	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == true);
 	detect.adjust_VkDeviceCreateInfo(&dci, exts);
 	assert(dci.enabledExtensionCount == 1);
 	assert(dci.pNext != nullptr);
 	detect.has_VkPhysicalDeviceShaderAtomicInt64Features.store(false);
 	pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_FALSE, VK_FALSE };
-	detect.check_VkDeviceCreateInfo(&dci);
+	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
 	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
 	std::unordered_set<std::string> removed = detect.adjust_device_extensions(exts);
 	assert(removed.size() == 1);
