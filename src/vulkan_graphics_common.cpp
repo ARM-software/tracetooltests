@@ -1500,7 +1500,7 @@ VkResult BasicContext::initBasic(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	m_imageBoundary = std::make_shared<Image>(vulkan.device);
 	uint32_t queueFamilyIndex = 0;
 	m_imageBoundary->create({width, height, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-							VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 1, &queueFamilyIndex);
+							VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, &queueFamilyIndex);
 
 	// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
 	m_frameBoundaryCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
