@@ -71,6 +71,9 @@ enums = [] # list of actually used, valid Vulkan enums
 types = [] # list of actually used, valid Vulkan types
 feature_structs = OrderedSet() # list of pNext feature structs
 
+feature_detection_funcs = [] # feature detection callbacks with identical interface to Vulkan command
+feature_detection_special = [] # special functions that need custom handling
+
 externally_synchronized_members = {
 	'VkDescriptorSetAllocateInfo' : [ 'descriptorPool' ],
 	'VkCommandBufferAllocateInfo' : [ 'commandPool' ],
@@ -261,6 +264,17 @@ def scan_type(v):
 			assert false, 'Unknown bitmask type: %s' % atype
 
 def init():
+	# Autogenerate list of feature detection functions
+	with open('%s/../include/vulkan_feature_detect.h' % our_path, 'r') as f:
+		for line in f:
+			m = re.search(r'check_(vk\w+)', line)
+			if m:
+				feature_detection_funcs.append(m.group(1))
+			else:
+				m = re.search(r'special_(vk\w+)', line)
+				if m:
+					feature_detection_special.append(m.group(1))
+
 	# Find extension tags
 	for v in root.findall("tags/tag"):
 			name = v.attrib.get('name')
