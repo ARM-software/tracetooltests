@@ -71,6 +71,7 @@ static void print_usage(const vulkan_req_t& reqs)
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
+	printf("-G/--garbage-pointers  Set ignored pointers to garbage values instead of null\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_0) printf("\t0 - Vulkan 1.0\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_1 && reqs.maxApiVersion >= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_2 && reqs.maxApiVersion >= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
@@ -201,6 +202,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		else if (match(argv[i], "-L", "--gpu-simulated"))
 		{
 			use_simulated_gpu = true;
+		}
+		else if (match(argv[i], "-G", "--garbage-pointers"))
+		{
+			vulkan.garbage_pointers = true;
 		}
 		else if (match(argv[i], "-V", "--vulkan-variant")) // overrides version req from test itself
 		{
@@ -636,6 +641,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	create_info.usage = usage;
 	create_info.size = size;
+	if (vulkan.garbage_pointers) create_info.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
 	acceleration_structures::Buffer buffer { };
 
 	check(vkCreateBuffer(vulkan.device, &create_info, nullptr, &buffer.handle));

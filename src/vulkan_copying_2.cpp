@@ -95,11 +95,11 @@ static void copying_2(int argc, char** argv)
 
 	std::vector<VkBuffer> origin_buffers(num_buffers);
 	std::vector<VkBuffer> target_buffers(num_buffers);
-	VkBufferCreateInfo bufferCreateInfo = {};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
 	VkBufferCreateInfo bufferCreateInfo2 = bufferCreateInfo;
 	bufferCreateInfo2.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	for (unsigned i = 0; i < num_buffers; i++)

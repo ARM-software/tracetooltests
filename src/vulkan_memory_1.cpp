@@ -61,11 +61,11 @@ static int test(int argc, char** argv, int iteration)
 	check(result);
 
 	std::vector<VkBuffer> buffer(num_buffers);
-	VkBufferCreateInfo bufferCreateInfo = {};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = 1024 * 1024;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
 	for (int i = 0; i < num_buffers; i++)
 	{
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer[i]);

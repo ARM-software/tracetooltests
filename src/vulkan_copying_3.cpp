@@ -47,11 +47,11 @@ static void copying_3(int argc, char** argv)
 	VkQueue queue;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 	VkBuffer buffer;
-	VkBufferCreateInfo bufferCreateInfo = {};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer);
 	assert(result == VK_SUCCESS);
 

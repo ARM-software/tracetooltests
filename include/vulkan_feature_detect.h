@@ -4,8 +4,8 @@
 #include <atomic>
 #include <string>
 #include <unordered_set>
-#include <vulkan/vulkan.h>
-#include <spirv/unified1/spirv.h>
+#include "spirv/unified1/spirv.h"
+#include "vulkan/vulkan.h"
 
 // Handle actually-used feature detection for many features during tracing. Using bool atomics here
 // to make the code safe for multi-thread use. We could also store one copy of the feature lists for
@@ -168,6 +168,31 @@ struct atomicPhysicalDeviceVulkan13Features // most are not handled
 	std::atomic_bool maintenance4 { false };
 };
 
+struct atomicPhysicalDeviceVulkan14Features // most are not handled
+{
+	std::atomic_bool globalPriorityQuery { false };
+	std::atomic_bool shaderSubgroupRotate { false };
+	std::atomic_bool shaderSubgroupRotateClustered { false };
+	std::atomic_bool shaderFloatControls2 { false };
+	std::atomic_bool shaderExpectAssume { false };
+	std::atomic_bool rectangularLines { false };
+	std::atomic_bool bresenhamLines { false };
+	std::atomic_bool smoothLines { false };
+	std::atomic_bool stippledRectangularLines { false };
+	std::atomic_bool stippledBresenhamLines { false };
+	std::atomic_bool stippledSmoothLines { false };
+	std::atomic_bool vertexAttributeInstanceRateDivisor { false };
+	std::atomic_bool vertexAttributeInstanceRateZeroDivisor { false };
+	std::atomic_bool indexTypeUint8 { false };
+	std::atomic_bool dynamicRenderingLocalRead { false };
+	std::atomic_bool maintenance5 { false };
+	std::atomic_bool maintenance6 { false };
+	std::atomic_bool pipelineProtectedAccess { false };
+	std::atomic_bool pipelineRobustness { false };
+	std::atomic_bool hostImageCopy { false };
+	std::atomic_bool pushDescriptor { false };
+};
+
 static __attribute__((pure)) inline const void* get_extension(const void* sptr, VkStructureType sType)
 {
 	const VkBaseOutStructure* ptr = (VkBaseOutStructure*)sptr;
@@ -191,6 +216,7 @@ struct feature_detection
 	struct atomicPhysicalDeviceVulkan11Features core11;
 	struct atomicPhysicalDeviceVulkan12Features core12;
 	struct atomicPhysicalDeviceVulkan13Features core13;
+	struct atomicPhysicalDeviceVulkan14Features core14;
 	std::atomic_bool has_VK_EXT_swapchain_colorspace { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderAtomicInt64Features { false };
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
@@ -245,6 +271,14 @@ struct feature_detection
 				case SpvCapabilityVariablePointersStorageBuffer: core11.variablePointersStorageBuffer = true; break;
 				case SpvCapabilityVariablePointers: core11.variablePointers = true; break;
 				case SpvCapabilityDrawParameters: core11.shaderDrawParameters = true; break;
+				case SpvOpDemoteToHelperInvocationEXT: core13.shaderDemoteToHelperInvocation = true; break;
+				case SpvCapabilityDotProductInputAllKHR: core13.shaderIntegerDotProduct = true; break;
+				case SpvCapabilityDotProductInput4x8BitKHR: core13.shaderIntegerDotProduct = true; break;
+				case SpvCapabilityDotProductInput4x8BitPackedKHR: core13.shaderIntegerDotProduct = true; break;
+				case SpvCapabilityDotProductKHR: core13.shaderIntegerDotProduct = true; break;
+				case SpvCapabilityGroupNonUniformRotateKHR: core14.shaderSubgroupRotate = true; break;
+				case SpvCapabilityExpectAssumeKHR: core14.shaderExpectAssume = true; break;
+				case SpvCapabilityFloatControls2: core14.shaderFloatControls2 = true; break;
 				default: break;
 				}
 			}
@@ -499,11 +533,13 @@ struct feature_detection
 	void check_vkCmdBindIndexBuffer(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkIndexType indexType)
 	{
 		if (indexType == VK_INDEX_TYPE_UINT32) core10.fullDrawIndexUint32 = true; // defensive assumption
+		if (indexType == VK_INDEX_TYPE_UINT8) core14.indexTypeUint8 = true;
 	}
 
 	void check_vkCmdBindIndexBuffer2(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, VkIndexType indexType)
 	{
 		if (indexType == VK_INDEX_TYPE_UINT32) core10.fullDrawIndexUint32 = true; // defensive assumptiom
+		if (indexType == VK_INDEX_TYPE_UINT8) core14.indexTypeUint8 = true;
 	}
 
 	void check_vkCmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
@@ -656,7 +692,11 @@ struct feature_detection
 		CHECK_FEATURE12(samplerMirrorClampToEdge);
 		CHECK_FEATURE12(bufferDeviceAddress);
 		CHECK_FEATURE12(bufferDeviceAddressCaptureReplay);
-		if (!core12.bufferDeviceAddress) incore12.bufferDeviceAddressMultiDevice = false; // partial support
+		if (!core12.bufferDeviceAddress && incore12.bufferDeviceAddressMultiDevice)
+		{
+			incore12.bufferDeviceAddressMultiDevice = false;
+			found.insert("bufferDeviceAddressMultiDevice");
+		}
 		CHECK_FEATURE12(timelineSemaphore);
 		#undef CHECK_FEATURE12
 		return found;
@@ -668,7 +708,22 @@ struct feature_detection
 		// Only turn off the features we have checking code for
 		#define CHECK_FEATURE13(_x) if (!core13._x && incore13._x) { incore13._x = false; found.insert(# _x); }
 		CHECK_FEATURE13(dynamicRendering);
+		CHECK_FEATURE13(shaderDemoteToHelperInvocation);
+		CHECK_FEATURE13(shaderIntegerDotProduct);
 		#undef CHECK_FEATURE13
+		return found;
+	}
+
+	std::unordered_set<std::string> adjust_VkPhysicalDeviceVulkan14Features(VkPhysicalDeviceVulkan14Features& incore14)
+	{
+		std::unordered_set<std::string> found;
+		// Only turn off the features we have checking code for
+		#define CHECK_FEATURE14(_x) if (!core14._x && incore14._x) { incore14._x = false; found.insert(# _x); }
+		CHECK_FEATURE14(shaderSubgroupRotate);
+		CHECK_FEATURE14(shaderExpectAssume);
+		CHECK_FEATURE14(shaderFloatControls2);
+		CHECK_FEATURE14(indexTypeUint8);
+		#undef CHECK_FEATURE14
 		return found;
 	}
 };

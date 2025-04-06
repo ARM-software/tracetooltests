@@ -2,8 +2,8 @@
 
 #include <assert.h>
 #include <string.h>
-#include <spirv/unified1/spirv.h>
-#include <vulkan/vulkan.h>
+#include "spirv/unified1/spirv.h"
+#include "vulkan/vulkan.h"
 
 static inline void* find_extension(void* sptr, VkStructureType sType)
 {

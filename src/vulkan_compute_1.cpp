@@ -144,6 +144,7 @@ int main(int argc, char** argv)
 	{
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		if (vulkan.garbage_pointers) beginInfo.pInheritanceInfo = (const VkCommandBufferInheritanceInfo*)0xdeadbeef; // tools must ignore this
 		result = vkBeginCommandBuffer(r.commandBuffer, &beginInfo);
 		check(result);
 		vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);

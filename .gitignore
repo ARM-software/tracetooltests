@@ -2,5 +2,4 @@ build
 .vscode
 reports
 traces
-external
 __pycache__

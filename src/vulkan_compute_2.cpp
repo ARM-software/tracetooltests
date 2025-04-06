@@ -142,11 +142,11 @@ int main(int argc, char** argv)
 	r.queues.resize(queues);
 	for (uint32_t i = 0; i < (unsigned)queues; i++) vkGetDeviceQueue(vulkan.device, 0, i, &r.queues.at(i));
 
-	VkBufferCreateInfo bufferCreateInfo = {};
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
 	for (unsigned i = 0; i < nodes; i++)
 	{
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &r.buffer.at(i));

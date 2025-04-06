@@ -5,6 +5,7 @@ enable_testing()
 project(tracetooltests)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
@@ -73,7 +74,7 @@ target_link_libraries(vulkan_common PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBR
 target_link_directories(vulkan_common PRIVATE ${API_LIBS})
 target_compile_definitions(vulkan_common PUBLIC ${IT_DEFINES})
 set_target_properties(vulkan_common PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
-target_include_directories(vulkan_common PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+target_include_directories(vulkan_common PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 
 function(vulkan_test_build test_name)
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp)
@@ -92,6 +93,7 @@ function(vulkan_test test_name)
 	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION tests)
 	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_${ARGV0}.bench ${SYMLINK_DIR}/vulkan_${ARGV0}.bench)")
+	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 endfunction()
 
 function(vulkan_test_extra test_name test_exe)
@@ -241,9 +243,9 @@ vulkan_test_build(window_1)
 vulkan_test_build(memory_mprotect)
 
 add_executable(vulkan_featuretest src/vulkan_feature.cpp include/vulkan_feature_detect.h)
-target_include_directories(vulkan_featuretest PUBLIC include)
 target_link_libraries(vulkan_featuretest pthread)
 target_compile_options(vulkan_featuretest PRIVATE ${IT_FLAGS})
 add_test(NAME vulkan_feature_test COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_featuretest)
+target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 
 endif()

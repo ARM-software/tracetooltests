@@ -101,6 +101,7 @@ struct vulkan_setup_t
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
 	bool has_trace_helpers = false;
+	bool garbage_pointers = false;
 };
 
 namespace acceleration_structures
