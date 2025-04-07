@@ -26,12 +26,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <external/stb_image.h>
 
-struct pushconstants
-{
-	float width;
-	float height;
-};
-
 static void show_usage()
 {
 	graphic_usage();
@@ -100,8 +94,6 @@ public:
 	}
 
 	// contexts and resources related with benchmark
-	uint32_t width = 0 ;
-	uint32_t height = 0;
 	std::unique_ptr<Buffer> m_vertexBuffer;
 	std::unique_ptr<Buffer> m_indexBuffer;
 	std::unique_ptr<Buffer> m_transformUniformBuffer;
@@ -116,22 +108,19 @@ public:
 
 };
 
-static benchmarkContext g_benchmark;
+static std::unique_ptr<benchmarkContext> p_benchmark = nullptr;
 static void render(const vulkan_setup_t& vulkan);
 
 int main(int argc, char** argv)
 {
+	p_benchmark = std::make_unique<benchmarkContext>();
+
 	vulkan_req_t req;
 	req.usage = show_usage;
 	req.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_graphics_1", req);
 
-	g_benchmark.initBasic(vulkan, req);
-
-	const uint32_t width = static_cast<uint32_t>(std::get<int>(req.options.at("width")));
-	const uint32_t height = static_cast<uint32_t>(std::get<int>(req.options.at("height")));
-	g_benchmark.width = width;
-	g_benchmark.height = height;
+	p_benchmark->initBasic(vulkan, req);
 
 	// ------------------------ vulkan resources created -----------------------------
 
@@ -149,14 +138,14 @@ int main(int argc, char** argv)
 	auto vertexBuffer = std::make_unique<Buffer>(vulkan.device);
 	vertexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	g_benchmark.updateBuffer(vertices, *vertexBuffer);
+	p_benchmark->updateBuffer(vertices, *vertexBuffer);
 
 	// index buffer
 	size = sizeof(uint16_t)*indices.size();
 	auto indexBuffer = std::make_unique<Buffer>(vulkan.device);
 	indexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	g_benchmark.updateBuffer(indices, *indexBuffer);
+	p_benchmark->updateBuffer(indices, *indexBuffer);
 
 	// ubo
 	auto transformUniformBuffer = std::make_unique<Buffer>(vulkan.device);
@@ -186,10 +175,10 @@ int main(int argc, char** argv)
 	bgSampler->create(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 	                  req.samplerAnisotropy, vulkan.device_properties.limits.maxSamplerAnisotropy);
 
-	g_benchmark.updateImage((char*)pixels, imageSize, *bgImage, {(uint32_t)texWidth, (uint32_t)texHeight, 1});
+	p_benchmark->updateImage((char*)pixels, imageSize, *bgImage, {(uint32_t)texWidth, (uint32_t)texHeight, 1});
 
 	/*********************** initialize data and submit staging commandBuffer ***************************/
-	g_benchmark.submitStaging(true, {}, {}, false);
+	p_benchmark->submitStaging(true, {}, {}, false);
 
 	// ---------------------------- descriptor setup ---------------------------------
 
@@ -208,7 +197,7 @@ int main(int argc, char** argv)
 	mainDescSetPool->create(MAX_DESCRIPTOR_SET_SIZE);
 
 	// descritorSet
-	auto descriptor = std::make_unique<DescriptorSet>(mainDescSetPool);
+	auto descriptor = std::make_unique<DescriptorSet>(std::move(mainDescSetPool));
 	descriptor->create();
 	//configure descriptor set, and then update
 	descriptor->setBuffer(0, *transformUniformBuffer);  //layout(set=0,binding=0) uniform transformBuffer { }
@@ -224,11 +213,8 @@ int main(int argc, char** argv)
 
 	auto pipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
 	pipelineLayout->create(layoutMap);
+	layoutMap[0] = nullptr;  // set local variable of shared_ptr to null
 
-
-	/*************************** pipeline shader stage ******************************/
-	ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, std::move(vertShader));
-	ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, std::move(fragShader));
 
 	/*************************** graphicPipeline state*******************************/
 	// input vertext
@@ -245,20 +231,20 @@ int main(int argc, char** argv)
 	/******************************** render pass **********************************/
 	// images used as attachments
 	auto colorImage = std::make_shared<Image>(vulkan.device);
-	colorImage->create({width, height, 1}, VK_FORMAT_R8G8B8A8_UNORM,
+	colorImage->create({p_benchmark->width, p_benchmark->height, 1}, VK_FORMAT_R8G8B8A8_UNORM,
 	                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	auto colorImageView = std::make_shared<ImageView>(colorImage);
+	auto colorImageView = std::make_shared<ImageView>(std::move(colorImage));
 	colorImageView->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	auto depthImage = std::make_shared<Image>(vulkan.device);
-	depthImage->create({width, height, 1}, VK_FORMAT_D32_SFLOAT,
+	depthImage->create({p_benchmark->width, p_benchmark->height, 1}, VK_FORMAT_D32_SFLOAT,
 	                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	auto depthImageView = std::make_shared<ImageView>(depthImage);
+	auto depthImageView = std::make_shared<ImageView>(std::move(depthImage));
 	depthImageView->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 	// attachments: set VkAttachmentDescription
-	AttachmentInfo color{ 0, colorImageView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	AttachmentInfo depth{ 1, depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+	AttachmentInfo color{ 0, std::move(colorImageView), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	AttachmentInfo depth{ 1, std::move(depthImageView), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
 
 	// subpass: set VkAttachmentReference
 	SubpassInfo subpass{};
@@ -285,37 +271,53 @@ int main(int argc, char** argv)
 
 	/********************************** framebuffer *********************************/
 	auto framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	framebuffer->create(*renderpass, {width, height});
+	framebuffer->create(*renderpass, {p_benchmark->width, p_benchmark->height});
+
+	/*************************** pipeline shader stage ******************************/
+	ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, std::move(vertShader));
+	ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, std::move(fragShader));
 
 	/*************************** graphic pipeline creation **************************/
-	std::vector<ShaderPipelineState> shaderStages = {vertShaderState, fragShaderState};
-	auto pipeline = std::make_unique<GraphicPipeline>(pipelineLayout);
-	pipeline->create(shaderStages, pipelineState, *renderpass);
+	auto pipeline = std::make_unique<GraphicPipeline>(std::move(pipelineLayout));
+	pipeline->create({vertShaderState, fragShaderState}, pipelineState, *renderpass);
 
 	/****************************** save all resources ******************************/
-	g_benchmark.m_vertexBuffer = std::move(vertexBuffer);
-	g_benchmark.m_indexBuffer = std::move(indexBuffer);
-	g_benchmark.m_transformUniformBuffer = std::move(transformUniformBuffer);
+	p_benchmark->m_vertexBuffer = std::move(vertexBuffer);
+	p_benchmark->m_indexBuffer = std::move(indexBuffer);
+	p_benchmark->m_transformUniformBuffer = std::move(transformUniformBuffer);
 
-	g_benchmark.m_bgSampler = std::move(bgSampler);
-	g_benchmark.m_bgImageView = std::move(bgImageView);
-	g_benchmark.m_descriptor = std::move(descriptor);
+	p_benchmark->m_bgSampler = std::move(bgSampler);
+	p_benchmark->m_bgImageView = std::move(bgImageView);
+	p_benchmark->m_descriptor = std::move(descriptor);
 
-	g_benchmark.m_pipeline = std::move(pipeline);
+	p_benchmark->m_pipeline = std::move(pipeline);
 
-	g_benchmark.m_renderPass = std::move(renderpass);
-	g_benchmark.m_framebuffer = std::move(framebuffer);
+	p_benchmark->m_renderPass = std::move(renderpass);
+	p_benchmark->m_framebuffer = std::move(framebuffer);
 
 	VkFenceCreateInfo fenceInfo{};
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-	vkCreateFence(vulkan.device, &fenceInfo, nullptr, &g_benchmark.m_frameFence);
+	vkCreateFence(vulkan.device, &fenceInfo, nullptr, &p_benchmark->m_frameFence);
 
 	/********************************** rendering ***********************************/
 	render(vulkan);
 
-	/****************** exiting with destructor automatically ***********************/
 	vkDeviceWaitIdle(vulkan.device);
+
+	/********************************** exiting ***********************************/
+	// set local shared_ptr to null
+	bgImage = nullptr;
+	mainDescSetLayout = nullptr;
+
+	// explicitly calling destroy() on local variable
+	color.destroy();
+	depth.destroy();
+	vertShaderState.destroy();
+	fragShaderState.destroy();
+
+	// set global unique_ptr to null to trigger deconstructor
+	p_benchmark = nullptr;
 
 	return 1;
 }
@@ -330,7 +332,7 @@ void updateTransformData(const Buffer& dstBuffer)
 	Transform ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), time*glm::radians(60.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.view = glm::lookAt(glm::vec3(2.0f, 1.0f, 1.0f), glm::vec3(0.2f, -0.1f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), g_benchmark.width / (float) g_benchmark.height, 0.1f, 10.0f);
+	ubo.proj = glm::perspective(glm::radians(45.0f), p_benchmark->width / (float) p_benchmark->height, 0.1f, 10.0f);
 	ubo.proj[1][1] *= -1;
 
 	assert(dstBuffer.m_mappedAddress!=nullptr);
@@ -344,62 +346,62 @@ static void render(const vulkan_setup_t& vulkan)
 
 	while (p__loops--)
 	{
-		VkCommandBuffer defaultCmd = g_benchmark.m_defaultCommandBuffer->getHandle();
+		VkCommandBuffer defaultCmd = p_benchmark->m_defaultCommandBuffer->getHandle();
 
-		vkWaitForFences(vulkan.device, 1, &g_benchmark.m_frameFence, VK_TRUE, UINT64_MAX);
+		vkWaitForFences(vulkan.device, 1, &p_benchmark->m_frameFence, VK_TRUE, UINT64_MAX);
 
 		if (!first_loop)
 		{
 			bench_stop_iteration(bench);
 		}
-		updateTransformData(*g_benchmark.m_transformUniformBuffer);
+		updateTransformData(*p_benchmark->m_transformUniformBuffer);
 
-		vkResetFences(vulkan.device, 1, &g_benchmark.m_frameFence);
+		vkResetFences(vulkan.device, 1, &p_benchmark->m_frameFence);
 		vkResetCommandBuffer(defaultCmd, 0);
 
-		g_benchmark.m_defaultCommandBuffer->begin();
-		g_benchmark.m_defaultCommandBuffer->beginRenderPass(*g_benchmark.m_renderPass, *g_benchmark.m_framebuffer);
+		p_benchmark->m_defaultCommandBuffer->begin();
+		p_benchmark->m_defaultCommandBuffer->beginRenderPass(*p_benchmark->m_renderPass, *p_benchmark->m_framebuffer);
 
-		vkCmdBindPipeline(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_benchmark.m_pipeline->getHandle());
-		//one alternative: g_benchmark.m_defaultCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *g_benchmark.m_pipeline);
+		vkCmdBindPipeline(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p_benchmark->m_pipeline->getHandle());
+		//one alternative: p_benchmark->m_defaultCommandBuffer->bindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *p_benchmark->m_pipeline);
 
 		// bind vertex buffer to bindings
-		VkBuffer vertexBuffers[] = {g_benchmark.m_vertexBuffer->getHandle()};
+		VkBuffer vertexBuffers[] = {p_benchmark->m_vertexBuffer->getHandle()};
 		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(defaultCmd, 0, 1, vertexBuffers, offsets);
 		// bind index buffer
-		vkCmdBindIndexBuffer(defaultCmd, g_benchmark.m_indexBuffer->getHandle(), 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindIndexBuffer(defaultCmd, p_benchmark->m_indexBuffer->getHandle(), 0, VK_INDEX_TYPE_UINT16);
 
-		VkDescriptorSet descriptor = g_benchmark.m_descriptor->getHandle();
-		vkCmdBindDescriptorSets(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, g_benchmark.m_pipeline->m_pipelineLayout->getHandle(), 0, 1, &descriptor, 0, nullptr);
+		VkDescriptorSet descriptor = p_benchmark->m_descriptor->getHandle();
+		vkCmdBindDescriptorSets(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p_benchmark->m_pipeline->m_pipelineLayout->getHandle(), 0, 1, &descriptor, 0, nullptr);
 
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(g_benchmark.width);
-		viewport.height = static_cast<float>(g_benchmark.height);
+		viewport.width = static_cast<float>(p_benchmark->width);
+		viewport.height = static_cast<float>(p_benchmark->height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 		vkCmdSetViewport(defaultCmd, 0, 1, &viewport);
 
 		VkRect2D scissor{};
 		scissor.offset = {0, 0};
-		scissor.extent = {g_benchmark.width, g_benchmark.height};
+		scissor.extent = {p_benchmark->width, p_benchmark->height};
 		vkCmdSetScissor(defaultCmd, 0, 1, &scissor);
 		vkCmdDrawIndexed(defaultCmd, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
-		g_benchmark.m_defaultCommandBuffer->endRenderPass();
-		g_benchmark.m_defaultCommandBuffer->end();
+		p_benchmark->m_defaultCommandBuffer->endRenderPass();
+		p_benchmark->m_defaultCommandBuffer->end();
 
 		bench_start_iteration(bench);
 
 		// submit
-		g_benchmark.submit(g_benchmark.m_defaultQueue, std::vector<std::shared_ptr<CommandBuffer>> {g_benchmark.m_defaultCommandBuffer}, g_benchmark.m_frameFence);
+		p_benchmark->submit(p_benchmark->m_defaultQueue, std::vector<std::shared_ptr<CommandBuffer>> {p_benchmark->m_defaultCommandBuffer}, p_benchmark->m_frameFence);
 
 		first_loop = false;
 	}
 
-	vkWaitForFences(vulkan.device, 1, &g_benchmark.m_frameFence, VK_TRUE, UINT64_MAX);
+	vkWaitForFences(vulkan.device, 1, &p_benchmark->m_frameFence, VK_TRUE, UINT64_MAX);
 	bench_stop_iteration(bench);
 }
 

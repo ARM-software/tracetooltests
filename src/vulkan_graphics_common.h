@@ -479,9 +479,15 @@ public:
 
 	~AttachmentInfo()
 	{
-		DLOG3("MEM detection: attacmentInfo destructor().");
+		destroy();
+	}
+
+	VkResult destroy()
+	{
+		DLOG3("MEM detection: attacmentInfo destroy().");
 		resetDescription();
 		m_pImageView = nullptr;
+		return VK_SUCCESS;
 	}
 
 private:
@@ -722,6 +728,10 @@ class BasicContext
 public:
 	BasicContext() { }
 	VkResult initBasic(vulkan_setup_t& vulkan, vulkan_req_t& reqs);
+
+	uint32_t width;
+	uint32_t height;
+	uint32_t wg_size;
 
 	std::shared_ptr<CommandBufferPool> m_defaultCommandPool;
 	std::shared_ptr<CommandBuffer> m_defaultCommandBuffer;

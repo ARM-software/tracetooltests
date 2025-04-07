@@ -43,9 +43,12 @@ void test_done(vulkan_setup_t& vulkan, bool shared_instance)
 {
 	bench_done(vulkan.bench);
 	vkDestroyDevice(vulkan.device, nullptr);
+	vulkan.device = VK_NULL_HANDLE;
+
 	if (!shared_instance)
 	{
 		vkDestroyInstance(vulkan.instance, nullptr);
+		vulkan.instance = VK_NULL_HANDLE;
 	}
 }
 

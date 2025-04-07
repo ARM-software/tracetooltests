@@ -1487,8 +1487,9 @@ VkResult BasicContext::initBasic(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	if (!reqs.options.count("height")) reqs.options["height"] = 480;
 	if (!reqs.options.count("wg_size")) reqs.options["wg_size"] = 32;
 
-	const uint32_t width = std::get<int>(reqs.options.at("width"));
-	const uint32_t height = std::get<int>(reqs.options.at("height"));
+	width = static_cast<uint32_t>(std::get<int>(reqs.options.at("width")));
+	height = static_cast<uint32_t>(std::get<int>(reqs.options.at("height")));
+	wg_size = static_cast<uint32_t>(std::get<int>(reqs.options.at("wg_size")));
 
 	m_defaultCommandPool = std::make_shared<CommandBufferPool>(vulkan.device);
 	m_frameBoundaryCommandBuffer = std::make_shared<CommandBuffer>(m_defaultCommandPool);
