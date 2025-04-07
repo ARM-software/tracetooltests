@@ -73,8 +73,8 @@ static void print_usage(const vulkan_req_t& reqs)
 	printf("-L/--gpu-simulated     Use a software rasterizer as your GPU, fails if not available\n");
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
-	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
 	printf("-G/--garbage-pointers  Set ignored pointers to garbage values instead of null\n");
+	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
 	if (reqs.minApiVersion <= VK_API_VERSION_1_0) printf("\t0 - Vulkan 1.0\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_1 && reqs.maxApiVersion >= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_2 && reqs.maxApiVersion >= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");

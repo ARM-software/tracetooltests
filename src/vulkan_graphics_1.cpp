@@ -319,7 +319,7 @@ int main(int argc, char** argv)
 	// set global unique_ptr to null to trigger deconstructor
 	p_benchmark = nullptr;
 
-	return 1;
+	return 0;
 }
 
 void updateTransformData(const Buffer& dstBuffer)
@@ -404,4 +404,3 @@ static void render(const vulkan_setup_t& vulkan)
 	vkWaitForFences(vulkan.device, 1, &p_benchmark->m_frameFence, VK_TRUE, UINT64_MAX);
 	bench_stop_iteration(bench);
 }
-
