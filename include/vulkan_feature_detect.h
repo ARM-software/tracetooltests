@@ -22,6 +22,8 @@
 //
 // Note that the use of extension-specific entry points is deliberately not checked here, as these
 // are checked through the use of the extension mechanism instead.
+//
+// You should not call the check function if the parent call failed.
 
 struct atomicPhysicalDeviceFeatures
 {
@@ -377,6 +379,11 @@ struct feature_detection
 	}
 
 	// --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
+
+	void check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule)
+	{
+		parse_SPIRV(pCreateInfo->pCode, pCreateInfo->codeSize);
+	}
 
 	void check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore)
 	{
