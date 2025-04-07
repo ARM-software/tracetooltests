@@ -84,14 +84,15 @@ struct vulkan_setup_t
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
 
+	// trace helpers extension
 	PFN_vkAssertBufferTRACETOOLTEST vkAssertBuffer = nullptr;
-	PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST vkGetDeviceTracingObjectProperty = nullptr;
 	PFN_vkCmdUpdateBuffer2TRACETOOLTEST vkCmdUpdateBuffer2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
+
+	// trace helpers2 extension - very experimental! please ignore
 	PFN_vkUpdateBufferTRACETOOLTEST vkUpdateBuffer = nullptr;
 	PFN_vkUpdateImageTRACETOOLTEST vkUpdateImage = nullptr;
-	PFN_vkPatchBufferTRACETOOLTEST vkPatchBuffer = nullptr;
-	PFN_vkPatchImageTRACETOOLTEST vkPatchImage = nullptr;
+	//PFN_vkUpdateAccelerationStructureTRACETOOLTEST
 	PFN_vkThreadBarrierTRACETOOLTEST vkThreadBarrier = nullptr;
 
 	uint32_t apiVersion = VK_API_VERSION_1_1;
@@ -101,6 +102,7 @@ struct vulkan_setup_t
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
 	bool has_trace_helpers = false;
+	bool has_trace_helpers2 = false;
 	bool garbage_pointers = false;
 };
 

@@ -159,8 +159,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 {
 	const char* wsi = getenv("TOOLSTEST_WINSYS");
 	vulkan_setup_t vulkan;
-	bool has_tooling_checksum = false;
-	bool has_tooling_obj_property = false;
 	bool has_debug_utils = false;
 	bool req_maintenance_6 = false;
 	bool force_native_gpu = false;
@@ -409,7 +407,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		vkGetPhysicalDeviceFeatures2(vulkan.physical, &vulkan.hasfeat2);
 		if (reqs.samplerAnisotropy && !vulkan.hasfeat2.features.samplerAnisotropy) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
-		if (reqs.reqfeat12.bufferDeviceAddress && !vulkan.hasfeat12.bufferDeviceAddress) { printf("Sampler anisotropy required but not supported!\n"); exit(77); }
+		if (reqs.reqfeat12.bufferDeviceAddress && !vulkan.hasfeat12.bufferDeviceAddress) { printf("Buffer device address extension feature required but not supported!\n"); exit(77); }
 		if (reqs.bufferDeviceAddress && !vulkan.hasfeat12.bufferDeviceAddress) { printf("Buffer device address required but not supported!\n"); exit(77); }
 		if (vulkan.hasfeat13.synchronization2 == VK_TRUE) reqs.reqfeat13.synchronization2 = VK_TRUE;
 	}
@@ -473,22 +471,16 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
 		// The following two are fake extensions used for testing, see README.md for documentation
-		if (strcmp(s.extensionName, VK_TRACETOOLTEST_CHECKSUM_VALIDATION_EXTENSION_NAME) == 0)
-		{
-			enabledExtensions.push_back(s.extensionName);
-			has_tooling_checksum = true;
-			vulkan.device_extensions.insert(s.extensionName);
-		}
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_OBJECT_PROPERTY_EXTENSION_NAME) == 0)
-		{
-			enabledExtensions.push_back(s.extensionName);
-			has_tooling_obj_property = true;
-			vulkan.device_extensions.insert(s.extensionName);
-		}
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS_EXTENSION_NAME) == 0)
+		if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			vulkan.has_trace_helpers = true;
+			vulkan.device_extensions.insert(s.extensionName);
+		}
+		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS2_EXTENSION_NAME) == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			vulkan.has_trace_helpers2 = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
 
@@ -542,22 +534,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		vkGetPhysicalDeviceMemoryProperties(vulkan.physical, &memory_properties);
 	}
 
-	if (has_tooling_checksum && p__sanity > 0)
-	{
-		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
-	}
-
 	if (has_debug_utils)
 	{
 		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
 		vulkan.vkCmdInsertDebugUtilsLabel = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdInsertDebugUtilsLabelEXT");
 
 		if (vulkan.vkSetDebugUtilsObjectName && vulkan.vkCmdInsertDebugUtilsLabel) ILOG("Debug utils enabled");
-	}
-
-	if (has_tooling_obj_property)
-	{
-		vulkan.vkGetDeviceTracingObjectProperty = (PFN_vkGetDeviceTracingObjectPropertyTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkGetDeviceTracingObjectPropertyTRACETOOLTEST");
 	}
 
 	if (reqs.bufferDeviceAddress)
@@ -568,12 +550,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (vulkan.has_trace_helpers)
 	{
+		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
+	}
+	if (vulkan.has_trace_helpers && p__sanity > 0)
+	{
+		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
+	}
+
+	if (vulkan.has_trace_helpers2)
+	{
 		vulkan.vkUpdateBuffer = reinterpret_cast<PFN_vkUpdateBufferTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
 		vulkan.vkUpdateImage = reinterpret_cast<PFN_vkUpdateImageTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
-		vulkan.vkPatchBuffer = reinterpret_cast<PFN_vkPatchBufferTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkPatchBufferTRACETOOLTEST"));
-		vulkan.vkPatchImage = reinterpret_cast<PFN_vkPatchImageTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkPatchImageTRACETOOLTEST"));
 		vulkan.vkThreadBarrier = reinterpret_cast<PFN_vkThreadBarrierTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkThreadBarrierTRACETOOLTEST"));
-		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
 	}
 
 	if (req_maintenance_6)
