@@ -106,7 +106,6 @@ int main(int argc, char** argv)
 	{
 		VkDeviceSize offset = 0;
 		VkAddressRemapTRACETOOLTEST ar = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST, nullptr };
-		ar.target = VK_ADDRESS_REMAP_TARGET_BUFFER_TRACETOOLTEST;
 		ar.count = 1;
 		ar.pOffsets = &offset;
 		VkUpdateMemoryInfoTRACETOOLTEST ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_TRACETOOLTEST, &ar };

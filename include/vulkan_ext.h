@@ -12,13 +12,6 @@
 #define VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST (VkStructureType)131313
 #define VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_TRACETOOLTEST (VkStructureType)131314
 
-typedef enum VkAddressRemapTargetTRACETOOLTEST
-{
-	VK_ADDRESS_REMAP_TARGET_BUFFER_TRACETOOLTEST,
-	VK_ADDRESS_REMAP_TARGET_PUSH_CONSTANTS_TRACETOOLTEST,
-	VK_ADDRESS_REMAP_TARGET_SPECIALIZATION_CONSTANTS_TRACETOOLTEST,
-} VkAddressRemapTargetTRACETOOLTEST;
-
 // Mark where in memory buffer device addresses or shader group handles are stored, as they may need to be
 // remapped for trace replay.
 // Passed to the VkPipelineShaderStageCreateInfo of vkCreate*Pipelines for specialization constants,
@@ -29,7 +22,6 @@ typedef struct VkAddressRemapTRACETOOLTEST
 {
 	VkStructureType sType; // must be VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST
 	const void* pNext;
-	VkAddressRemapTargetTRACETOOLTEST target; // this is just to make the intent explicit, not really needed
 	uint32_t count; // the number of offsets in pOffsets
 	VkDeviceSize* pOffsets; // address offsets
 } VkAddressRemapTRACETOOLTEST;
