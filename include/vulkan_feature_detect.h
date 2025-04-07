@@ -279,6 +279,26 @@ struct feature_detection
 				case SpvCapabilityGroupNonUniformRotateKHR: core14.shaderSubgroupRotate = true; break;
 				case SpvCapabilityExpectAssumeKHR: core14.shaderExpectAssume = true; break;
 				case SpvCapabilityFloatControls2: core14.shaderFloatControls2 = true; break;
+				case SpvCapabilityStorageBuffer8BitAccess: core12.storageBuffer8BitAccess = true; break;
+				case SpvCapabilityUniformAndStorageBuffer8BitAccess: core12.uniformAndStorageBuffer8BitAccess = true; break;
+				case SpvCapabilityStoragePushConstant8: core12.storagePushConstant8 = true; break;
+				case SpvCapabilityFloat16: core12.shaderFloat16 = true; break;
+				case SpvCapabilityInt8: core12.shaderInt8 = true; break;
+				case SpvCapabilityInputAttachmentArrayDynamicIndexing: core12.shaderInputAttachmentArrayDynamicIndexing = true; break;
+				case SpvCapabilityUniformTexelBufferArrayDynamicIndexing: core12.shaderUniformTexelBufferArrayDynamicIndexing = true; break;
+				case SpvCapabilityStorageTexelBufferArrayDynamicIndexing: core12.shaderStorageTexelBufferArrayDynamicIndexing = true; break;
+				case SpvCapabilityUniformBufferArrayNonUniformIndexing: core12.shaderUniformBufferArrayNonUniformIndexing = true; break;
+				case SpvCapabilitySampledImageArrayNonUniformIndexing: core12.shaderSampledImageArrayNonUniformIndexing = true; break;
+				case SpvCapabilityStorageBufferArrayNonUniformIndexing: core12.shaderStorageBufferArrayNonUniformIndexing = true; break;
+				case SpvCapabilityStorageImageArrayNonUniformIndexing: core12.shaderStorageImageArrayNonUniformIndexing = true; break;
+				case SpvCapabilityInputAttachmentArrayNonUniformIndexing: core12.shaderInputAttachmentArrayNonUniformIndexing = true; break;
+				case SpvCapabilityUniformTexelBufferArrayNonUniformIndexing: core12.shaderUniformTexelBufferArrayNonUniformIndexing = true; break;
+				case SpvCapabilityStorageTexelBufferArrayNonUniformIndexing: core12.shaderStorageTexelBufferArrayNonUniformIndexing = true; break;
+				case SpvCapabilityRuntimeDescriptorArray: core12.runtimeDescriptorArray = true; break;
+				case SpvCapabilityVulkanMemoryModel: core12.vulkanMemoryModel = true; break;
+				case SpvCapabilityVulkanMemoryModelDeviceScope: core12.vulkanMemoryModelDeviceScope = true; break;
+				case SpvCapabilityShaderViewportIndex: core12.shaderOutputViewportIndex = true; break;
+				case SpvCapabilityShaderLayer: core12.shaderOutputLayer = true; break;
 				default: break;
 				}
 			}
@@ -293,6 +313,9 @@ struct feature_detection
 	{
 		if (info->stage == VK_SHADER_STAGE_GEOMETRY_BIT) core10.geometryShader = true;
 		else if (info->stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT || info->stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) core10.tessellationShader = true;
+
+		if (info->flags & VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT) core13.subgroupSizeControl = true;
+		if (get_extension(info, VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO)) core13.subgroupSizeControl = true;
 	}
 
 	void struct_check_VkPipelineColorBlendAttachmentState(const VkPipelineColorBlendAttachmentState* info)
@@ -698,6 +721,26 @@ struct feature_detection
 			found.insert("bufferDeviceAddressMultiDevice");
 		}
 		CHECK_FEATURE12(timelineSemaphore);
+		CHECK_FEATURE12(storageBuffer8BitAccess);
+		CHECK_FEATURE12(uniformAndStorageBuffer8BitAccess);
+		CHECK_FEATURE12(storagePushConstant8);
+		CHECK_FEATURE12(shaderFloat16);
+		CHECK_FEATURE12(shaderInt8);
+		CHECK_FEATURE12(shaderInputAttachmentArrayDynamicIndexing);
+		CHECK_FEATURE12(shaderUniformTexelBufferArrayDynamicIndexing);
+		CHECK_FEATURE12(shaderStorageTexelBufferArrayDynamicIndexing);
+		CHECK_FEATURE12(shaderUniformBufferArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderSampledImageArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderStorageBufferArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderStorageImageArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderInputAttachmentArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderUniformTexelBufferArrayNonUniformIndexing);
+		CHECK_FEATURE12(shaderStorageTexelBufferArrayNonUniformIndexing);
+		CHECK_FEATURE12(runtimeDescriptorArray);
+		CHECK_FEATURE12(vulkanMemoryModel);
+		CHECK_FEATURE12(vulkanMemoryModelDeviceScope);
+		CHECK_FEATURE12(shaderOutputViewportIndex);
+		CHECK_FEATURE12(shaderOutputLayer);
 		#undef CHECK_FEATURE12
 		return found;
 	}
@@ -710,6 +753,7 @@ struct feature_detection
 		CHECK_FEATURE13(dynamicRendering);
 		CHECK_FEATURE13(shaderDemoteToHelperInvocation);
 		CHECK_FEATURE13(shaderIntegerDotProduct);
+		CHECK_FEATURE13(subgroupSizeControl);
 		#undef CHECK_FEATURE13
 		return found;
 	}
