@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 	bdainfo.buffer = r.buffer;
 	VkDeviceAddress address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 
-	if (!vulkan.has_trace_helpers)
+	if (!vulkan.has_trace_helpers2)
 	{
 		char* data = nullptr;
 		result = vkMapMemory(vulkan.device, ubo_memory, 0, aligned_buffer_size, 0, (void**)&data);

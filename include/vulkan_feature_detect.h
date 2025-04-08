@@ -223,6 +223,7 @@ struct feature_detection
 	std::atomic_bool has_VkPhysicalDeviceShaderAtomicInt64Features { false };
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT { false };
+	std::atomic_bool has_VK_IMG_filter_cubic { false };
 
 	// --- Utility functions ---
 
@@ -380,18 +381,20 @@ struct feature_detection
 
 	// --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
 
-	void check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule)
+	VkResult check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule)
 	{
 		parse_SPIRV(pCreateInfo->pCode, pCreateInfo->codeSize);
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore)
+	VkResult check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore)
 	{
 		VkSemaphoreTypeCreateInfo* stci = (VkSemaphoreTypeCreateInfo*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO);
 		if (stci && stci->semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE) core12.timelineSemaphore = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
 	{
 		for (uint32_t i = 0; i < createInfoCount; i++)
 		{
@@ -408,17 +411,19 @@ struct feature_detection
 			if (pCreateInfos[i].pDepthStencilState) struct_check_VkPipelineDepthStencilStateCreateInfo(pCreateInfos[i].pDepthStencilState);
 			if (pCreateInfos[i].pViewportState) struct_check_VkPipelineViewportStateCreateInfo(pCreateInfos[i].pViewportState);
 		}
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	VkResult check_vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
 	{
 		for (uint32_t i = 0; i < createInfoCount; i++)
 		{
 			struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].stage);
 		}
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	VkResult check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
 	{
 		for (uint32_t i = 0; i < createInfoCount; i++)
 		{
@@ -427,51 +432,76 @@ struct feature_detection
 				struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
 			}
 		}
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
+	VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
 	{
 		VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
 		if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) has_VkPhysicalDeviceShaderAtomicInt64Features = true;
 
 		VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
 		if (pdsiai64f && (pdsiai64f->shaderImageInt64Atomics || pdsiai64f->sparseImageInt64Atomics)) has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT = true;
+
+		return VK_SUCCESS;
 	}
 
-	void check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities)
+	VkResult check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities)
 	{
 		VkSharedPresentSurfaceCapabilitiesKHR* sc = (VkSharedPresentSurfaceCapabilitiesKHR*)get_extension(pSurfaceCapabilities, VK_STRUCTURE_TYPE_SHARED_PRESENT_SURFACE_CAPABILITIES_KHR);
 		if (sc && sc->sharedPresentSupportedUsageFlags) has_VK_KHR_shared_presentable_image = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains)
+	VkResult check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains)
 	{
 		for (uint32_t i = 0; i < swapchainCount; i++)
 		{
 			if (is_colorspace_ext(pCreateInfos[i].imageColorSpace)) has_VK_EXT_swapchain_colorspace = true;
 		}
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain)
+	VkResult check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain)
 	{
 		if (is_colorspace_ext(pCreateInfo->imageColorSpace)) has_VK_EXT_swapchain_colorspace = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler)
+	VkResult check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler)
 	{
 		if (pCreateInfo->anisotropyEnable == VK_TRUE) core10.samplerAnisotropy = true;
 		if (pCreateInfo->addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
 		    || pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
 		    || pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE)
 			core12.samplerMirrorClampToEdge = true;
+		if (pCreateInfo->magFilter == VK_FILTER_CUBIC_EXT || pCreateInfo->minFilter == VK_FILTER_CUBIC_EXT) has_VK_IMG_filter_cubic = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkQueryPool* pQueryPool)
+	void check_vkCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, VkFilter filter)
+	{
+		if (filter == VK_FILTER_CUBIC_EXT) has_VK_IMG_filter_cubic = true;
+	}
+
+	VkResult vkCreateSamplerYcbcrConversion(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion)
+	{
+		if (pCreateInfo->chromaFilter == VK_FILTER_CUBIC_EXT) has_VK_IMG_filter_cubic = true;
+		return VK_SUCCESS;
+	}
+	VkResult vkCreateSamplerYcbcrConversionKHR(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion)
+	{
+		if (pCreateInfo->chromaFilter == VK_FILTER_CUBIC_EXT) has_VK_IMG_filter_cubic = true;
+		return VK_SUCCESS;
+	}
+
+	VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkQueryPool* pQueryPool)
 	{
 		if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) core10.pipelineStatisticsQuery = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
+	VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 	{
 		if (info->imageType == VK_IMAGE_TYPE_2D && info->flags & VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT)
 		{
@@ -486,9 +516,10 @@ struct feature_detection
 		if (info->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) core10.sparseBinding = true;
 		if (info->flags & VK_IMAGE_CREATE_SPARSE_ALIASED_BIT) core10.sparseResidencyAliased = true;
 		if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) && info->samples != VK_SAMPLE_COUNT_1_BIT) core10.shaderStorageImageMultisample = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer)
+	VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer)
 	{
 		if (info->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT)
 		{
@@ -499,11 +530,13 @@ struct feature_detection
 			core10.sparseResidencyBuffer = true;
 		}
 		if (info->flags & VK_BUFFER_CREATE_SPARSE_ALIASED_BIT) core10.sparseResidencyAliased = true;
+		return VK_SUCCESS;
 	}
 
-	void check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
+	VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 	{
 		if (info->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) core10.imageCubeArray = true;
+		return VK_SUCCESS;
 	}
 
 	// Note that this is place where the Vulkan standard gets really awful. pInheritanceInfo is allowed to be a garbage invalid pointer
@@ -520,14 +553,16 @@ struct feature_detection
 		}
 	}
 
-	void check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
+	VkDeviceAddress check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
 	{
 		core12.bufferDeviceAddress = true;
+		return 0;
 	}
 
-	void check_vkGetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
+	uint64_t check_vkGetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
 	{
 		core12.bufferDeviceAddressCaptureReplay = true;
+		return 0;
 	}
 
 	void check_vkCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth)
@@ -635,6 +670,7 @@ struct feature_detection
 		if (!has_VkPhysicalDeviceShaderAtomicInt64Features) removed.insert(exts.extract("VK_KHR_shader_atomic_int64"));
 		if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 		if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
+		if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 		return removed;
 	}
 
