@@ -6,15 +6,16 @@
 vulkan_setup_t vulkan2;
 vulkan_req_t req2;
 
-void graphic_usage()
+void usage()
 {
 	printf("-W/--width             Width of output image (default 640)\n");
 	printf("-H/--height            Height of output image (default 480)\n");
+	printf("-wg/--workgroup-size   Set workgroup size for compute dispatch (default 32)\n");
 	printf("-fb/--frame-boundary   Use frameboundary extension to publicize output\n");
 	printf("-t/--times N           Times to repeat (default %d)\n", (int)p__loops);
 }
 
-bool graphic_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+bool parseCmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
 	if (match(argv[i], "-t", "--times"))
 	{
@@ -29,6 +30,11 @@ bool graphic_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-H", "--height"))
 	{
 		reqs.options["height"] = get_arg(argv, ++i, argc);
+		return true;
+	}
+	else if (match(argv[i], "-wg", "--workgroup-size"))
+	{
+		reqs.options["wg_size"] = get_arg(argv, ++i, argc);
 		return true;
 	}
 	else if (match(argv[i], "-fb", "--frame-boundary"))
@@ -49,6 +55,7 @@ VkResult Buffer::create(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPro
 	m_createInfo.sharingMode = static_cast<uint32_t>(queueFamilyIndices.size()) > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	m_createInfo.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size());
 	m_createInfo.pQueueFamilyIndices = m_queueFamilyIndices.data();
+	m_createInfo.pNext = m_pCreateInfoNext;
 
 	m_memoryProperty = properties;
 
@@ -58,7 +65,7 @@ VkResult Buffer::create(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPro
 		VkMemoryAllocateFlagsInfo* flagInfo = (VkMemoryAllocateFlagsInfo*)malloc(sizeof(VkMemoryAllocateFlagsInfo));
 		flagInfo->sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
 		flagInfo->pNext = m_pAllocateNext;
-		flagInfo->flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+		flagInfo->flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
 		flagInfo->deviceMask = 0;
 
 		m_allocateInfoNexts.push_back((VkBaseInStructure*)flagInfo);
@@ -93,6 +100,16 @@ void Buffer::unmap()
 	m_mappedAddress = nullptr;
 }
 
+VkDeviceAddress Buffer::getBufferDeviceAddress()
+{
+	if (m_deviceAddress == 0)
+	{
+		VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
+		address_info.buffer = m_handle;
+		m_deviceAddress = vkGetBufferDeviceAddress(m_device, &address_info);
+	}
+	return m_deviceAddress;
+}
 
 VkResult Buffer::destroy()
 {
@@ -102,7 +119,6 @@ VkResult Buffer::destroy()
 		for(auto& iter : m_allocateInfoNexts)
 		{
 			free(iter);
-			iter = nullptr;
 		}
 		m_allocateInfoNexts.clear();
 		m_pAllocateNext = nullptr;
@@ -110,7 +126,6 @@ VkResult Buffer::destroy()
 		for(auto& iter : m_createInfoNexts)
 		{
 			free(iter);
-			iter = nullptr;
 		}
 		m_createInfoNexts.clear();
 		m_pCreateInfoNext = nullptr;
@@ -122,6 +137,7 @@ VkResult Buffer::destroy()
 		vkFreeMemory(m_device, m_memory, nullptr);
 		m_handle = VK_NULL_HANDLE;
 		m_memory = VK_NULL_HANDLE;
+		m_deviceAddress = 0;
 
 		m_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 		m_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr};
@@ -874,13 +890,15 @@ void GraphicPipelineState::destroy()
 	m_dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, nullptr };
 }
 
-VkResult DescriptorSetLayout::create()
+VkResult DescriptorSetLayout::create(VkDescriptorSetLayoutCreateFlags flags /*=0*/)
 {
-	return create(static_cast<uint32_t>(m_bindings.size()));
+	return create(static_cast<uint32_t>(m_bindings.size()), flags);
 }
 
-VkResult DescriptorSetLayout::create(uint32_t bindingCount)
+VkResult DescriptorSetLayout::create(uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags /*=0*/)
 {
+	m_createInfo.pNext = m_pCreateInfoNext;
+	m_createInfo.flags = flags;
 	m_createInfo.bindingCount = bindingCount;
 	m_createInfo.pBindings = m_bindings.data();
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &m_createInfo, nullptr, &m_handle);
@@ -896,6 +914,14 @@ VkResult DescriptorSetLayout::destroy()
 	vkDestroyDescriptorSetLayout(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 	m_bindings.clear();
+
+	for (auto& next : m_createInfoNexts)
+	{
+		free(next);
+	}
+	m_createInfoNexts.clear();
+	m_bindingFlags.clear();
+	m_pCreateInfoNext = nullptr;
 
 	m_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
 	return result;
@@ -921,17 +947,33 @@ VkDescriptorType DescriptorSetLayout::getDescriptorType(uint32_t binding) const
 	return bindingIter->descriptorType;
 }
 
-VkResult DescriptorSetPool::create(uint32_t size)
+template <>
+void DescriptorSetLayout::insertNext<VkDescriptorSetLayoutBindingFlagsCreateInfo>(const VkDescriptorSetLayoutBindingFlagsCreateInfo& next)
+{
+	VkDescriptorSetLayoutBindingFlagsCreateInfo* pInfo = (VkDescriptorSetLayoutBindingFlagsCreateInfo*)malloc(sizeof(VkDescriptorSetLayoutBindingFlagsCreateInfo));
+	pInfo->sType = next.sType;
+	pInfo->pNext = m_pCreateInfoNext;
+	pInfo->bindingCount = next.bindingCount;
+	if (next.pBindingFlags)
+		m_bindingFlags = { next.pBindingFlags, next.pBindingFlags+next.bindingCount };
+	pInfo->pBindingFlags = m_bindingFlags.data();
+
+	m_pCreateInfoNext = (VkBaseInStructure*)pInfo;
+	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
+}
+
+VkResult DescriptorSetPool::create(uint32_t maxSets, VkDescriptorPoolCreateFlags flags /*=0*/)
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings = m_pDescriptorSetLayout->getBindings();
 	for (auto& binding : bindings)
 	{
-		m_poolSizes.push_back({binding.descriptorType, binding.descriptorCount * size});
+		m_poolSizes.push_back({binding.descriptorType, binding.descriptorCount * maxSets});
 	}
 
+	m_createInfo.flags = flags;
 	m_createInfo.poolSizeCount = static_cast<uint32_t>(m_poolSizes.size());
 	m_createInfo.pPoolSizes    = m_poolSizes.data();
-	m_createInfo.maxSets       = size;
+	m_createInfo.maxSets       = maxSets;
 	return create();
 }
 
@@ -965,6 +1007,7 @@ VkResult DescriptorSetPool::destroy()
 
 VkResult DescriptorSet::create()
 {
+	m_createInfo.pNext = m_pCreateInfoNext;
 	m_createInfo.descriptorPool = m_pDescriptorSetPool->getHandle();
 	m_createInfo.descriptorSetCount = 1;
 	std::vector<VkDescriptorSetLayout> setLayouts = {m_pDescriptorSetPool->m_pDescriptorSetLayout->getHandle()};
@@ -973,6 +1016,23 @@ VkResult DescriptorSet::create()
 	VkResult result = vkAllocateDescriptorSets(m_pDescriptorSetPool->m_pDescriptorSetLayout->m_device, &m_createInfo, &m_handle);
 	check(result);
 	return result;
+}
+
+void DescriptorSet::insertNext(const VkDescriptorSetVariableDescriptorCountAllocateInfo& next)
+{
+	VkDescriptorSetVariableDescriptorCountAllocateInfo* pInfo
+		= (VkDescriptorSetVariableDescriptorCountAllocateInfo*)malloc(sizeof(VkDescriptorSetVariableDescriptorCountAllocateInfo));
+	pInfo->sType = next.sType;
+	pInfo->pNext = m_pCreateInfoNext;
+	pInfo->descriptorSetCount = next.descriptorSetCount;
+	if(next.pDescriptorCounts)
+	{
+		m_variabledSizeDescriptorCount = { next.pDescriptorCounts, next.pDescriptorCounts+next.descriptorSetCount };
+	}
+	pInfo->pDescriptorCounts = m_variabledSizeDescriptorCount.data();
+
+	m_pCreateInfoNext = (VkBaseInStructure*)pInfo;
+	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
 }
 
 void DescriptorSet::setBuffer(uint32_t binding, const Buffer& buffer, VkDeviceSize offsetInBytes/*= 0*/, VkDeviceSize sizeInBytes/* = VK_WHOLE_SIZE*/)
@@ -1004,7 +1064,16 @@ void DescriptorSet::setImage(uint32_t binding, const ImageView& imageView, VkIma
 	imageInfo.imageLayout = imageLayout;
 
 	m_setState.setImage(binding, imageInfo);
+}
 
+void DescriptorSet::setSampler(uint32_t binding, const Sampler& sampler)
+{
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.sampler = sampler.getHandle();
+	imageInfo.imageView = VK_NULL_HANDLE;
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	m_setState.setImage(binding, imageInfo);
 }
 
 void DescriptorSet::setTexelBufferView(uint32_t binding, const TexelBufferView& bufferView)
@@ -1101,6 +1170,14 @@ VkResult DescriptorSet::destroy()
 	m_setState.m_images.clear();
 	m_setState.m_bufferViews.clear();
 
+	for (auto& next : m_createInfoNexts)
+	{
+		free(next);
+	}
+	m_createInfoNexts.clear();
+	m_pCreateInfoNext = nullptr;
+	m_variabledSizeDescriptorCount.clear();
+
 	return result;
 }
 
@@ -1116,6 +1193,12 @@ VkResult PipelineLayout::create(const std::unordered_map<uint32_t,std::shared_pt
 	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), static_cast<uint32_t>(m_pushConstantRanges.size()));
 }
 
+VkResult PipelineLayout::create(const std::vector<VkPushConstantRange>& pushConstantRanges)
+{
+	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
+	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), static_cast<uint32_t>(m_pushConstantRanges.size()));
+}
+
 VkResult PipelineLayout::create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges)
 {
 	for (auto& setLayout: setLayoutMap)
@@ -1127,7 +1210,6 @@ VkResult PipelineLayout::create(uint32_t setLayoutCount, const std::unordered_ma
 
 	return create(setLayoutCount, pushConstantRangeCount);
 }
-
 
 VkResult PipelineLayout::create(uint32_t layoutCount, uint32_t constantCount)
 {
@@ -1325,6 +1407,63 @@ VkResult GraphicPipeline::destroy()
 bool GraphicPipeline::hasDynamicState(VkDynamicState dynamic) const
 {
 	return std::binary_search(m_dynamicStates.begin(), m_dynamicStates.end(), dynamic);
+}
+
+VkResult ComputePipeline::create(const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags/* = 0*/)
+{
+	/* store resources to local storage, so that the objects in param list could be released */
+
+	// shader stage
+	m_shaderStageCreateInfo = shaderStage.getCreateInfo();
+
+	m_shaderEntry = m_shaderStageCreateInfo.pName;
+	m_shaderStageCreateInfo.pName = m_shaderEntry.c_str();
+
+	if (m_shaderStageCreateInfo.pSpecializationInfo)
+	{
+		m_specializationInfo = *m_shaderStageCreateInfo.pSpecializationInfo;
+		m_specializationMapEntries = { m_shaderStageCreateInfo.pSpecializationInfo->pMapEntries,
+									m_shaderStageCreateInfo.pSpecializationInfo->pMapEntries + m_shaderStageCreateInfo.pSpecializationInfo->mapEntryCount
+		};
+		m_specializationData = { reinterpret_cast<const char*>(m_shaderStageCreateInfo.pSpecializationInfo->pData),
+								reinterpret_cast<const char*>(m_shaderStageCreateInfo.pSpecializationInfo->pData) + m_shaderStageCreateInfo.pSpecializationInfo->dataSize
+		};
+
+		m_specializationInfo.pMapEntries = m_specializationMapEntries.data();
+		m_specializationInfo.pData = m_specializationData.data();
+
+		m_shaderStageCreateInfo.pSpecializationInfo = &m_specializationInfo;
+	}
+	m_shader = shaderStage.m_pShader;
+
+	m_createInfo.flags = flags;
+	m_createInfo.stage = m_shaderStageCreateInfo;
+	m_createInfo.layout = m_pipelineLayout->getHandle();
+	m_createInfo.basePipelineHandle = VK_NULL_HANDLE;
+	m_createInfo.basePipelineIndex = -1;
+
+	VkResult result = vkCreateComputePipelines(m_pipelineLayout->m_device, VK_NULL_HANDLE, 1, &m_createInfo, nullptr, &m_handle);
+
+	check(result);
+	return result;
+}
+
+VkResult ComputePipeline::destroy()
+{
+	VkResult result = VK_SUCCESS;
+	DLOG3("MEM detection: computePipeline destroy().");
+
+	vkDestroyPipeline(m_pipelineLayout->m_device, m_handle, nullptr);
+	m_handle = VK_NULL_HANDLE;
+
+	m_createInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
+	m_specializationMapEntries.clear();
+	m_specializationData.clear();
+
+	m_shader = nullptr;
+	m_pipelineLayout = nullptr;
+
+	return result;
 }
 
 void GraphicContext::updateBuffer(const char* srcData, VkDeviceSize size, const Buffer& dstBuffer, VkDeviceSize dstOffset /*=0*/, VkDeviceSize srcOffset /*=0*/, bool submitOnce /*=false*/ )
