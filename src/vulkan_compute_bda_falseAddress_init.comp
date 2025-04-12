@@ -1,0 +1,58 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_buffer_reference : require
+
+layout(local_size_x_id = 0) in;
+layout(local_size_y_id = 1) in;
+layout(local_size_z_id = 2) in;
+layout(constant_id = 3) const int WIDTH = 640;
+layout(constant_id = 4) const int HEIGHT = 480;
+layout(constant_id = 5) const uint numPixelsPerBuffer = 307200;
+
+// buffer containing the base address per output buffer
+layout(buffer_reference, std430, buffer_reference_align=8) readonly buffer BaseAddressBufferRef
+{
+	uvec2 baseAddresses[];
+};
+
+layout(buffer_reference, std430, buffer_reference_align=8) writeonly buffer ColorBufferRef
+{
+	uvec2 colors[];
+};
+
+layout(buffer_reference, std430, buffer_reference_align=8) writeonly buffer AddressBufferRef
+{
+	uvec2 addresses[];
+};
+
+layout(std430, push_constant) uniform PushConstants
+{
+	BaseAddressBufferRef baseAddressBDA;
+	ColorBufferRef colorBDA;
+	AddressBufferRef addressBDA;
+} pushconstants;
+
+void main()
+{
+	// In order to fit the work into workgroups, some unnecessary threads are launched.
+	// We terminate those threads here.
+	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT) return;
+
+	uint pixelIndex = gl_GlobalInvocationID.y * WIDTH + gl_GlobalInvocationID.x;
+
+	uint baseBufferIndex = pixelIndex / numPixelsPerBuffer;
+	uint baseBufferOffset = pixelIndex % numPixelsPerBuffer;
+	uint OffsetBytes = baseBufferOffset * 8; // sizeof(uvec2) in colorBuffer
+
+	// fetch the base address for this output buffer
+	uvec2 baseAddress = pushconstants.baseAddressBDA.baseAddresses[baseBufferIndex];
+
+	// compute the address for each element in this output buffer
+	uvec2 pixelAddress = baseAddress + uvec2(OffsetBytes, 0);
+	if (pixelAddress.x < baseAddress.x)  // addition carry
+		pixelAddress.y += 1;
+
+	// store pixelAddress: regarded as real address and as normal color value
+	pushconstants.colorBDA.colors[pixelIndex] = pixelAddress;
+	pushconstants.addressBDA.addresses[pixelIndex] = pixelAddress;
+}

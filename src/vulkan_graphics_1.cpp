@@ -28,12 +28,12 @@
 
 static void show_usage()
 {
-	graphic_usage();
+	usage();
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	return graphic_cmdopt(i, argc, argv, reqs);
+	return parseCmdopt(i, argc, argv, reqs);
 }
 
 using namespace tracetooltests;
