@@ -6,40 +6,42 @@
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
+feature_detection* feature_detection_instance = nullptr;
+
 int main()
 {
-	feature_detection detect;
+	feature_detection* f = vulkan_feature_detection_get();
 
 	VkPhysicalDeviceFeatures feat10 = {};
 	assert(feat10.logicOp == VK_FALSE); // not used
 	VkPipelineColorBlendStateCreateInfo pipeinfo = {};
-	detect.struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
-	detect.adjust_VkPhysicalDeviceFeatures(feat10);
+	struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_FALSE); // still not used
 
 	feat10.logicOp = VK_TRUE; // set to used, but not actually used
-	detect.adjust_VkPhysicalDeviceFeatures(feat10);
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_FALSE); // corretly corrected to not used
 
 	feat10.logicOp = VK_TRUE; // set to used
 	pipeinfo.logicOpEnable = VK_TRUE; // used here
-	detect.struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
-	detect.adjust_VkPhysicalDeviceFeatures(feat10);
+	struct_check_VkPipelineColorBlendStateCreateInfo(&pipeinfo);
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_TRUE); // not changed, still used
 
 	VkPhysicalDeviceVulkan12Features feat12 = {};
-	auto adjusted = detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(adjusted.size() == 0);
 	assert(feat12.drawIndirectCount == VK_FALSE);
 	assert(feat12.hostQueryReset == VK_FALSE);
 	feat12.drawIndirectCount = VK_TRUE;
-	adjusted = detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(adjusted.size() == 1);
 	for (auto s : adjusted) printf("Adjusted %s\n", s.c_str());
 	assert(feat12.drawIndirectCount == VK_FALSE); // was adjusted
 	feat12.drawIndirectCount = VK_TRUE;
-	detect.check_vkCmdDrawIndirectCount(0, 0, 0, 0, 0, 0, 0); // actually use feature
-	detect.adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	check_vkCmdDrawIndirectCount(0, 0, 0, 0, 0, 0, 0); // actually use feature
+	f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(feat12.drawIndirectCount == VK_TRUE); // now unchanged
 	assert(feat12.hostQueryReset == VK_FALSE); // also unchanged
 
@@ -61,29 +63,33 @@ int main()
 	const char** namelist = { &extname };
 	dci.ppEnabledExtensionNames = namelist;
 	dci.enabledExtensionCount = 1;
-	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VkPhysicalDeviceShaderAtomicInt64Features == false);
 	VkPhysicalDeviceShaderAtomicInt64Features pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_FALSE, VK_FALSE };
 	dci.pNext = &pdsai64f;
-	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VkPhysicalDeviceShaderAtomicInt64Features == false);
 	pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_TRUE, VK_TRUE };
-	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == true);
-	detect.adjust_VkDeviceCreateInfo(&dci, exts);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VkPhysicalDeviceShaderAtomicInt64Features == true);
+	f->adjust_VkDeviceCreateInfo(&dci, exts);
 	assert(dci.enabledExtensionCount == 1);
 	assert(dci.pNext != nullptr);
-	detect.has_VkPhysicalDeviceShaderAtomicInt64Features.store(false);
+	f->has_VkPhysicalDeviceShaderAtomicInt64Features.store(false);
 	pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_FALSE, VK_FALSE };
-	detect.check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(detect.has_VkPhysicalDeviceShaderAtomicInt64Features == false);
-	std::unordered_set<std::string> removed = detect.adjust_device_extensions(exts);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VkPhysicalDeviceShaderAtomicInt64Features == false);
+	std::unordered_set<std::string> removed = f->adjust_device_extensions(exts);
 	assert(removed.size() == 1);
 	assert(exts.size() == 0);
-	detect.adjust_VkDeviceCreateInfo(&dci, exts);
+	f->adjust_VkDeviceCreateInfo(&dci, exts);
 	assert(dci.pNext == nullptr);
 
-	detect.parse_SPIRV((uint32_t*)vulkan_compute_bda_sc_spirv, long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4);
+	VkShaderModuleCreateInfo smci = {};
+	smci.pCode = (uint32_t*)vulkan_compute_bda_sc_spirv;
+	smci.codeSize = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4;
+	VkResult r = check_vkCreateShaderModule(VK_NULL_HANDLE, &smci, nullptr, nullptr);
+	assert(r == VK_SUCCESS);
 
 	return 0;
 }
