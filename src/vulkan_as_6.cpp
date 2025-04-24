@@ -26,11 +26,16 @@ static uint32_t index_count = static_cast<uint32_t>(indices.size());
 
 static uint32_t handle_size;
 
+static bool blas_build_frame = false;
+static bool tlas_build_frame = false;
+static bool blas_alias = false;
+
 struct Resources
 {
 	acceleration_structures::functions functions;
 
 	AccelerationStructure blas;
+	AccelerationStructure blas_alias;
 	Buffer blas_buffer;
 
 	AccelerationStructure tlas;
@@ -61,11 +66,9 @@ struct Resources
 static void show_usage()
 {
 	printf("Test the usage of BLAS objects with destroyed handles in TLAS builds and binding of aliased TLAS structures to ray tracing pipeline\n");
-}
-
-static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
-{
-    return false;
+	printf("-tbf/--tlas-build-frame      injects a frame boundary after TLAS is built\n");
+	printf("-bbf/--blas-build-frame      injects a frame boundary after BLAS is built\n");
+	printf("-ba/--blas-alias             creates an alias for BLAS that is not destroyed\n");
 }
 
 void prepare_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
@@ -119,6 +122,10 @@ void free_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
 	vkDestroyBuffer(vulkan.device, resources.blas_buffer.handle, nullptr);
 
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.tlas_alias.handle, nullptr);
+	if (blas_alias)
+	{
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas_alias.handle, nullptr);
+	}
 	vkFreeMemory(vulkan.device, resources.tlas_buffer.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, resources.tlas_buffer.handle, nullptr);
 	vkFreeMemory(vulkan.device, resources.instance_buffer.memory, nullptr);
@@ -176,6 +183,21 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 	check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas.handle));
+	
+	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
+
+	// If BLAS alias is created, use that alias handle in query for vkGetAccelerationStructureDeviceAddressKHR, otherwise - use regular BLAS handle 
+	if (blas_alias)
+	{
+		check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas_alias.handle));
+		blas_device_adress_info.accelerationStructure = resources.blas_alias.handle;
+	}
+	else
+	{
+		blas_device_adress_info.accelerationStructure = resources.blas.handle;
+	}
+
+	resources.blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
 
 	Buffer scratch_bottom = acceleration_structures::prepare_buffer(
 			vulkan,
@@ -216,16 +238,29 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.queue));
 
-	// Record device adress for next test stage
-	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
-	blas_device_adress_info.accelerationStructure = resources.blas.handle;
-	resources.blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &blas_device_adress_info);
 
 	// destroy BLAS handle after its built and address is retrieved - it will no longer be used 
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
 
 	vkFreeMemory(vulkan.device, scratch_bottom.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_bottom.handle, nullptr);
+
+	// Create frame after BLAS handle destruction
+	if (blas_build_frame){
+		VkFrameBoundaryEXT frameBoundary = {};
+		frameBoundary.sType = VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT;
+		frameBoundary.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+		frameBoundary.pNext = nullptr;
+		frameBoundary.frameID++;
+
+		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+		submitInfo.pNext = &frameBoundary;
+		submitInfo.commandBufferCount = 0;
+		submitInfo.pCommandBuffers = nullptr;
+
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
+		check(vkQueueWaitIdle(resources.queue));
+	}
 
 	static VkTransformMatrixKHR identity = {
 			1.0f, 0.0f, 0.0f, 0.0f,
@@ -331,8 +366,27 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	// destroy TLAS handle as soon as it's done building. This handle should not be used anymore
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.tlas.handle, nullptr);
 
-	vkFreeMemory(vulkan.device, scratch_buffer.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_buffer.handle, nullptr);
+	vkFreeMemory(vulkan.device, scratch_buffer.memory, nullptr);
+
+	// Create frame after TLAS handle destruction
+	if (tlas_build_frame)
+	{
+		VkFrameBoundaryEXT frameBoundary = {};
+		frameBoundary.sType = VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT;
+		frameBoundary.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+		frameBoundary.pNext = nullptr;
+		frameBoundary.frameID++;
+
+		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+		submitInfo.pNext = &frameBoundary;
+		submitInfo.commandBufferCount = 0;
+		submitInfo.pCommandBuffers = nullptr;
+
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
+		check(vkQueueWaitIdle(resources.queue));
+	}
+
 }
 
 void prepare_ray_tracing_pipeline(const vulkan_setup_t & vulkan, Resources & resources)
@@ -467,9 +521,38 @@ void bind_and_trace(const vulkan_setup_t & vulkan, Resources & resources)
 	check(vkQueueWaitIdle(resources.queue));
 }
 
+bool parse_parameters(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	if (match(argv[i], "-tbf", "--tlas-build-frame"))
+	{
+		reqs.options["tlas-build-frame"] = true;
+		return true;
+	} 
+	else if (match(argv[i], "-bbf", "--blas-build-frame"))
+	{
+		reqs.options["blas-build-frame"] = true;
+		return true;
+	}
+	else if (match(argv[i], "-ba", "--blas-alias"))
+	{
+		reqs.options["blas-alias"] = true;
+		return true;
+	}
+	return false;
+}
+
+static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
+{
+	return parse_parameters(i, argc, argv, reqs);
+}
+
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
+	reqs.options["tlas-build-frame"] = false;
+	reqs.options["blas-build-frame"] = false;
+	reqs.options["blas-alias"] = false;
+	
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_tracing_features, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");
@@ -482,6 +565,10 @@ int main(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_6", reqs);
+
+	tlas_build_frame = std::get<bool>(reqs.options.at("tlas-build-frame"));
+	blas_build_frame = std::get<bool>(reqs.options.at("blas-build-frame"));
+	blas_alias = std::get<bool>(reqs.options.at("blas-alias"));
 
 	handle_size = vulkan.device_ray_tracing_pipeline_properties.shaderGroupHandleSize;
 
