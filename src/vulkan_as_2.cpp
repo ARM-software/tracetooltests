@@ -9,6 +9,8 @@ static uint32_t tl_as_build_count = 2;
 static bool bl_as_batch_build = false;
 static bool as_host_build = false;
 static bool bl_as_packed = false;
+static bool empty_blas = false;
+static bool empty_tlas = false;
 
 struct Vertex
 {
@@ -49,6 +51,8 @@ static void show_usage()
 	printf("-hb/--host-build       Build acceleration structures on host, default %s\n", as_host_build ? "true" : "false");
 	printf("-b/--batch             Batch build acceleration structures, default %s\n", bl_as_batch_build ? "true" : "false");
 	printf("-p/--packed            Create acceleration structures in one packed buffer, default %s\n", bl_as_packed ? "true" : "false");
+	printf("-eb/--empty-blas       All bottom level acceleration structures are built with primitive count 0, default %s\n", empty_blas ? "true" : "false");
+	printf("-et/--empty-tlas       All top level acceleration structures are built with primitive count 0, default %s\n", empty_tlas ? "true" : "false");
 }
 
 static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
@@ -76,6 +80,16 @@ static bool test_cmdopt(int &i, int argc, char **argv, vulkan_req_t &reqs)
 	else if (match(argv[i],"-p","--packed"))
 	{
 		bl_as_packed = true;
+		return true;
+	}
+	else if (match(argv[i],"-eb","--empty-blas"))
+	{
+		empty_blas = true;
+		return true;
+	}
+	else if (match(argv[i],"-et","--empty-tlas"))
+	{
+		empty_tlas = true;
 		return true;
 	}
 	return false;
@@ -260,7 +274,7 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t &vulkan, Re
 		as_build_geometry_infos[as_index].scratchData.deviceAddress = as_scratch_buffers[as_index].address.deviceAddress;
 
 		auto as_build_range_info = new VkAccelerationStructureBuildRangeInfoKHR();
-		as_build_range_info->primitiveCount = num_triangles;
+		as_build_range_info->primitiveCount = empty_blas ? 0 : num_triangles;
 		as_build_range_info->primitiveOffset = 0;
 		as_build_range_infos[as_index] = as_build_range_info;
 	}
@@ -373,7 +387,7 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 	// Do the first build command - the first build of TLAS
 	VkAccelerationStructureBuildRangeInfoKHR as_range_info{};
 	as_range_info.primitiveOffset = 0;
-	as_range_info.primitiveCount = as_instances.size();
+	as_range_info.primitiveCount = empty_tlas ? 0 : as_instances.size();
 	as_range_info.firstVertex = 0;
 	as_range_info.transformOffset = 0;
 
