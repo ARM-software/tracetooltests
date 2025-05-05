@@ -1,0 +1,11 @@
+{
+	"name": "vulkan_compute_bda_falseAddress",
+	"description": "Test of buffer device address with false positive address",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	}
+}

@@ -25,6 +25,7 @@ public:
 	VkResult create(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags properties, const std::vector<uint32_t>& queueFamilyIndices = { } );
 	VkResult map(VkDeviceSize offset =0, VkDeviceSize size = VK_WHOLE_SIZE, VkMemoryMapFlags flag =0);
 	void unmap();
+	VkDeviceAddress getBufferDeviceAddress();
 
 	VkResult destroy(); // free of m_pCreateInfoNext and m_pAllocateNext, clear vectors
 
@@ -50,6 +51,7 @@ private:
 	VkBuffer m_handle = VK_NULL_HANDLE;
 	VkDeviceMemory m_memory = VK_NULL_HANDLE;
 	VkMemoryPropertyFlags m_memoryProperty = VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM;
+	VkDeviceAddress m_deviceAddress = 0;
 
 	VkBufferCreateInfo m_createInfo { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	VkMemoryAllocateInfo m_allocateInfo { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr};
@@ -311,13 +313,18 @@ public:
 		destroy();
 	}
 
-	VkResult create();
+	VkResult create(VkDescriptorSetLayoutCreateFlags flags = 0);
 	// more flexible usage for corner test case
-	VkResult create(uint32_t bindingCount);
+	VkResult create(uint32_t bindingCount, VkDescriptorSetLayoutCreateFlags flags = 0);
 	VkResult destroy();
 	void insertBinding(uint32_t binding, VkDescriptorType type, VkShaderStageFlags stage, uint32_t count = 1);
-	VkDescriptorType getDescriptorType(uint32_t binding) const;
 
+	template <typename T>
+	void insertNext(const T& next)
+	{
+	}
+
+	VkDescriptorType getDescriptorType(uint32_t binding) const;
 	inline VkDescriptorSetLayout getHandle() const {
 		return m_handle;
 	}
@@ -332,6 +339,10 @@ private:
 	VkDescriptorSetLayoutCreateInfo m_createInfo { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
 	std::vector<VkDescriptorSetLayoutBinding> m_bindings; // the real inserted bindings.
 	// While the count and binding number in createInfo may be not matched, for the garbage test case usage
+
+	std::vector<VkDescriptorBindingFlags> m_bindingFlags;
+	VkBaseInStructure* m_pCreateInfoNext = nullptr;
+	std::vector<VkBaseInStructure*> m_createInfoNexts;
 };
 
 class DescriptorSetPool
@@ -345,7 +356,7 @@ public:
 		destroy();
 	}
 
-	VkResult create(uint32_t size);
+	VkResult create(uint32_t maxSets, VkDescriptorPoolCreateFlags flags = 0);
 	VkResult create(const DescriptorPoolCreateFuncType& createFunc);
 	VkResult destroy();
 
@@ -395,11 +406,13 @@ public:
 
 	VkResult create();
 	VkResult destroy();
+	void insertNext(const VkDescriptorSetVariableDescriptorCountAllocateInfo& next);
 
 	void update();
 	void setBuffer(uint32_t binding, const Buffer& buffer, VkDeviceSize offsetInBytes = 0, VkDeviceSize sizeInBytes = VK_WHOLE_SIZE);
 	void setCombinedImageSampler(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler);
 	void setImage(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout);
+	void setSampler(uint32_t binding, const Sampler& sampler);
 	void setTexelBufferView(uint32_t binding, const TexelBufferView& bufferView);
 	void setAccelerationStructure();
 
@@ -413,6 +426,10 @@ public:
 private:
 	VkDescriptorSet m_handle = VK_NULL_HANDLE;
 	VkDescriptorSetAllocateInfo m_createInfo { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr };
+
+	std::vector<uint32_t> m_variabledSizeDescriptorCount;
+	VkBaseInStructure* m_pCreateInfoNext = nullptr;
+	std::vector<VkBaseInStructure*> m_createInfoNexts;
 };
 
 class PipelineLayout
@@ -424,6 +441,7 @@ public:
 	}
 
 	VkResult create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
+	VkResult create(const std::vector<VkPushConstantRange>& pushConstantRanges);
 	VkResult create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap,
 	                uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges);
 	VkResult destroy();
@@ -489,6 +507,7 @@ public:
 		m_pImageView = nullptr;
 		return VK_SUCCESS;
 	}
+
 
 private:
 	void resetDescription()
@@ -723,6 +742,37 @@ private:
 
 };
 
+class ComputePipeline
+{
+public:
+	ComputePipeline(std::shared_ptr<PipelineLayout> pipelineLayout) : m_pipelineLayout(pipelineLayout) {}
+	~ComputePipeline()
+	{
+		destroy();
+	}
+
+	VkResult create(const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags = 0);
+	VkResult destroy();
+
+	inline VkPipeline getHandle() const
+	{
+		return m_handle;
+	}
+
+	std::shared_ptr<PipelineLayout> m_pipelineLayout;
+
+private:
+	VkPipeline m_handle = VK_NULL_HANDLE;
+	VkComputePipelineCreateInfo m_createInfo { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
+
+	VkPipelineShaderStageCreateInfo m_shaderStageCreateInfo;
+	std::shared_ptr<Shader>         m_shader;
+	std::string                           m_shaderEntry;
+	VkSpecializationInfo                  m_specializationInfo;
+	std::vector<VkSpecializationMapEntry> m_specializationMapEntries;
+	std::vector<char>                     m_specializationData;
+};
+
 class BasicContext
 {
 public:
@@ -831,6 +881,6 @@ public:
 #include <iostream>
 #include <fstream>
 
-void graphic_usage();
-bool graphic_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
+void usage();
+bool parseCmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
 std::vector<char> readFile(const std::string& filename);
