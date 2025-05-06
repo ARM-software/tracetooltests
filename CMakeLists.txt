@@ -236,6 +236,7 @@ vulkan_test(mesh_1)
 vulkan_test(aliasing_1)
 vulkan_test(timeline_semaphore_1)
 vulkan_test(fence_delay)
+vulkan_test(updatedescriptor_1)
 
 vulkan_test(graphics_1)
 
