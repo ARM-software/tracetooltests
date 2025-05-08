@@ -310,7 +310,7 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
 }
 
-void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
+void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs, uint32_t pipeline_flags)
 {
 	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = r.code.data();
@@ -354,9 +354,10 @@ void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulka
 	result = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutCreateInfo, NULL, &r.pipelineLayout);
 	check(result);
 
-        VkComputePipelineCreateInfo pipelineCreateInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
-        pipelineCreateInfo.stage = shaderStageCreateInfo;
-        pipelineCreateInfo.layout = r.pipelineLayout;
+	VkComputePipelineCreateInfo pipelineCreateInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
+	pipelineCreateInfo.stage = shaderStageCreateInfo;
+	pipelineCreateInfo.layout = r.pipelineLayout;
+	pipelineCreateInfo.flags = pipeline_flags;
 
 	VkPipelineCreationFeedback creationfeedback = { 0, 0 };
 	VkPipelineCreationFeedbackCreateInfo feedinfo = { VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO, nullptr, &creationfeedback, 0, nullptr };

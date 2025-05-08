@@ -29,5 +29,5 @@ bool compute_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs);
 compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs);
 void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs);
 void compute_submit(vulkan_setup_t& vulkan, compute_resources&  r, vulkan_req_t& reqs);
-void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs);
+void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs, uint32_t pipeline_flags = 0);
 void compute_usage();

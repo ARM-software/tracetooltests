@@ -111,7 +111,11 @@ static void copying_1(int argc, char** argv)
 	bufferCreateInfo.size = buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
+	if (vulkan.garbage_pointers)
+	{
+		bufferCreateInfo.queueFamilyIndexCount = 1000000; // make sure we crash if we use this
+		bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
+	}
 	if (reqs.bufferDeviceAddress)
 	{
 		bufferCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR;
