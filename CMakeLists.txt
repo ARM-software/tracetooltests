@@ -220,6 +220,8 @@ vulkan_test_extra(vulkan_compute_2_test_0 compute_2 -q 1 -s 1)
 vulkan_test(compute_3)
 vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
 
+vulkan_test(compute_descriptor_buffer)
+
 vulkan_test(compute_aliasing)
 vulkan_test(compute_bda_sc) # buffer device address through specialization constants
 vulkan_test(compute_bda_pushconstant) # buffer device address through push constants
