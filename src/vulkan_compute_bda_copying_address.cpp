@@ -4,12 +4,12 @@
 #include "vulkan_graphics_common.h"
 
 // contains our compute shader, generated with:
-//   glslangValidator -V vulkan_compute_bda_falseAddress_interleave.comp -o vulkan_compute_bda_falseAddress_interleave.spirv
-//   xxd -i vulkan_compute_bda_falseAddress_interleave.spirv > vulkan_compute_bda_falseAddress_interleave.inc
+//   glslangValidator -V vulkan_compute_bda_copying_address_interleave.comp -o vulkan_compute_bda_copying_address_interleave.spirv
+//   xxd -i vulkan_compute_bda_copying_address_interleave.spirv > vulkan_compute_bda_copying_address_interleave.inc
 
-#include "vulkan_compute_bda_falseAddress_init.inc"
-#include "vulkan_compute_bda_falseAddress_interleave.inc"
-#include "vulkan_compute_bda_falseAddress_output.inc"
+#include "vulkan_compute_bda_copying_address_init.inc"
+#include "vulkan_compute_bda_copying_address_interleave.inc"
+#include "vulkan_compute_bda_copying_address_output.inc"
 
 struct pushAddress
 {
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 	if (p_benchmark->gpu_driven)
 	{
 		auto initShader = std::make_unique<Shader>(vulkan.device);
-		initShader->create(vulkan_compute_bda_falseAddress_init_spirv, vulkan_compute_bda_falseAddress_init_spirv_len);
+		initShader->create(vulkan_compute_bda_copying_address_init_spirv, vulkan_compute_bda_copying_address_init_spirv_len);
 
 		ShaderPipelineState initShaderStage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(initShader));
 		initShaderStage.setSpecialization(smentries, 4 * sdata.size(), sdata.data());
@@ -141,10 +141,10 @@ int main(int argc, char** argv)
 	}
 
 	auto interleaveShader = std::make_unique<Shader>(vulkan.device);
-	interleaveShader->create(vulkan_compute_bda_falseAddress_interleave_spirv, vulkan_compute_bda_falseAddress_interleave_spirv_len);
+	interleaveShader->create(vulkan_compute_bda_copying_address_interleave_spirv, vulkan_compute_bda_copying_address_interleave_spirv_len);
 
 	auto outputShader = std::make_unique<Shader>(vulkan.device);
-	outputShader->create(vulkan_compute_bda_falseAddress_output_spirv, vulkan_compute_bda_falseAddress_output_spirv_len);
+	outputShader->create(vulkan_compute_bda_copying_address_output_spirv, vulkan_compute_bda_copying_address_output_spirv_len);
 
 	ShaderPipelineState interleaveShaderStage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(interleaveShader));
 	interleaveShaderStage.setSpecialization(smentries, 4 * sdata.size(), sdata.data());

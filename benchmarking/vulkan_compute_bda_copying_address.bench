@@ -1,6 +1,6 @@
 {
-	"name": "vulkan_compute_bda_falseAddress",
-	"description": "Test of buffer device address with false positive address",
+	"name": "vulkan_compute_bda_copying_address",
+	"description": "Test of copying buffer device address",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",

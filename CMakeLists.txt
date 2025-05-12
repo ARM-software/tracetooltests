@@ -224,8 +224,8 @@ vulkan_test(compute_bda_sc) # buffer device address through specialization const
 vulkan_test(compute_bda_pushconstant) # buffer device address through push constants
 vulkan_test(compute_bda_ubo) # buffer device address through uniform buffer objects
 vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
-vulkan_test(compute_bda_falseAddress) # buffer device address of false positive value
-vulkan_test_extra(compute_bda_falseAddress_gpuDriven compute_bda_falseAddress -gdriven)
+vulkan_test(compute_bda_copying_address) # copying buffer device address
+vulkan_test_extra(compute_bda_copying_address_gpu_driven compute_bda_copying_address -gdriven)
 
 vulkan_test(deferred_1)
 vulkan_test(pipelinecache_1)
