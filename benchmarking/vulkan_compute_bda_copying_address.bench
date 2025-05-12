@@ -1,0 +1,11 @@
+{
+	"name": "vulkan_compute_bda_copying_address",
+	"description": "Test of copying buffer device address",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	}
+}
