@@ -35,8 +35,10 @@ int main(int argc, char** argv)
 	MAKEDEVICEPROCADDR(vulkan, vkDestroyTensorViewARM);
 	MAKEDEVICEPROCADDR(vulkan, vkBindTensorMemoryARM);
 	MAKEDEVICEPROCADDR(vulkan, vkGetPhysicalDeviceExternalTensorPropertiesARM);
-	//TBD
-	//MAKEDEVICEPROCADDR(vulkan, vkCmdCopyTensorARM);
+	MAKEDEVICEPROCADDR(vulkan, vkCmdCopyTensorARM);
+
+	VkQueue queue;
+	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
 	int64_t dimension = 64;
 	VkTensorDescriptionARM td = { VK_STRUCTURE_TYPE_TENSOR_DESCRIPTION_ARM, nullptr };
@@ -53,7 +55,10 @@ int main(int argc, char** argv)
 	tci.queueFamilyIndexCount = 0;
 	tci.pQueueFamilyIndices = nullptr;
 	VkTensorARM tensor = VK_NULL_HANDLE;
+	VkTensorARM target = VK_NULL_HANDLE;
 	r = pf_vkCreateTensorARM(vulkan.device, &tci, nullptr, &tensor);
+	check(r);
+	r = pf_vkCreateTensorARM(vulkan.device, &tci, nullptr, &target);
 	check(r);
 
 	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_ARM, (uint64_t)tensor, "Our tensor object");
@@ -97,7 +102,7 @@ int main(int argc, char** argv)
 
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
-	pAllocateMemInfo.allocationSize = aligned_size;
+	pAllocateMemInfo.allocationSize = aligned_size * 2;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
 	r = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	check(r);
@@ -108,11 +113,68 @@ int main(int argc, char** argv)
 	btmi.memory = memory;
 	btmi.memoryOffset = 0;
 	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi);
+	check(r);
+	btmi.tensor = target;
+	btmi.memoryOffset = aligned_size;
+	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi);
+	check(r);
+
+	VkCommandPool command_pool;
+	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
+	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	VkResult result = vkCreateCommandPool(vulkan.device, &command_pool_create_info, NULL, &command_pool);
+	check(result);
+
+	VkCommandBuffer command_buffer;
+	VkCommandBufferAllocateInfo command_buffer_allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
+	command_buffer_allocate_info.commandPool = command_pool;
+	command_buffer_allocate_info.commandBufferCount = 1;
+	result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_allocate_info, &command_buffer);
+	check(result);
+
+	VkFence fence;
+	VkFenceCreateInfo fence_create_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	result = vkCreateFence(vulkan.device, &fence_create_info, NULL, &fence);
+	check(result);
+
+	VkCommandBufferBeginInfo command_buffer_begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	result = vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info);
+	check(result);
+
+	VkTensorCopyARM tc = { VK_STRUCTURE_TYPE_TENSOR_COPY_ARM, nullptr };
+	tc.dimensionCount = 1;
+	tc.pSrcOffset = nullptr;
+	tc.pDstOffset = nullptr;
+	tc.pExtent = nullptr;
+	VkCopyTensorInfoARM cti = { VK_STRUCTURE_TYPE_COPY_TENSOR_INFO_ARM, nullptr };
+	cti.srcTensor = tensor;
+	cti.dstTensor = target;
+	cti.regionCount = 1;
+	cti.pRegions = &tc;
+	pf_vkCmdCopyTensorARM(command_buffer, &cti);
+
+	result = vkEndCommandBuffer(command_buffer);
+	check(result);
+
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &command_buffer;
+	result = vkQueueSubmit(queue, 1, &submit_info, fence);
+	check(result);
+
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
+	check(result);
+
+	vkDestroyFence(vulkan.device, fence, nullptr);
+	vkFreeCommandBuffers(vulkan.device, command_pool, 1, &command_buffer);
+	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 
 	pf_vkDestroyTensorViewARM(vulkan.device, VK_NULL_HANDLE, nullptr);
 	pf_vkDestroyTensorViewARM(vulkan.device, tensor_view, nullptr);
 	pf_vkDestroyTensorARM(vulkan.device, tensor, nullptr);
 	pf_vkDestroyTensorARM(vulkan.device, VK_NULL_HANDLE, nullptr);
+	testFreeMemory(vulkan, memory);
 
 	bench_stop_iteration(vulkan.bench);
 
