@@ -262,7 +262,7 @@ function(cl_test_build test_name cl_version)
 	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL)
 	target_compile_definitions(opencl_${ARGV0}_v${ARGV1} PUBLIC ${IT_DEFINES} CL_TARGET_OPENCL_VERSION=${ARGV1})
 	set_target_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
-	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers/include)
+	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
 	install(TARGETS opencl_${ARGV0}_v${ARGV1} DESTINATION tests)
 endfunction()
 
@@ -274,7 +274,7 @@ function(cl_test test_name cl_version)
 	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/opencl_${ARGV0}.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/opencl_${ARGV0}.bench DESTINATION tests)
 	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/opencl_${ARGV0}.bench ${SYMLINK_DIR}/opencl_${ARGV0}.bench)")
-	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 endfunction()
 
 cl_test(basic_1 100) # Simple OpenCL 1.0 test
