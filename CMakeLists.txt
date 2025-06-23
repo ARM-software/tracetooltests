@@ -256,3 +256,27 @@ add_test(NAME vulkan_feature_test COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_fea
 target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 
 endif()
+
+function(cl_test_build test_name cl_version)
+	add_executable(opencl_${ARGV0}_v${ARGV1} src/opencl_${ARGV0}.cpp src/opencl_common.cpp src/opencl_common.h src/util.cpp src/util.h)
+	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL)
+	target_compile_definitions(opencl_${ARGV0}_v${ARGV1} PUBLIC ${IT_DEFINES} CL_TARGET_OPENCL_VERSION=${ARGV1})
+	set_target_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
+	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers/include)
+	install(TARGETS opencl_${ARGV0}_v${ARGV1} DESTINATION tests)
+endfunction()
+
+function(cl_test test_name cl_version)
+	cl_test_build(${ARGV0} ${ARGV1})
+	add_test(NAME opencl_${ARGV0}_v${ARGV1} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/opencl_${ARGV0}_v${ARGV1})
+	set(ENABLE_JSON "{\"target\": \"opencl_${ARGV0}\"}")
+	set_tests_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "BENCHMARKING_ENABLE_JSON=${ENABLE_JSON}")
+	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/opencl_${ARGV0}.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/opencl_${ARGV0}.bench DESTINATION tests)
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/opencl_${ARGV0}.bench ${SYMLINK_DIR}/opencl_${ARGV0}.bench)")
+	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+endfunction()
+
+cl_test(basic_1 100) # Simple OpenCL 1.0 test
+cl_test(basic_1 200) # Simple OpenCL 2.0 test
+cl_test(basic_1 300) # Simple OpenCL 3.0 test

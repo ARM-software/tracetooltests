@@ -6,7 +6,7 @@ static vulkan_req_t reqs;
 
 static void show_usage()
 {
-	printf("-x/--ugly-exit         		Exit without cleanup\n");
+	printf("-x/--ugly-exit         Exit without cleanup\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
