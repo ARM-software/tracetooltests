@@ -434,6 +434,7 @@ def init():
 						externally_synchronized.add((type, ext.split('>')[1]))
 					elif '[' in ext:
 						externally_synchronized.add((type, ext.split('.')[1]))
+					elif ext == 'maybe': pass # not sure how to handle this one yet
 					else: assert False, '%s not parsed correctly' % ext
 
 			params = v.findall('param/type')
