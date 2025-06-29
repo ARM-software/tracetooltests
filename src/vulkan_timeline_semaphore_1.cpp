@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 	si.pCommandBuffers = nullptr;
 	si.signalSemaphoreCount = 3;
 	si.pSignalSemaphores = semaphores.data();
-	r = vkQueueSubmit(queue, 1, &si, fence);
+	r = vkQueueSubmit(queue, 1, &si, fence); // TODO: also try vkQueueSubmit2 if version != 1.3
 	check(r);
 
 	r = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);

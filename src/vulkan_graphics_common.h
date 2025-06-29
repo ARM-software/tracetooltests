@@ -17,13 +17,17 @@ public:
 	using BufferCreateInfoFunc = std::function<void(VkBufferCreateInfo&)>;
 	using AllocationCreateInfoFunc = std::function<void(VkMemoryAllocateInfo&)>;
 
-	Buffer(VkDevice device): m_device(device) { }
+	Buffer(const vulkan_setup_t& vulkan): m_device(vulkan.device) {
+		emit_extra_flushes = vulkan.has_explicit_host_updates;
+	}
+
 	~Buffer() {
 		destroy();
 	}
 
 	VkResult create(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags properties, const std::vector<uint32_t>& queueFamilyIndices = { } );
-	VkResult map(VkDeviceSize offset =0, VkDeviceSize size = VK_WHOLE_SIZE, VkMemoryMapFlags flag =0);
+	VkResult map(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE, VkMemoryMapFlags flag = 0);
+	void flush(bool extra); // flush mapped area (must be mapped!), 'extra' means flush is for information purposes and can be omitted
 	void unmap();
 	VkDeviceAddress getBufferDeviceAddress();
 
@@ -48,6 +52,7 @@ public:
 private:
 	VkResult create();
 
+	bool emit_extra_flushes = false;
 	VkBuffer m_handle = VK_NULL_HANDLE;
 	VkDeviceMemory m_memory = VK_NULL_HANDLE;
 	VkMemoryPropertyFlags m_memoryProperty = VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM;

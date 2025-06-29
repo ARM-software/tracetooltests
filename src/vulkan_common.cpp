@@ -474,7 +474,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
 		// The following two are fake extensions used for testing, see README.md for documentation
-		if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS_EXTENSION_NAME) == 0)
+		if (strcmp(s.extensionName, VK_ARM_TRACE_HELPERS_EXTENSION_NAME) == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			vulkan.has_trace_helpers = true;
@@ -484,6 +484,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		{
 			enabledExtensions.push_back(s.extensionName);
 			vulkan.has_trace_helpers2 = true;
+			vulkan.device_extensions.insert(s.extensionName);
+		}
+		else if (strcmp(s.extensionName, VK_ARM_TRACE_DESCRIPTOR_BUFFER_EXTENSION_NAME) == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			vulkan.has_trace_descriptor_buffer = true;
+			vulkan.device_extensions.insert(s.extensionName);
+		}
+		else if (strcmp(s.extensionName, VK_ARM_EXPLICIT_HOST_UPDATES_EXTENSION_NAME) == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			vulkan.has_explicit_host_updates = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
 
@@ -553,11 +565,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (vulkan.has_trace_helpers)
 	{
-		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2TRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2TRACETOOLTEST"));
+		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2ARM>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2ARM"));
 	}
 	if (vulkan.has_trace_helpers && p__sanity > 0)
 	{
-		vulkan.vkAssertBuffer = (PFN_vkAssertBufferTRACETOOLTEST)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferTRACETOOLTEST");
+		vulkan.vkAssertBuffer = (PFN_vkAssertBufferARM)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferARM");
 	}
 
 	if (vulkan.has_trace_helpers2)
@@ -915,10 +927,22 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 	{
 		const VkDeviceSize offset = dedicated ? 0 : i * aligned_size;
 		uint8_t* data = nullptr;
-		VkResult result = vkMapMemory(vulkan.device, memory[dedicated ? i : 0], offset, aligned_size, 0, (void**)&data);
+		VkDeviceMemory mem = memory.at(dedicated ? i : 0);
+		VkResult result = vkMapMemory(vulkan.device, mem, offset, aligned_size, 0, (void**)&data);
 		assert(result == VK_SUCCESS);
 		memset(data, pattern ? i : 0, aligned_size);
-		vkUnmapMemory(vulkan.device, memory[dedicated ? i : 0]);
+		vkUnmapMemory(vulkan.device, mem);
+		// Explicit notification
+		if (vulkan.has_explicit_host_updates)
+		{
+			VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
+			frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
+			VkMappedMemoryRange mmr = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, &frf };
+			mmr.memory = mem;
+			mmr.offset = 0;
+			mmr.size = VK_WHOLE_SIZE;
+			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
+		}
 	}
 	// Label
 	for (unsigned i = 0; i < buffers.size() && name; i++)
@@ -931,12 +955,15 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 	return aligned_size;
 }
 
-void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size)
+void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size, bool extra)
 {
+	VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
+	frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
 	VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr };
 	range.memory = memory;
 	range.size = size;
 	range.offset = offset;
+	if (vulkan.has_explicit_host_updates && extra) range.pNext = &frf;
 	VkResult result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
 	check(result);
 }

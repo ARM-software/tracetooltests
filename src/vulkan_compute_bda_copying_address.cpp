@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 	size = sizeof(VkDeviceAddress) * p_benchmark->numPixelsPerBuffer;
 	for (int i =0 ; i < NUM_OUTPUT_BUFFERS; i++)
 	{
-		p_benchmark->m_outputBuffers.emplace_back(std::make_unique<Buffer>(vulkan.device));
+		p_benchmark->m_outputBuffers.emplace_back(std::make_unique<Buffer>(vulkan));
 		p_benchmark->m_outputBuffers[i]->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		p_benchmark->m_outputBaseAddress.push_back(p_benchmark->m_outputBuffers[i]->getBufferDeviceAddress());
 	}
@@ -177,7 +177,7 @@ int main(int argc, char** argv)
 	{
 		// buffer storing the gpu address of each output buffers
 		size = NUM_OUTPUT_BUFFERS * sizeof(VkDeviceAddress);
-		p_benchmark->m_baseAddressBuffer = std::make_unique<Buffer>(vulkan.device);
+		p_benchmark->m_baseAddressBuffer = std::make_unique<Buffer>(vulkan);
 		p_benchmark->m_baseAddressBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 
@@ -186,16 +186,16 @@ int main(int argc, char** argv)
 	if (!p_benchmark->gpu_driven) propFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
 	size = p_benchmark->width * p_benchmark->height * sizeof(VkDeviceAddress);
-	p_benchmark->m_colorBuffer = std::make_unique<Buffer>(vulkan.device);
+	p_benchmark->m_colorBuffer = std::make_unique<Buffer>(vulkan);
 	p_benchmark->m_colorBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, propFlags);
 
 	// address buffer with same size
-	p_benchmark->m_addressBuffer = std::make_unique<Buffer>(vulkan.device);
+	p_benchmark->m_addressBuffer = std::make_unique<Buffer>(vulkan);
 	p_benchmark->m_addressBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, propFlags);
 
 	// interleave buffer with double size
 	size *= 2;
-	p_benchmark->m_interleaveBuffer = std::make_unique<Buffer>(vulkan.device);
+	p_benchmark->m_interleaveBuffer = std::make_unique<Buffer>(vulkan);
 	p_benchmark->m_interleaveBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr};

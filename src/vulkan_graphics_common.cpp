@@ -94,6 +94,19 @@ VkResult Buffer::map(VkDeviceSize offset/*=0*/, VkDeviceSize size/*=VK_WHOLE_SIZ
 	return result;
 }
 
+void Buffer::flush(bool extra)
+{
+	if (!emit_extra_flushes && extra) return;
+	VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
+	frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
+	VkMappedMemoryRange mmr = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr };
+	if (extra) mmr.pNext = &frf;
+	mmr.memory = m_memory;
+	mmr.offset = 0;
+	mmr.size = VK_WHOLE_SIZE;
+	vkFlushMappedMemoryRanges(m_device, 1, &mmr);
+}
+
 void Buffer::unmap()
 {
 	if (m_mappedAddress) vkUnmapMemory(m_device, m_memory);
@@ -1468,14 +1481,13 @@ VkResult ComputePipeline::destroy()
 
 void GraphicContext::updateBuffer(const char* srcData, VkDeviceSize size, const Buffer& dstBuffer, VkDeviceSize dstOffset /*=0*/, VkDeviceSize srcOffset /*=0*/, bool submitOnce /*=false*/ )
 {
-	auto staging = std::make_unique<Buffer>(m_vulkanSetup.device);
+	auto staging = std::make_unique<Buffer>(m_vulkanSetup);
 	staging->create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	void* data = nullptr;
-	vkMapMemory(m_vulkanSetup.device, staging->getMemory(), 0, size, 0, &data);
-	memcpy(data, srcData, (size_t) size);
-	vkUnmapMemory(m_vulkanSetup.device, staging->getMemory());
-	data = nullptr;
+	staging->map();
+	memcpy(staging->m_mappedAddress, srcData, (size_t)size);
+	staging->flush(true);
+	staging->unmap();
 
 	auto commandBufferStaging = std::make_shared<CommandBuffer>(m_defaultCommandPool);
 	commandBufferStaging->create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
@@ -1495,14 +1507,13 @@ void GraphicContext::updateBuffer(const char* srcData, VkDeviceSize size, const 
 
 void GraphicContext::updateImage(const char* srcData, VkDeviceSize size, Image& dstImage, const VkExtent3D& dstExtent, const VkOffset3D & dstOffset /*={0,0,0}*/, VkDeviceSize srcOffset /*=0*/, bool submitOnce /*=false*/)
 {
-	auto staging = std::make_unique<Buffer>(m_vulkanSetup.device);
+	auto staging = std::make_unique<Buffer>(m_vulkanSetup);
 	staging->create(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	void* data = nullptr;
-	vkMapMemory(m_vulkanSetup.device, staging->getMemory(), 0, size, 0, &data);
-	memcpy(data, srcData, (size_t) size);
-	vkUnmapMemory(m_vulkanSetup.device, staging->getMemory());
-	data = nullptr;
+	staging->map();
+	memcpy(staging->m_mappedAddress, srcData, (size_t)size);
+	staging->flush(true);
+	staging->unmap();
 
 	auto commandBufferStaging = std::make_shared<CommandBuffer>(m_defaultCommandPool);
 	commandBufferStaging->create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);

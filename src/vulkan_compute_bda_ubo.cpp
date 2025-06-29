@@ -105,10 +105,10 @@ int main(int argc, char** argv)
 	else
 	{
 		VkDeviceSize offset = 0;
-		VkAddressRemapTRACETOOLTEST ar = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_TRACETOOLTEST, nullptr };
+		VkAddressRemapARM ar = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_ARM, nullptr };
 		ar.count = 1;
 		ar.pOffsets = &offset;
-		VkUpdateMemoryInfoTRACETOOLTEST ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_TRACETOOLTEST, &ar };
+		VkUpdateMemoryInfoARM ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &ar };
 		ui.dstOffset = 0;
 		ui.dataSize = aligned_buffer_size;
 		ui.pData = &address;

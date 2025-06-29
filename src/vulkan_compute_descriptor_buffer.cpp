@@ -109,6 +109,26 @@ int main(int argc, char** argv)
 	dgi.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dgi.data = dde;
 	pf_vkGetDescriptorEXT(vulkan.device, &dgi, pddbp.storageBufferDescriptorSize, ptr);
+
+	if (vulkan.has_trace_descriptor_buffer)
+	{
+		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
+		frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
+		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DESCRIPTOR_BIT_ARM;
+		VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		VkDeviceSize offset = 0;
+		VkDescriptorOffsetsARM offs = { VK_STRUCTURE_TYPE_DESCRIPTOR_OFFSETS_ARM, &frf };
+		offs.count = 1;
+		offs.pMarkingTypes = &markingType;
+		offs.pDescriptorTypes = &descriptorType;
+		offs.pOffsets = &offset;
+		VkMappedMemoryRange mmr = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, &offs };
+		mmr.memory = memory;
+		mmr.offset = 0;
+		mmr.size = VK_WHOLE_SIZE;
+		vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
+	}
+
 	vkUnmapMemory(vulkan.device, memory);
 
 	r.code = copy_shader(vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);

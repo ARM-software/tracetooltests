@@ -83,21 +83,21 @@ int main(int argc, char** argv)
 	assert(result == VK_SUCCESS);
 	memset(data, 0xdeadfeed, 1024);
 	orig_crc_parent = adler32((unsigned char*)data, 1024);
-	if (flush_variant == 1) testFlushMemory(vulkan, memory, 0, 1024);
+	if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 0, 1024, flush_variant != 1);
 	vkUnmapMemory(vulkan.device, memory);
 
 	result = vkMapMemory(vulkan.device, memory, 256, 256, 0, (void**)&data);
 	assert(result == VK_SUCCESS);
 	memset(data, 0xabcdabcd, 256);
 	orig_crc_child = adler32((unsigned char*)data, 256);
-	if (flush_variant == 1) testFlushMemory(vulkan, memory, 256, 256);
+	if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 256, 256, flush_variant != 1);
 	vkUnmapMemory(vulkan.device, memory);
 
 	result = vkMapMemory(vulkan.device, memory, 512, 256, 0, (void**)&data);
 	assert(result == VK_SUCCESS);
 	memset(data, 0xdeafbeef, 256);
 	orig_crc_alien = adler32((unsigned char*)data, 256);
-	if (flush_variant == 1) testFlushMemory(vulkan, memory, 512, 256);
+	if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 512, 256, flush_variant != 1);
 	vkUnmapMemory(vulkan.device, memory);
 
 	// copy alien's contents into child; now the content in parent should also be affected through aliasing
@@ -108,13 +108,13 @@ int main(int argc, char** argv)
 
 	if (vulkan.vkAssertBuffer)
 	{
-		const uint32_t parent_crc = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE);
+		const uint32_t parent_crc = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, "parent buffer");
 		assert(parent_crc == orig_crc_parent);
 		(void)parent_crc;
-		const uint32_t child_crc = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE);
+		const uint32_t child_crc = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, "child buffer");
 		assert(child_crc == orig_crc_child);
 		(void)child_crc;
-		const uint32_t alien_crc = vulkan.vkAssertBuffer(vulkan.device, alien, 0, VK_WHOLE_SIZE);
+		const uint32_t alien_crc = vulkan.vkAssertBuffer(vulkan.device, alien, 0, VK_WHOLE_SIZE, "aliased buffer");
 		assert(child_crc == orig_crc_alien);
 		(void)alien_crc;
 	}

@@ -135,20 +135,20 @@ int main(int argc, char** argv)
 	VkDeviceSize size;
 	// vbo
 	size = sizeof(Vertex)*vertices.size();
-	auto vertexBuffer = std::make_unique<Buffer>(vulkan.device);
+	auto vertexBuffer = std::make_unique<Buffer>(vulkan);
 	vertexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	p_benchmark->updateBuffer(vertices, *vertexBuffer);
 
 	// index buffer
 	size = sizeof(uint16_t)*indices.size();
-	auto indexBuffer = std::make_unique<Buffer>(vulkan.device);
+	auto indexBuffer = std::make_unique<Buffer>(vulkan);
 	indexBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	p_benchmark->updateBuffer(indices, *indexBuffer);
 
 	// ubo
-	auto transformUniformBuffer = std::make_unique<Buffer>(vulkan.device);
+	auto transformUniformBuffer = std::make_unique<Buffer>(vulkan);
 	transformUniformBuffer->create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, (VkDeviceSize)sizeof(Transform), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	transformUniformBuffer->map();
 
@@ -322,7 +322,7 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-void updateTransformData(const Buffer& dstBuffer)
+void updateTransformData(Buffer& dstBuffer)
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -337,6 +337,7 @@ void updateTransformData(const Buffer& dstBuffer)
 
 	assert(dstBuffer.m_mappedAddress!=nullptr);
 	memcpy(dstBuffer.m_mappedAddress, &ubo, sizeof(ubo));
+	dstBuffer.flush(true);
 }
 
 static void render(const vulkan_setup_t& vulkan)

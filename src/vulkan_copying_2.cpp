@@ -146,7 +146,7 @@ static void copying_2(int argc, char** argv)
 		memset(data + offset, i, aligned_size);
 		offset += aligned_size;
 	}
-	if (flush_variant == 1) testFlushMemory(vulkan, origin_memory, 0, VK_WHOLE_SIZE);
+	if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, origin_memory, 0, VK_WHOLE_SIZE, flush_variant != 1);
 	if (map_variant == 1 || map_variant == 2) vkUnmapMemory(vulkan.device, origin_memory);
 	if (map_variant == 2) vkMapMemory(vulkan.device, origin_memory, 10, 20, 0, (void**)&data);
 
@@ -196,7 +196,7 @@ static void copying_2(int argc, char** argv)
 		bench_start_iteration(vulkan.bench);
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			if (flush_variant == 1) testFlushMemory(vulkan, origin_memory, aligned_size * i, aligned_size); // add useless flush
+			if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, origin_memory, aligned_size * i, aligned_size, flush_variant != 1); // add useless flush
 			VkPipelineStageFlags flags = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			VkQueue q = queue1;
 			if (queue_variant == 0 && i % 2 == 1) q = queue2; // interleave mode
@@ -257,8 +257,8 @@ static void copying_2(int argc, char** argv)
 	{
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			const uint32_t orig = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE);
-			const uint32_t dest = vulkan.vkAssertBuffer(vulkan.device, target_buffers.at(i), 0, VK_WHOLE_SIZE);
+			const uint32_t orig = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE, "origin buffer");
+			const uint32_t dest = vulkan.vkAssertBuffer(vulkan.device, target_buffers.at(i), 0, VK_WHOLE_SIZE, "destination buffer");
 			assert(orig == dest);
 		}
 	}
