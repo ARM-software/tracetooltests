@@ -117,6 +117,7 @@ packed_bitfields = [
 ]
 
 # Parameters not named *Count with type uint32_t or size_t that need temporaries created for access to them by other parameters.
+# TODO: Autogenerate this from the len field in the XML
 other_counts = {
 	'VkPipelineShaderStageModuleIdentifierCreateInfoEXT' : [ 'identifierSize' ],
 	'VkPushConstantsInfoKHR' : [ 'size' ],
@@ -133,6 +134,7 @@ other_counts = {
 	'vkCreateValidationCacheEXT' : [ 'initialDataSize' ],
 	'vkDebugMarkerSetObjectTagEXT' : [ 'tagSize' ],
 	'vkCreatePipelineCache' : [ 'initialDataSize' ],
+	'VkDataGraphPipelineIdentifierCreateInfoARM' : [ 'identifierSize' ],
 }
 
 indirect_command_c_struct_names = {
@@ -251,9 +253,14 @@ def scan_type(v):
 		atype = v.find('type')
 		if atype is not None: type_mappings[name] = atype.text
 	elif category == 'bitmask':
-		# ignore aliases for now
+		# handle aliases (assuming they are in the right order)
 		if v.find('name') == None:
+			alias_name = v.attrib.get('alias')
+			name = v.attrib.get('name')
+			if not alias_name in type_mappings: assert false, 'Could not find alias %s for %s' % (alias_name, name)
+			type_mappings[name] = type_mappings[alias_name]
 			return
+		# handle normal types
 		atype = v.find('type').text
 		name = v.find('name').text
 		if atype == 'VkFlags64':
