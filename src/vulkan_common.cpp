@@ -931,7 +931,6 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		VkResult result = vkMapMemory(vulkan.device, mem, offset, aligned_size, 0, (void**)&data);
 		assert(result == VK_SUCCESS);
 		memset(data, pattern ? i : 0, aligned_size);
-		vkUnmapMemory(vulkan.device, mem);
 		// Explicit notification
 		if (vulkan.has_explicit_host_updates)
 		{
@@ -943,6 +942,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			mmr.size = VK_WHOLE_SIZE;
 			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 		}
+		vkUnmapMemory(vulkan.device, mem);
 	}
 	// Label
 	for (unsigned i = 0; i < buffers.size() && name; i++)
