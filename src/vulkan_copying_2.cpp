@@ -184,6 +184,7 @@ static void copying_2(int argc, char** argv)
 		seminfo.pNext = nullptr;
 		seminfo.flags = 0;
 		result = vkCreateSemaphore(vulkan.device, &seminfo, nullptr, &semaphores.at(i));
+		check(result);
 
 		VkFenceCreateInfo fence_create_info = {};
 		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

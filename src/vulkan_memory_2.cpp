@@ -60,6 +60,7 @@ int main(int argc, char** argv)
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer);
+	check(result);
 
 	VkMemoryRequirements buffer_req;
 	vkGetBufferMemoryRequirements(vulkan.device, buffer, &buffer_req);
@@ -108,6 +109,7 @@ int main(int argc, char** argv)
 	VkDeviceMemory memory = VK_NULL_HANDLE;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
+	check(result);
 
 	vkBindImageMemory(vulkan.device, image, memory, image_start);
 	vkBindBufferMemory(vulkan.device, buffer, memory, buffer_start);

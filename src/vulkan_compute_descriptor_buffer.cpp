@@ -59,6 +59,7 @@ int main(int argc, char** argv)
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &descriptor_buffer);
+	check(result);
 	VkMemoryRequirements memreq;
 	vkGetBufferMemoryRequirements(vulkan.device, descriptor_buffer, &memreq);
 	uint32_t memoryTypeIndex = get_device_memory_type(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -69,6 +70,7 @@ int main(int argc, char** argv)
 	pAllocateMemInfo.allocationSize = memreq.size;
 	VkDeviceMemory memory = 0;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
+	check(result);
 	assert(memory != 0);
 	vkBindBufferMemory(vulkan.device, descriptor_buffer, memory, 0);
 	VkBufferDeviceAddressInfo address_info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };

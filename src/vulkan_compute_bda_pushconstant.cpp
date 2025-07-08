@@ -106,6 +106,7 @@ static void bda_pushconstant_create_pipeline(vulkan_setup_t& vulkan, compute_res
 			cacheinfo.pInitialData = blob;
 		}
 		result = vkCreatePipelineCache(vulkan.device, &cacheinfo, nullptr, &r.cache);
+		check(result);
 		free(blob);
 	}
 

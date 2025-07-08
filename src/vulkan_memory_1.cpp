@@ -67,6 +67,7 @@ static int test(int argc, char** argv, int iteration)
 	for (int i = 0; i < num_buffers; i++)
 	{
 		result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer[i]);
+		check(result);
 	}
 
 	VkMemoryRequirements req;
@@ -79,6 +80,7 @@ static int test(int argc, char** argv, int iteration)
 	VkDeviceMemory memory = 0;
 	result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
 	assert(memory != 0);
+	check(result);
 
 	VkDeviceSize offset = 0;
 	vkBindBufferMemory(vulkan.device, buffer[0], memory, offset); offset += req.size;
