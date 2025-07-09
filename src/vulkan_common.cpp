@@ -7,6 +7,7 @@
 #include "external/stb_image_write.h"
 
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
+static int no_explicit = 0;
 
 int repeats()
 {
@@ -80,6 +81,7 @@ static void print_usage(const vulkan_req_t& reqs)
 	if (reqs.minApiVersion <= VK_API_VERSION_1_2 && reqs.maxApiVersion >= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_3 && reqs.maxApiVersion >= VK_API_VERSION_1_3) printf("\t3 - Vulkan 1.3\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_4 && reqs.maxApiVersion >= VK_API_VERSION_1_4) printf("\t4 - Vulkan 1.4\n");
+	printf("-neu/--no-explicit     Do not use the explicit host updates extension (default %d)\n", no_explicit);
 	if (reqs.usage) reqs.usage();
 	exit(1);
 }
@@ -207,6 +209,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		else if (match(argv[i], "-G", "--garbage-pointers"))
 		{
 			vulkan.garbage_pointers = true;
+		}
+		else if (match(argv[i], "-neu", "--no-explicit"))
+		{
+			no_explicit = 1;
 		}
 		else if (match(argv[i], "-V", "--vulkan-variant")) // overrides version req from test itself
 		{
@@ -471,6 +477,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
 	assert(result == VK_SUCCESS);
 
+	VkPhysicalDeviceExplicitHostUpdatesFeaturesARM explicit_updates_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXPLICIT_HOST_UPDATES_FEATURES_ARM, nullptr };
+
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
 		// The following two are fake extensions used for testing, see README.md for documentation
@@ -492,11 +500,14 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			vulkan.has_trace_descriptor_buffer = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_ARM_EXPLICIT_HOST_UPDATES_EXTENSION_NAME) == 0)
+		else if (strcmp(s.extensionName, VK_ARM_EXPLICIT_HOST_UPDATES_EXTENSION_NAME) == 0 && no_explicit == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			vulkan.has_explicit_host_updates = true;
 			vulkan.device_extensions.insert(s.extensionName);
+			explicit_updates_features.explicitHostUpdates = VK_TRUE;
+			explicit_updates_features.pNext = (void*)deviceInfo.pNext;
+			deviceInfo.pNext = &explicit_updates_features;
 		}
 
 		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
