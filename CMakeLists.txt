@@ -184,6 +184,7 @@ vulkan_test(as_3)
 vulkan_test(as_4)
 vulkan_test(as_5)
 vulkan_test(as_6)
+vulkan_test(as_7)
 
 vulkan_test(copying_2)
 vulkan_test_extra(copying_2_test_0_0_0 copying_2 -q 0 -f 0 -m 0 -t 3)
