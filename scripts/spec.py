@@ -74,14 +74,12 @@ feature_structs = OrderedSet() # list of pNext feature structs
 feature_detection_funcs = [] # feature detection callbacks with identical interface to Vulkan command
 feature_detection_special = [] # special functions that need custom handling
 
+# Track externally synchronized members of structs
 externally_synchronized_members = {
-	'VkDescriptorSetAllocateInfo' : [ 'descriptorPool' ],
-	'VkCommandBufferAllocateInfo' : [ 'commandPool' ],
-	'VkSwapchainCreateInfoKHR' : [ 'surface', 'oldSwapchain' ],
-	'VkDebugMarkerObjectTagInfoEXT' : [ 'object' ],
-	'VkDebugMarkerObjectNameInfoEXT' : [ 'object' ],
-	'VkDebugUtilsObjectNameInfoEXT' : [ 'objectHandle' ],
-	'vkSetDebugUtilsObjectTagEXT' : [ 'objectHandle' ],
+	# These are missing in the Vulkan spec as of now
+	'VkDebugUtilsObjectNameInfoEXT' : [ 'objectHandle' ], # set in vkSetDebugUtilsObjectNameEXT as externsync="pNameInfo->objectHandle" instead, which is really weird
+	'VkBindBufferMemoryInfo' : [ 'buffer' ],
+	'VkBindImageMemoryInfo' : [ 'image' ],
 }
 
 # We want to manually override some of these. We also add 'basetype' category types in here.
@@ -212,6 +210,15 @@ def scan_type(v):
 		if sType:
 			type2sType[name] = sType
 			sType2type[sType] = name
+		# Find external synchronization
+		for m in v.findall('member'):
+			extern = m.attrib.get('externsync')
+			if not extern: continue # not externally synchronized
+			if extern != 'false':
+				if not name in externally_synchronized_members:
+					externally_synchronized_members[name] = []
+				if not m.find('name').text in externally_synchronized_members[name]:
+					externally_synchronized_members[name].append(m.find('name').text)
 		# Look for extensions
 		extendstr = v.attrib.get('structextends')
 		extends = []
