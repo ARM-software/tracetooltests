@@ -169,9 +169,6 @@ void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vec
 /// Copy one buffer into another
 void testCopyBuffer(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer target, VkBuffer origin, VkDeviceSize size);
 
-/// Get default number of repeated loops to be done, taken from an environment variable if available.
-int repeats();
-
 /// Select which GPU to use
 void select_gpu(int chosen_gpu);
 

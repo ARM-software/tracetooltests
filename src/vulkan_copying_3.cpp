@@ -4,7 +4,6 @@
 
 static int method = 0;
 static unsigned buffer_size = (32 * 1024);
-static int times = repeats();
 
 static void show_usage()
 {
@@ -13,7 +12,7 @@ static void show_usage()
 	printf("\t0 - memset\n");
 	printf("\t1 - memcpy\n");
 	printf("\t2 - fread\n");
-	printf("-t/--times N           Times to repeat (default %d)\n", times);
+	printf("-t/--times N           Times to repeat (default %d)\n", p__loops);
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -25,7 +24,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	}
 	else if (match(argv[i], "-t", "--times"))
 	{
-		times = get_arg(argv, ++i, argc);
+		p__loops = get_arg(argv, ++i, argc);
 		return true;
 	}
 	else if (match(argv[i], "-c", "--copy-method"))
@@ -82,7 +81,7 @@ static void copying_3(int argc, char** argv)
 	std::vector<char> buf(buffer_size);
 	size_t r = fread(buf.data(), buffer_size, 1, fp);
 	assert(r == 1); // this should not fail
-	for (int i = 0; i < times; i++)
+	for (int i = 0; i < p__loops; i++)
 	{
 		switch (method)
 		{

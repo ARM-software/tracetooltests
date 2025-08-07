@@ -11,7 +11,6 @@
 static int queues = 2;
 static int job_variant = 0;
 static bool output = false;
-static unsigned times = repeats();
 static unsigned nodes = 10;
 static vulkan_req_t req;
 static int sync_variant = 0;
@@ -43,7 +42,7 @@ struct pixel
 
 static void show_usage()
 {
-	printf("-t/--times N           Times to repeat (default %u)\n", times);
+	printf("-t/--times N           Times to repeat (default %u)\n", p__loops);
 	printf("-n/--nodes N           Job nodes to process (default %u)\n", nodes);
 	printf("-q/--queues N          Set queues to use (default %d)\n", queues);
 	printf("-j/--job-variant N     Set cross-job synchronization variant (default %d)\n", job_variant);
@@ -60,8 +59,8 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
 	if (match(argv[i], "-t", "--times"))
 	{
-		times = get_arg(argv, ++i, argc);
-		return (times >= 1);
+		p__loops = get_arg(argv, ++i, argc);
+		return (p__loops >= 1);
 	}
 	else if (match(argv[i], "-n", "--nodes"))
 	{
@@ -259,7 +258,8 @@ int main(int argc, char** argv)
 	check(result);
 
 	bench_start_scene(vulkan.bench, "compute_2");
-	for (unsigned i = 0; i < times; i++)
+	assert(p__loops > 0);
+	for (unsigned i = 0; i < p__loops; i++)
 	{
 		bench_start_iteration(vulkan.bench);
 		for (unsigned node = 0; node < nodes; node++)

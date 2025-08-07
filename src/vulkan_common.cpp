@@ -9,11 +9,6 @@
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int no_explicit = 0;
 
-int repeats()
-{
-	return p__loops;
-}
-
 static VkBool32 messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
