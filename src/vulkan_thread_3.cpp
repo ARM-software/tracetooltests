@@ -88,7 +88,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-c", "--case"))
 	{
 		variant = get_arg(argv, ++i, argc);
-		return (variant >= 1 && variant <= 6);
+		return (variant >= 0 && variant <= 6);
 	}
 	else if (match(argv[i], "-l", "--loops"))
 	{
@@ -113,7 +113,7 @@ int main(int argc, char** argv)
 
 	VkCommandPoolCreateInfo cmdcreateinfo = {};
 	cmdcreateinfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	cmdcreateinfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	cmdcreateinfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	cmdcreateinfo.queueFamilyIndex = 0;
 	VkResult result = vkCreateCommandPool(vulkan.device, &cmdcreateinfo, nullptr, &pool1);
 	check(result);
@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 		if (!quiet) printf("Case 6: vkCmdExecuteCommands waiting for other thread\n");
 		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
 		check(result);
-		command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 		VkCommandBufferInheritanceInfo inhinfo = {};
 		inhinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 		command_buffer_begin_info.pInheritanceInfo = &inhinfo;
@@ -260,6 +260,7 @@ int main(int argc, char** argv)
 		check(result);
 		result = vkResetCommandPool(vulkan.device, pool2, 0);
 		check(result);
+		ready.store(false);
 	}
 
 	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd1);
