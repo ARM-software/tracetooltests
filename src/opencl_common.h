@@ -29,7 +29,7 @@
 
 // ---- Common code ----
 
-static inline const char* errorString(const int errorCode) { return "TBD"; }
+const char* errorString(const int errorCode);
 
 inline void check(int result)
 {
