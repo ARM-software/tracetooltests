@@ -3,10 +3,10 @@
 if [ "$LAVATUBE_LAYER_PATH" != "" ];
 then
 	LAVATUBE_REPLAYER="$LAVATUBE_LAYER_PATH/lava-replay"
-	LAVATUBE_PATH="$LAVATUBE_LAYER_PATH/implicit_layer.d"
+	LAVATUBE_PATH="$LAVATUBE_LAYER_PATH"
 else
 	LAVATUBE_REPLAYER="/opt/lavatube/bin"
-	LAVATUBE_PATH="/opt/lavatube/implicit_layer.d"
+	LAVATUBE_PATH="/opt/lavatube"
 fi
 
 REPORTDIR=reports/lavatube/demos${TAG}

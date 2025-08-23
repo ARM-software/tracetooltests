@@ -12,6 +12,7 @@ rm -f $REPORTDIR/*.html
 REPORT=$REPORTDIR/report.html
 HTMLIMGOPTS="width=200 height=200"
 LAVATUBE_PATH=/raid/lava/build
+PARAMS="--benchmark --stop-after-frame=10 --force-close"
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
@@ -47,7 +48,7 @@ function run
 	export VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
-	( cd external/vulkan-samples ; build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=100 --force-close sample $1 )
+	( cd external/vulkan-samples ; build/linux/app/bin/Debug/x86_64/vulkan_samples $PARAMS sample $1 )
 	mv external/vulkan-samples/sample_$1.vk $TRACEDIR/
 
 	echo

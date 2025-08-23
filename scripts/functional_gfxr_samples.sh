@@ -11,7 +11,7 @@ REPORT=$REPORTDIR/report.html
 TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
 TRACER=${TRACER:-"$(which gfxrecon-capture-vulkan.py)"}
-PARAMS="--hideui --benchmark --stop-after-frame=10 --force-close"
+PARAMS="--benchmark --stop-after-frame=10 --force-close"
 
 rm -rf external/vulkan-samples/*.ppm *.ppm $TRACEDIR/sample_*.gfxr $REPORTDIR external/vulkan-demos/*.gfxr
 mkdir -p $TRACEDIR

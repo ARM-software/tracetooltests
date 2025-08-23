@@ -78,7 +78,7 @@ static void thread_case6()
 
 static void show_usage()
 {
-	printf("-c/--case N            Choose test case (1-6, zero means all, default %d)\n", variant);
+	printf("-c/--case N            Choose test case (1-7, zero means all, default %d)\n", variant);
 	printf("-l/--loops N           Number of loops to run (default %d)\n", loops);
 	printf("-q/--quiet             Do less logging\n");
 }
@@ -88,7 +88,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-c", "--case"))
 	{
 		variant = get_arg(argv, ++i, argc);
-		return (variant >= 0 && variant <= 6);
+		return (variant >= 0 && variant <= 7);
 	}
 	else if (match(argv[i], "-l", "--loops"))
 	{
@@ -261,6 +261,19 @@ int main(int argc, char** argv)
 		result = vkResetCommandPool(vulkan.device, pool2, 0);
 		check(result);
 		ready.store(false);
+	}
+
+	for (int i = 0; i < loops && (variant == 0 || variant == 7); i++)
+	{
+		if (!quiet) printf("Case 7: Everything inside begin..end is in another thread\n");
+		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
+		check(result);
+		helper = new std::thread(thread_case2);
+		helper->join();
+		delete helper;
+		helper = nullptr;
+		result = vkResetCommandPool(vulkan.device, pool1, 0);
+		check(result);
 	}
 
 	vkFreeCommandBuffers(vulkan.device, pool1, 1, &cmd1);
