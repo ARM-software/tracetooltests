@@ -71,6 +71,10 @@ static VkBuffer dummy_vkCreateBuffer(VkDeviceSize offset)
 
 static void reset_buffers()
 {
+	VkResult result = vkEndCommandBuffer(cmd);
+	check(result);
+	result = vkResetCommandPool(vulkan.device, pool, 0);
+	check(result);
 	for (int i = 0; i < MAX_BUFFERS; i++)
 	{
 		vkDestroyBuffer(vulkan.device, buffers[i].load(), nullptr);
@@ -97,6 +101,18 @@ static void thread_buffers_fast()
 	{
 		buffers[i] = dummy_vkCreateBuffer(aligned_buffer_size * i);
 		next_buffer++;
+	}
+}
+
+static void thread_buffer_usage()
+{
+	assert(next_buffer == 0);
+	for (int i = 0; i < MAX_BUFFERS; i++)
+	{
+		VkMemoryRequirements reqs;
+		vkGetBufferMemoryRequirements(vulkan.device, buffers[i].load(), &reqs);
+		next_buffer++;
+		if (i % 2 == 0) usleep(1);
 	}
 }
 
@@ -186,10 +202,6 @@ int main(int argc, char** argv)
 		dummy_vkCmdBindIndexBuffer(cmd, buffer);
 		buffers[i] = buffer;
 	}
-	result = vkEndCommandBuffer(cmd);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool, 0);
-	check(result);
 	reset_buffers();
 
 	// Threaded
@@ -207,10 +219,6 @@ int main(int argc, char** argv)
 	helper->join();
 	delete helper;
 	helper = nullptr;
-	result = vkEndCommandBuffer(cmd);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool, 0);
-	check(result);
 	reset_buffers();
 
 	// Threaded #2
@@ -228,18 +236,35 @@ int main(int argc, char** argv)
 	helper->join();
 	delete helper;
 	helper = nullptr;
+	next_buffer = 0;
+	// no reset of buffers, use them below
 	result = vkEndCommandBuffer(cmd);
 	check(result);
 	result = vkResetCommandPool(vulkan.device, pool, 0);
 	check(result);
-	reset_buffers();
 
 	// Threaded #3
+	helper = new std::thread(thread_buffer_usage);
+	int i = 0;
+	while (i < MAX_BUFFERS)
+	{
+		while (next_buffer.load(std::memory_order_seq_cst) <= i) usleep(sleep_time); // spin until we got some
+		VkBuffer buffer = buffers[i].load();
+		vkDestroyBuffer(vulkan.device, buffer, nullptr);
+		buffers[i] = VK_NULL_HANDLE;
+		i++;
+	}
+	helper->join();
+	delete helper;
+	helper = nullptr;
+	next_buffer = 0;
+
+	// Threaded #4
 	assert(next_buffer == 0);
 	result = vkBeginCommandBuffer(cmd, &command_buffer_begin_info);
 	check(result);
 	helper = new std::thread(thread_buffers_fast);
-	int i = 0;
+	i = 0;
 	while (i < MAX_BUFFERS)
 	{
 		while (next_buffer.load(std::memory_order_seq_cst) <= i) usleep(sleep_time); // spin until we got some
@@ -259,10 +284,6 @@ int main(int argc, char** argv)
 	helper->join();
 	delete helper;
 	helper = nullptr;
-	result = vkEndCommandBuffer(cmd);
-	check(result);
-	result = vkResetCommandPool(vulkan.device, pool, 0);
-	check(result);
 	reset_buffers();
 
 	vkFreeCommandBuffers(vulkan.device, pool, 1, &cmd);
