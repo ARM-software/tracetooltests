@@ -578,7 +578,7 @@ void check_vkCmdBindIndexBuffer(VkCommandBuffer commandBuffer, VkBuffer buffer, 
 
 void check_vkCmdBindIndexBuffer2(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, VkIndexType indexType)
 {
-	if (indexType == VK_INDEX_TYPE_UINT32) instance->core10.fullDrawIndexUint32 = true; // defensive assumptiom
+	if (indexType == VK_INDEX_TYPE_UINT32) instance->core10.fullDrawIndexUint32 = true; // defensive assumption
 	if (indexType == VK_INDEX_TYPE_UINT8) instance->core14.indexTypeUint8 = true;
 }
 
