@@ -477,5 +477,87 @@ def init():
 	pipeline_execute_commands.extend(compute_commands)
 	pipeline_execute_commands.extend(raytracing_commands)
 
+# Parse element size, which can be weird
+def getraw(val):
+	raw = ''
+	for s in val.iter():
+		if s.tag == 'enum':
+			raw += s.text.strip()
+		if s.tail:
+			raw += s.tail.strip()
+	return raw
+
+def getsize(raw):
+	if '[' in raw and not type == 'char':
+		return re.search(r'.*\[(.+)\]', raw).group(1)
+	return None
+
+# Class to handle the parameters of a function call or structure
+class base_parameter(object):
+	def __init__(self, node, read, funcname, transitiveConst = False):
+		raw = getraw(node)
+		self.funcname = funcname
+		self.name = node.find('name').text
+		self.type = node.find('type').text
+		self.mod = node.text
+		if not self.mod:
+			self.mod = ''
+		self.const = ('const' in self.mod) or transitiveConst
+		if self.const:
+			self.mod = 'const '
+		self.ptr = '*' in raw # is it a pointer?
+		self.param_ptrstr = '* ' if self.ptr else ' '
+		self.inline_ptrstr = '* ' if self.ptr else ''
+		if '**' in raw:
+			self.param_ptrstr = '** '
+		if '* const*' in raw:
+			self.param_ptrstr = '* const* '
+		self.length = node.attrib.get('len') # eg 'null-terminated' or parameter name
+		altlen = node.attrib.get('altlen') # alternative to latex stuff
+		self.fixedsize = False
+		if altlen:
+			self.length = altlen
+		if self.length:
+			self.length = self.length.replace(',1', '')
+		if self.length and '::' in self.length:
+			self.length = self.length.replace('::','->')
+		if '[' in raw: # fixed length array?
+			enum_length = node.find('enum')
+			if enum_length: self.length = length.text # an enum define
+			else: self.length = getsize(raw) # a numeric value
+		if self.length and (self.length.isdigit() or self.length.isupper()):
+			self.fixedsize = True # fixed length array
+		self.structure = self.type in structures
+		self.disphandle = self.type in disp_handles
+		self.nondisphandle = self.type in nondisp_handles
+		self.inparam = (not self.ptr or self.const) # else out parameter
+		self.string_array = self.length and ',null-terminated' in self.length and self.type == 'char'
+		self.string = self.length == 'null-terminated' and self.type == 'char' and not self.string_array and not self.fixedsize
+		self.read = read
+
+		# We need to be really defensive and treat all pointers as potentially optional. We cannot trust the optional XML
+		# attribute since Khronos in their infinite wisdom have been turning formerly non-optional pointers into optional
+		# pointers over time, which would break traces. Optional handles are handled separately (but are also all considered
+		# potentially optional even though not set here).
+		self.optional = self.ptr
+		if self.ptr and (self.disphandle or self.nondisphandle) and not self.length: # pointers to single handles
+			self.optional = False
+		if self.string or self.string_array: # handle string optionalness specially
+			self.optional = False
+
+	# Pretty-print a single parameter
+	def parameter(self):
+		if self.length and not self.ptr:
+			return ('%s%s%s%s[%s]' % (self.mod, self.type, self.param_ptrstr, self.name, self.length)).strip()
+		return ('%s%s%s%s' % (self.mod, self.type, self.param_ptrstr, self.name)).strip()
+
+	# Pretty-print a single parameter for plugin API
+	def plugin_parameter(self):
+		if '*' in self.param_ptrstr and self.ptr:
+			return ('%s%s%s%s' % (self.mod, self.type, self.param_ptrstr, self.name)).strip()
+		elif '*' in self.param_ptrstr or (self.length and not self.ptr):
+			return ('%s%s%s%s[%s]' % (self.mod, self.type, self.param_ptrstr, self.name, self.length)).strip()
+		return ('%s%s&%s%s' % (self.mod, self.type, self.param_ptrstr, self.name)).strip()
+
 if __name__ == '__main__':
 	init()
