@@ -50,7 +50,8 @@ typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv, vulkan_
 
 struct vulkan_req_t // Vulkan context requirements
 {
-	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan14Features reqfeat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan13Features reqfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, &reqfeat14 };
 	VkPhysicalDeviceVulkan12Features reqfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &reqfeat13 };
 	VkPhysicalDeviceVulkan11Features reqfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &reqfeat12 };
 	VkPhysicalDeviceFeatures2 reqfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &reqfeat11 };

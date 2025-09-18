@@ -180,6 +180,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	for (int i = 1; i < argc; i++)
 	{
+		int old = i;
 		if (match(argv[i], "-h", "--help"))
 		{
 			print_usage(reqs);
@@ -239,7 +240,9 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				ELOG("Unrecognized or invalid cmd line parameter: %s", argv[i]);
 				print_usage(reqs);
 			}
+			continue; // do not run reqs.cmdopt twice
 		}
+		if (reqs.cmdopt) reqs.cmdopt(old, argc, argv, reqs); // allow specializations to handle the options as well
 	}
 
 	if (force_native_gpu && use_simulated_gpu)
@@ -339,7 +342,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 
 	// Set up the feature pnext chain
-	reqs.reqfeat13.pNext = reqs.extension_features;
+	reqs.reqfeat14.pNext = reqs.extension_features;
+	if (reqs.apiVersion < VK_API_VERSION_1_4) reqs.reqfeat13.pNext = reqs.extension_features;
 	if (reqs.apiVersion < VK_API_VERSION_1_3) reqs.reqfeat12.pNext = reqs.extension_features;
 	if (reqs.apiVersion < VK_API_VERSION_1_2) reqs.reqfeat11.pNext = reqs.extension_features;
 
