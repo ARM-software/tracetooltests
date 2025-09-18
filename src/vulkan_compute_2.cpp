@@ -14,11 +14,13 @@ static bool output = false;
 static unsigned nodes = 10;
 static vulkan_req_t req;
 static int sync_variant = 0;
+static bool maintenance5 = false; // use maintenance5 implicit shader module creation
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
 static int width = 64;
 static int height = 48;
+static VkPhysicalDeviceMaintenance5Features maint5features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES, nullptr };
 
 struct resources
 {
@@ -33,6 +35,7 @@ struct resources
 	std::vector<VkDescriptorSet> descriptorSet;
 	std::vector<VkBuffer> buffer;
 	std::vector<VkCommandBuffer> commandBuffer;
+	uint32_t buffer_size;
 };
 
 struct pixel
@@ -53,6 +56,7 @@ static void show_usage()
 	printf("\t1 - synchronized with vkQueueWaitIdlee\n");
 	printf("\t2 - synchronized with fences\n");
 	printf("-i/--image-output      Save an image of the output to disk\n");
+	printf("-m5/--maintenance5     Use maintenance5 extension for implicit shader module creation\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -88,6 +92,29 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		output = true;
 		return true;
 	}
+	else if (match(argv[i], "-m5", "--maintenance5"))
+	{
+		maintenance5 = true;
+		reqs.device_extensions.push_back("VK_KHR_depth_stencil_resolve"); // dependency
+		reqs.device_extensions.push_back("VK_KHR_dynamic_rendering"); // dependency
+		reqs.device_extensions.push_back("VK_KHR_maintenance5");
+		reqs.minApiVersion = std::max<unsigned>(VK_API_VERSION_1_2, reqs.minApiVersion);
+		reqs.apiVersion = std::max<unsigned>(VK_API_VERSION_1_2, reqs.apiVersion);
+		maint5features.pNext = reqs.extension_features;
+		maint5features.maintenance5 = VK_TRUE;
+		reqs.extension_features = (VkBaseInStructure*)&maint5features;
+		return true;
+	}
+	else if (match(argv[i], "-V", "--vulkan-variant")) // also handled in common code
+	{
+		int vulkan_variant = get_arg(argv, ++i, argc);
+		if (vulkan_variant == 4)
+		{
+			maintenance5 = true;
+			reqs.reqfeat14.maintenance5 = VK_TRUE;
+		}
+		return true;
+	}
 	return false;
 }
 
@@ -95,24 +122,33 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
 {
 	const std::vector<uint32_t> code = copy_shader(vulkan_compute_2_spirv,vulkan_compute_2_spirv_len);
 
-	VkShaderModuleCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = code.data();
 	createInfo.codeSize = code.size();
-	VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
-	check(result);
+	if (!maintenance5)
+	{
+		VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
+		check(result);
+	}
 
-	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {};
-	shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr };
 	shaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	shaderStageCreateInfo.module = r.computeShaderModule;
 	shaderStageCreateInfo.pName = "main";
+	if (maintenance5)
+	{
+		shaderStageCreateInfo.pNext = &createInfo;
+		shaderStageCreateInfo.module = VK_NULL_HANDLE;
+	}
+	else
+	{
+		shaderStageCreateInfo.module = r.computeShaderModule;
+	}
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &r.descriptorSetLayout;
-	result = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutCreateInfo, NULL, &r.pipelineLayout);
+	VkResult result = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutCreateInfo, NULL, &r.pipelineLayout);
 	check(result);
 
         VkComputePipelineCreateInfo pipelineCreateInfo = {};
@@ -132,8 +168,8 @@ int main(int argc, char** argv)
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_2", req);
 	VkResult result;
 	resources r;
-	const size_t buffer_size = sizeof(pixel) * width * height;
 
+	r.buffer_size = sizeof(pixel) * width * height;
 	r.buffer.resize(nodes);
 	r.commandBuffer.resize(nodes);
 	r.descriptorSet.resize(nodes);
@@ -142,7 +178,7 @@ int main(int argc, char** argv)
 	for (uint32_t i = 0; i < (unsigned)queues; i++) vkGetDeviceQueue(vulkan.device, 0, i, &r.queues.at(i));
 
 	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
-	bufferCreateInfo.size = buffer_size;
+	bufferCreateInfo.size = r.buffer_size;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	if (vulkan.garbage_pointers) bufferCreateInfo.pQueueFamilyIndices = (const uint32_t*)0xdeadbeef;
@@ -209,7 +245,7 @@ int main(int argc, char** argv)
 		VkDescriptorBufferInfo descriptorBufferInfo = {};
 		descriptorBufferInfo.buffer = r.buffer.at(i);
 		descriptorBufferInfo.offset = 0;
-		descriptorBufferInfo.range = buffer_size;
+		descriptorBufferInfo.range = r.buffer_size;
 		VkWriteDescriptorSet writeDescriptorSet = {};
 		writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeDescriptorSet.dstSet = r.descriptorSet.at(i);
@@ -298,7 +334,7 @@ int main(int argc, char** argv)
 	for (unsigned i = 0; i < nodes; i++) vkDestroyFence(vulkan.device, fences.at(i), NULL);
 	for (unsigned i = 0; i < nodes; i++) vkDestroyBuffer(vulkan.device, r.buffer.at(i), NULL);
 	testFreeMemory(vulkan, r.memory);
-	vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
+	if (!maintenance5) vkDestroyShaderModule(vulkan.device, r.computeShaderModule, NULL);
 	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
 	vkDestroyPipelineLayout(vulkan.device, r.pipelineLayout, NULL);

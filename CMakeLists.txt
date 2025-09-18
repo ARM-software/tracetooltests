@@ -218,6 +218,8 @@ vulkan_test_extra(vulkan_compute_1_test_5 compute_1 -i) # image output
 
 vulkan_test(compute_2)
 vulkan_test_extra(vulkan_compute_2_test_0 compute_2 -q 1 -s 1)
+vulkan_test_extra(vulkan_compute_2_test_m5 compute_2 -m5)
+vulkan_test_extra(vulkan_compute_2_test_V4 compute_2 -V 4)
 
 vulkan_test(compute_3)
 vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
