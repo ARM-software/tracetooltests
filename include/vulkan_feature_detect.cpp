@@ -112,6 +112,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityVulkanMemoryModelDeviceScope: instance->core12.vulkanMemoryModelDeviceScope = true; break;
 			case SpvCapabilityShaderViewportIndex: instance->core12.shaderOutputViewportIndex = true; break;
 			case SpvCapabilityShaderLayer: instance->core12.shaderOutputLayer = true; break;
+			case SpvCapabilityShaderViewportIndexLayerEXT: instance->has_VK_EXT_shader_viewport_index_layer = true; break;
 			default: break;
 			}
 		}
@@ -211,6 +212,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
+	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	return removed;
 }
 
@@ -411,10 +413,10 @@ VkResult check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperati
 
 VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
 {
-	VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
+	const VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
 	if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) instance->has_VkPhysicalDeviceShaderAtomicInt64Features = true;
 
-	VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
+	const VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
 	if (pdsiai64f && (pdsiai64f->shaderImageInt64Atomics || pdsiai64f->sparseImageInt64Atomics)) instance->has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT = true;
 
 	return VK_SUCCESS;

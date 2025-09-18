@@ -195,17 +195,20 @@ struct atomicPhysicalDeviceVulkan14Features // most are not handled
 
 struct feature_detection
 {
-	// Tracking data
+	// Features
 	struct atomicPhysicalDeviceFeatures core10;
 	struct atomicPhysicalDeviceVulkan11Features core11;
 	struct atomicPhysicalDeviceVulkan12Features core12;
 	struct atomicPhysicalDeviceVulkan13Features core13;
 	struct atomicPhysicalDeviceVulkan14Features core14;
+
+	// Extensions
 	std::atomic_bool has_VK_EXT_swapchain_colorspace { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderAtomicInt64Features { false };
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT { false };
 	std::atomic_bool has_VK_IMG_filter_cubic { false };
+	std::atomic_bool has_VK_EXT_shader_viewport_index_layer { false };
 
 	// --- Remove unused feature bits from these structures ---
 	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& exts) const;
