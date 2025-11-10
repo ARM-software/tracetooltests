@@ -48,7 +48,7 @@ void callback(const char* errinfo, const void* private_info, size_t cb, void* us
 	printf("Error from CL: %s\n", errinfo);
 }
 
-static std::string query_platform_string(cl_platform_id id, cl_platform_info param)
+std::string query_platform_string(cl_platform_id id, cl_platform_info param)
 {
 	size_t paramsize = 0;
 	cl_int r = clGetPlatformInfo(id, param, 0, nullptr, &paramsize);
@@ -60,6 +60,18 @@ static std::string query_platform_string(cl_platform_id id, cl_platform_info par
 	return str;
 }
 
+std::string query_device_string(cl_device_id id, cl_device_info param)
+{
+	size_t paramsize = 0;
+	cl_int r = clGetDeviceInfo(id, param, 0, nullptr, &paramsize);
+	assert(r == CL_SUCCESS);
+	std::string str;
+	str.resize(paramsize);
+	r = clGetDeviceInfo(id, param, paramsize, str.data(), nullptr);
+	assert(r == CL_SUCCESS);
+	return str;
+}
+
 opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, opencl_req_t& reqs)
 {
 	opencl_setup_t cl;
@@ -67,8 +79,12 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 	bool force_native_cpu = false;
 
 	// Parse bench enable file, if any
-	check_bench(cl, reqs, testname.c_str());
-	cl.bench.backend_name = "OpenCL"; // TBD + api;
+	if (!reqs.device_by_uuid)
+	{
+		check_bench(cl, reqs, testname.c_str());
+		cl.bench.backend_name = "OpenCL";
+	}
+	cl.device_by_uuid = (reqs.device_by_uuid != nullptr);
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -120,36 +136,106 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		printf("Failed to query platforms: %s\n", errorString(r));
 		exit(-1);
 	}
-	printf("We found %d CL platforms\n", (int)num_platforms);
-
+	printf("We found %d OpenCL platforms\n", (int)num_platforms);
+	cl_device_type device_type = CL_DEVICE_TYPE_GPU;
+	if (force_native_cpu) device_type = CL_DEVICE_TYPE_CPU;
+	// Print info
 	for (auto platform : platforms)
 	{
 		std::string vendor = query_platform_string(platform, CL_PLATFORM_VENDOR);
 		std::string version = query_platform_string(platform, CL_PLATFORM_VERSION);
 		std::string profile = query_platform_string(platform, CL_PLATFORM_PROFILE);
 		std::string name = query_platform_string(platform, CL_PLATFORM_NAME);
+#ifdef CL_VERSION_3_0
+		cl_version version_int = query_platform<cl_version>(platform, CL_PLATFORM_NUMERIC_VERSION);
+		printf("Platform %s by %s supporting %s with version %d.%d.%d\n", name.c_str(), vendor.c_str(), profile.c_str(),
+		       CL_VERSION_MAJOR(version_int), CL_VERSION_MINOR(version_int), CL_VERSION_PATCH(version_int));
+#else
 		printf("Platform %s by %s supporting %s with version %s\n", name.c_str(), vendor.c_str(), profile.c_str(), version.c_str());
+#endif
+	}
+	// Platform selection
+	bool found = false;
+	cl_uint num_devices = 0;
+	for (auto platform : platforms)
+	{
+		const char* type_name = force_native_cpu ? "CPU" : "GPU";
+		std::string platform_name = query_platform_string(platform, CL_PLATFORM_NAME);
+		std::string extensions = query_platform_string(platform, CL_PLATFORM_EXTENSIONS);
+		std::string::size_type n = extensions.find("cl_khr_device_uuid");
+		if (n == std::string::npos && cl.device_by_uuid)
+		{
+			printf("CL extension cl_khr_device_uuid is not supported on platform %s and is implicitly required\n", platform_name.c_str());
+			continue;
+		}
+#ifdef CL_VERSION_3_0
+		cl_version version_int = query_platform<cl_version>(platform, CL_PLATFORM_NUMERIC_VERSION);
+		if (version_int < reqs.minApiVersion)
+		{
+			printf("Platform %s does not support CL %d.%d.%d\n", platform_name.c_str(), CL_VERSION_MAJOR(reqs.minApiVersion),
+			       CL_VERSION_MINOR(reqs.minApiVersion), CL_VERSION_PATCH(reqs.minApiVersion));
+			continue;
+		}
+#endif
+
+		r = clGetDeviceIDs(platform, device_type, 0, nullptr, &num_devices);
+		if (num_devices == 0 || r == CL_DEVICE_NOT_FOUND)
+		{
+			printf("Platform %s has no %s type devices\n", platform_name.c_str(), type_name);
+			continue; // try to check another platform
+		}
+		assert(r == CL_SUCCESS);
+		std::vector<cl_device_id> devices(num_devices);
+		r = clGetDeviceIDs(platform, device_type, num_devices, devices.data(), nullptr);
+		assert(r == CL_SUCCESS);
+		printf("We found %d OpenCL %s devices on platform %s\n", (int)num_devices, type_name, platform_name.c_str());
+		for (const auto& device : devices)
+		{
+			std::string device_name = query_device_string(device, CL_DEVICE_NAME);
+			cl_bool available = query_device<cl_bool>(device, CL_DEVICE_AVAILABLE);
+			if (!available)
+			{
+				printf("Platform %s device %s is not available\n", platform_name.c_str(), device_name.c_str());
+				continue; // try another device
+			}
+			if (cl.device_by_uuid)
+			{
+				cl_uchar uuid[CL_UUID_SIZE_KHR];
+				memset(uuid, 0, sizeof(uuid));
+				int r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
+				assert(r == CL_SUCCESS);
+				if (strcmp((char*)uuid, (char*)cl.device_by_uuid) != 0)
+				{
+					printf("Platform %s device %s skipped -- not the requested device\n", platform_name.c_str(), device_name.c_str());
+					continue; // try another device
+				}
+			}
+			cl_uint compute_units = query_device<cl_uint>(device, CL_DEVICE_MAX_COMPUTE_UNITS);
+			printf("Selected device %s on platform %s with %d compute units\n", device_name.c_str(), platform_name.c_str(), (int)compute_units);
+			cl.platform_id = platform;
+			cl.device_id = device;
+			found = true;
+			break;
+		}
+		if (found) break;
 	}
 
-	// TBD actually use the above platform info somehow
-	if (force_native_cpu)
+	if (num_devices == 0)
 	{
-		cl_uint num_devices;
-		r = clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_CPU, 0, nullptr, &num_devices);
-		assert(r == CL_SUCCESS);
-		r = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, 1, &cl.device_id, NULL);
-		assert(r == CL_SUCCESS);
-		printf("We found %d CPU CL devices on the default platform\n", (int)num_devices);
+		printf("We found no CL devices of the requested type\n");
+		exit(-77);
 	}
-	else
+
+#ifdef CL_VERSION_3_0
+	cl_version version_int = query_device<cl_version>(cl.device_id, CL_DEVICE_NUMERIC_VERSION);
+	if (version_int < reqs.minApiVersion)
 	{
-		cl_uint num_devices;
-		r = clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_GPU, 0, nullptr, &num_devices);
-		assert(r == CL_SUCCESS);
-		r = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &cl.device_id, NULL);
-		assert(r == CL_SUCCESS);
-		printf("We found %d GPU CL devices on the default platform\n", (int)num_devices);
+		printf("Supported host CL version is %d.%d.%d, while we require %d.%d.%d\n",
+		       CL_VERSION_MAJOR(version_int), CL_VERSION_MINOR(version_int), CL_VERSION_PATCH(version_int),
+		       CL_VERSION_MAJOR(reqs.minApiVersion), CL_VERSION_MINOR(reqs.minApiVersion), CL_VERSION_PATCH(reqs.minApiVersion));
+		exit(-77);
 	}
+#endif
 
 	cl.context = clCreateContext(0, 1, &cl.device_id, callback, NULL, &r);
 	if (!cl.context)
@@ -157,6 +243,20 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		printf("Failed to create a CL context: %s\n", errorString(r));
 		exit(-1);
 	}
+
+	// We check and fail here rather than filter on this requirement since this generates much better error
+	// messages for users, even though it is strictly less correct.
+	std::string extensions = query_device_string(cl.device_id, CL_DEVICE_EXTENSIONS);
+	for (const std::string& s : cl.extensions)
+	{
+		std::string::size_type n = extensions.find(s);
+		if (n == std::string::npos)
+		{
+			printf("CL extension %s is not supported\n", s.c_str());
+			exit(-77);
+		}
+	}
+
 #ifdef CL_VERSION_2_0
 	cl.commands = clCreateCommandQueueWithProperties(cl.context, cl.device_id, nullptr, &r);
 #else
@@ -165,14 +265,15 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 	if (!cl.commands)
 	{
 		printf("Failed to create CL command queue: %s\n", errorString(r));
+		exit(-1);
 	}
 
 	return cl;
 }
 
-void cl_test_done(opencl_setup_t& cl, bool shared_instance)
+void cl_test_done(opencl_setup_t& cl)
 {
-	bench_done(cl.bench);
+	if (!cl.device_by_uuid) bench_done(cl.bench);
 
 	int r = clReleaseCommandQueue(cl.commands);
 	if (r != CL_SUCCESS) printf("Failed to release CL command queue: %s\n", errorString(r));
