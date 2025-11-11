@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	MAKEDEVICEPROCADDR(vulkan, vkCreateTensorViewARM);
 	MAKEDEVICEPROCADDR(vulkan, vkDestroyTensorViewARM);
 	MAKEDEVICEPROCADDR(vulkan, vkBindTensorMemoryARM);
-	MAKEDEVICEPROCADDR(vulkan, vkGetPhysicalDeviceExternalTensorPropertiesARM);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceExternalTensorPropertiesARM);
 	MAKEDEVICEPROCADDR(vulkan, vkCmdCopyTensorARM);
 
 	VkQueue queue;
@@ -172,8 +172,8 @@ int main(int argc, char** argv)
 
 	pf_vkDestroyTensorViewARM(vulkan.device, VK_NULL_HANDLE, nullptr);
 	pf_vkDestroyTensorViewARM(vulkan.device, tensor_view, nullptr);
-	pf_vkDestroyTensorARM(vulkan.device, tensor, nullptr);
 	pf_vkDestroyTensorARM(vulkan.device, VK_NULL_HANDLE, nullptr);
+	pf_vkDestroyTensorARM(vulkan.device, tensor, nullptr);
 	testFreeMemory(vulkan, memory);
 
 	bench_stop_iteration(vulkan.bench);
