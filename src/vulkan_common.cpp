@@ -293,7 +293,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		}
 		if (instance_required.size() > 0)
 		{
-			printf("Missing required instance extensions:\n");
+			printf("Missing required Vulkan instance extensions:\n");
 			for (auto str : instance_required) printf("\t%s\n", str.c_str());
 			exit(77);
 		}
@@ -520,11 +520,11 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			}
 		}
 	}
-	if (enabledExtensions.size() > 0) printf("Required device extensions:\n");
+	if (enabledExtensions.size() > 0) printf("Required Vulkan device extensions:\n");
 	for (auto str : enabledExtensions) printf("\t%s\n", str);
 	if (device_required.size() > 0)
 	{
-		printf("Missing required device extensions:\n");
+		printf("Missing required Vulkan device extensions:\n");
 		for (auto str : device_required) printf("\t%s\n", str.c_str());
 		exit(77);
 	}

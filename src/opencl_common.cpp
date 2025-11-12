@@ -204,7 +204,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 				memset(uuid, 0, sizeof(uuid));
 				int r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
 				assert(r == CL_SUCCESS);
-				if (strcmp((char*)uuid, (char*)cl.device_by_uuid) != 0)
+				if (strcmp((char*)uuid, (char*)reqs.device_by_uuid) != 0)
 				{
 					printf("Platform %s device %s skipped -- not the requested device\n", platform_name.c_str(), device_name.c_str());
 					continue; // try another device
@@ -247,8 +247,10 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 	// We check and fail here rather than filter on this requirement since this generates much better error
 	// messages for users, even though it is strictly less correct.
 	std::string extensions = query_device_string(cl.device_id, CL_DEVICE_EXTENSIONS);
-	for (const std::string& s : cl.extensions)
+	if (reqs.extensions.size() > 0) printf("Required OpenCL extensions:\n");
+	for (const std::string& s : reqs.extensions)
 	{
+		printf("\t%s\n", s.c_str());
 		std::string::size_type n = extensions.find(s);
 		if (n == std::string::npos)
 		{

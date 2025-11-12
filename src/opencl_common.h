@@ -31,7 +31,7 @@
 // ---- Common code ----
 
 #define MAKEPLATFORMPROCADDR(v, name) \
-	PFN_ ## name pf_ ## name = (PFN_ ## name)clGetExtensionFunctionAddressForPlatform(v.platform, # name); \
+	name ## _fn pf_ ## name = (name ## _fn)clGetExtensionFunctionAddressForPlatform(v.platform_id, # name); \
 	assert(pf_ ## name);
 
 const char* errorString(const int errorCode);
@@ -46,13 +46,13 @@ inline void check(int result)
 }
 
 struct opencl_req_t;
-typedef void (*TOOLSTEST_CALLBACK_USAGE)();
-typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv, opencl_req_t& reqs);
+typedef void (*TOOLSTEST_CL_CALLBACK_USAGE)();
+typedef bool (*TOOLSTEST_CL_CALLBACK_CMDOPT)(int& i, int argc, char **argv, opencl_req_t& reqs);
 
 struct opencl_req_t // OpenCL context requirements
 {
-	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
-	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
+	TOOLSTEST_CL_CALLBACK_USAGE usage = nullptr;
+	TOOLSTEST_CL_CALLBACK_CMDOPT cmdopt = nullptr;
 	std::unordered_map<std::string, std::variant<int, bool, std::string>> options;
 	std::vector<std::string> extensions;
 	uint8_t* device_by_uuid = nullptr; // request a specific device by UUID
@@ -65,7 +65,6 @@ struct opencl_setup_t
 	cl_context context;
 	cl_command_queue commands;
 	cl_platform_id platform_id;
-	std::unordered_set<std::string> extensions;
 	benchmarking bench;
 	bool device_by_uuid = false; // user requested a specific device by UUID
 };
