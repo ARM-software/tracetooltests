@@ -100,6 +100,7 @@ int main(int argc, char** argv)
 		char* data = nullptr;
 		result = vkMapMemory(vulkan.device, ubo_memory, 0, aligned_buffer_size, 0, (void**)&data);
 		*((uint64_t*)data) = address;
+		testFlushMemory(vulkan, ubo_memory, 0, aligned_buffer_size, vulkan.has_explicit_host_updates);
 		vkUnmapMemory(vulkan.device, ubo_memory);
 	}
 	else

@@ -378,6 +378,7 @@ void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & res
 	void * mapped = nullptr;
 	vkMapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, 0, handle_size, 0, &mapped);
 	memcpy(mapped, shader_handle_storage.data(), handle_size);
+	testFlushMemory(vulkan, resources.ray_gen_shader_binding_table.memory, 0, handle_size, vulkan.has_explicit_host_updates);
 	vkUnmapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory);
 }
 

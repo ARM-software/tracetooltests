@@ -406,7 +406,8 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			check(vkMapMemory(vulkan.device, resources.copied_blas_buffer.memory, 0, build_size_info.accelerationStructureSize, 0, &data_copy_blas));
 
 			memcpy(data_copy_blas, data_original_blas, build_size_info.accelerationStructureSize);  // Adjust the size if necessary
-			
+
+			testFlushMemory(vulkan, resources.copied_blas_buffer.memory, 0, build_size_info.accelerationStructureSize, vulkan.has_explicit_host_updates);
 			vkUnmapMemory(vulkan.device, resources.blas_buffer.memory);
 			vkUnmapMemory(vulkan.device, resources.copied_blas_buffer.memory);
 			break;
@@ -613,6 +614,7 @@ void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & res
 	void * mapped = nullptr;
 	vkMapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, 0, handle_size, 0, &mapped);
 	memcpy(mapped, shader_handle_storage.data(), handle_size);
+	testFlushMemory(vulkan, resources.ray_gen_shader_binding_table.memory, 0, handle_size, vulkan.has_explicit_host_updates);
 	vkUnmapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory);
 }
 
