@@ -29,14 +29,14 @@ static uint32_t handle_size;
 static bool blas_build_frame = false;
 static bool tlas_build_frame = false;
 
-enum CopyFormat 
+enum CopyFormat
 {
   compact_vkCmdCopyAccelerationStructureKHR = 0,
   clone_vkCmdCopyAccelerationStructureKHR = 1 ,
   copy_vkCmdCopyBuffer = 2 ,
   copy_memcpy = 3
-}; 
-static CopyFormat copy_format; 
+};
+static CopyFormat copy_format;
 
 struct Resources
 {
@@ -139,7 +139,7 @@ void free_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
 
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.tlas.handle, nullptr);
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.copied_blas.handle, nullptr);
-	
+
 	vkFreeMemory(vulkan.device, resources.tlas_buffer.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, resources.tlas_buffer.handle, nullptr);
 	vkFreeMemory(vulkan.device, resources.instance_buffer.memory, nullptr);
@@ -197,7 +197,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 	check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas.handle));
-	
+
 	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
 	blas_device_adress_info.accelerationStructure = resources.blas.handle;
@@ -241,7 +241,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 	vkCmdPipelineBarrier(resources.command_buffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier , 0, nullptr, 0, nullptr);
-		
+
 	resources.functions.vkCmdWriteAccelerationStructuresPropertiesKHR(resources.command_buffer, 1, &resources.blas.handle , VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, resources.query_pool, 0);
 
 	check(vkEndCommandBuffer(resources.command_buffer));
@@ -253,7 +253,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 	vkFreeMemory(vulkan.device, scratch_bottom.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_bottom.handle, nullptr);
-	
+
 	switch(copy_format)
 	{
 		case CopyFormat::compact_vkCmdCopyAccelerationStructureKHR :
@@ -278,14 +278,14 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			compacted_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 			check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &compacted_create_info, nullptr, &resources.copied_blas.handle));
-			
+
 			VkAccelerationStructureDeviceAddressInfoKHR copied_blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
-			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;	
+			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;
 
 			resources.copied_blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &copied_blas_device_adress_info);
 
-			
+
 			VkCopyAccelerationStructureInfoKHR copy_info{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
 			copy_info.src = resources.blas.handle;
 			copy_info.dst = resources.copied_blas.handle;
@@ -293,7 +293,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 			check(vkResetCommandBuffer(resources.command_buffer, 0));
 			check(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
-			
+
 			resources.functions.vkCmdCopyAccelerationStructureKHR(resources.command_buffer, &copy_info);
 
 			check(vkEndCommandBuffer(resources.command_buffer));
@@ -317,14 +317,14 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			compacted_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 			check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &compacted_create_info, nullptr, &resources.copied_blas.handle));
-			
+
 			VkAccelerationStructureDeviceAddressInfoKHR copied_blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
 			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;	
 
 			resources.copied_blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &copied_blas_device_adress_info);
 
-			
+
 			VkCopyAccelerationStructureInfoKHR copy_info{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
 			copy_info.src = resources.blas.handle;
 			copy_info.dst = resources.copied_blas.handle;
@@ -332,7 +332,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 			check(vkResetCommandBuffer(resources.command_buffer, 0));
 			check(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
-			
+
 			resources.functions.vkCmdCopyAccelerationStructureKHR(resources.command_buffer, &copy_info);
 
 			check(vkEndCommandBuffer(resources.command_buffer));
@@ -356,19 +356,19 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			compacted_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 			check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &compacted_create_info, nullptr, &resources.copied_blas.handle));
-			
+
 			VkAccelerationStructureDeviceAddressInfoKHR copied_blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
-			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;	
+			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;
 
 			resources.copied_blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &copied_blas_device_adress_info);
 
-			
+
 			const VkBufferCopy info_regions{0,0, build_size_info.accelerationStructureSize};
 
 			check(vkResetCommandBuffer(resources.command_buffer, 0));
 			check(vkBeginCommandBuffer(resources.command_buffer, &command_buffer_begin_info));
-			
+
 			vkCmdCopyBuffer(resources.command_buffer, resources.blas_buffer.handle,  resources.copied_blas_buffer.handle, 1, &info_regions);
 
 			check(vkEndCommandBuffer(resources.command_buffer));
@@ -392,10 +392,10 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			compacted_create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 			check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &compacted_create_info, nullptr, &resources.copied_blas.handle));
-			
+
 			VkAccelerationStructureDeviceAddressInfoKHR copied_blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
-			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;	
+			copied_blas_device_adress_info.accelerationStructure = resources.copied_blas.handle;
 
 			resources.copied_blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &copied_blas_device_adress_info);
 
@@ -417,7 +417,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 			exit(-1);
 	}
 
-	// destroy original BLAS handle after its built and address is retrieved - it will no longer be used 
+	// destroy original BLAS handle after its built and address is retrieved - it will no longer be used
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
 	vkFreeMemory(vulkan.device,resources.blas_buffer.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, resources.blas_buffer.handle, nullptr);
@@ -536,7 +536,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 	check(vkQueueWaitIdle(resources.queue));
-	
+
 	vkDestroyBuffer(vulkan.device, scratch_buffer.handle, nullptr);
 	vkFreeMemory(vulkan.device, scratch_buffer.memory, nullptr);
 
@@ -707,7 +707,7 @@ bool parse_parameters(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-cf", "--copy-format"))
 	{
 		int copy_format_variant = get_arg(argv, ++i, argc);
-		
+
 		if (copy_format_variant == 0) copy_format = CopyFormat::compact_vkCmdCopyAccelerationStructureKHR;
 		else if (copy_format_variant == 1)  copy_format = CopyFormat::clone_vkCmdCopyAccelerationStructureKHR;
 		else if (copy_format_variant == 2)  copy_format = CopyFormat::copy_vkCmdCopyBuffer;
@@ -730,7 +730,7 @@ int main(int argc, char** argv)
 	reqs.options["tlas-build-frame"] = false;
 	reqs.options["blas-build-frame"] = false;
 	reqs.options["copy-format"] = 0;
-	
+
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_tracing_features, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");

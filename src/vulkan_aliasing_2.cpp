@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 	VkQueue queue;
 	uint32_t orig_crc_child_1 = 0;
 	uint32_t orig_crc_child_2 = 0;
-    uint32_t latest_crc_child_1 = 0;
+	uint32_t latest_crc_child_1 = 0;
 
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
 	bufferCreateInfo.size = 1024;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &child_1);
 	assert(result == VK_SUCCESS);
-    bufferCreateInfo.size = 1536;
+	bufferCreateInfo.size = 1536;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &child_2);
 	assert(result == VK_SUCCESS);
 
@@ -94,13 +94,13 @@ int main(int argc, char** argv)
 	if (flush_variant == 1 || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 512, 1536, flush_variant != 1);
 	vkUnmapMemory(vulkan.device, memory);
 
-    //remap child_1 buffer to see if overlapping buffer child_2 has modified it
-    result = vkMapMemory(vulkan.device, memory, 0, 1024, 0, (void**)&data);
+	// remap child_1 buffer to see if overlapping buffer child_2 has modified it
+	result = vkMapMemory(vulkan.device, memory, 0, 1024, 0, (void**)&data);
 	assert(result == VK_SUCCESS);
 	latest_crc_child_1 = adler32((unsigned char*)data, 1024);
 	vkUnmapMemory(vulkan.device, memory);
 
-    assert(latest_crc_child_1 != orig_crc_child_1);
+	assert(latest_crc_child_1 != orig_crc_child_1);
 
 	if (vulkan.vkAssertBuffer)
 	{
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 		assert(crc_child_2 == orig_crc_child_2);
 		(void)crc_child_2;
 	}
-    
+
 	testQueueBuffer(vulkan, queue, { child_1, child_2 });
 
 	vkDestroyBuffer(vulkan.device, fake_parent, nullptr);
