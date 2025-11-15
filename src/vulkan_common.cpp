@@ -680,7 +680,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 		void *mapped;
 		check(vkMapMemory(vulkan.device, buffer.memory, 0, size, 0, &mapped));
 		memcpy(mapped, data, size);
-		testFlushMemory(vulkan, buffer.memory, 0, size, vulkan.has_explicit_host_updates);
+		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, buffer.memory, 0, size, vulkan.has_explicit_host_updates);
 		vkUnmapMemory(vulkan.device, buffer.memory);
 	}
 	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));

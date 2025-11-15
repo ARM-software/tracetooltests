@@ -133,7 +133,7 @@ int main(int argc, char** argv)
 		data[0] = ceil(width / float(workgroup_size));
 		data[1] = ceil(height / float(workgroup_size));
 		data[2] = 1;
-		testFlushMemory(vulkan, indirectMemory, start_offset, VK_WHOLE_SIZE, vulkan.has_explicit_host_updates);
+		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, indirectMemory, start_offset, VK_WHOLE_SIZE, vulkan.has_explicit_host_updates);
 		vkUnmapMemory(vulkan.device, indirectMemory);
 	}
 
