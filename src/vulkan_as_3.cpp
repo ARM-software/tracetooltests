@@ -250,10 +250,6 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t& vulkan, Re
 	for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
 	{
 		assert(compacted_sizes[as_index] <= as_build_size_infos[as_index].accelerationStructureSize);
-		if (compacted_sizes[as_index] == as_build_size_infos[as_index].accelerationStructureSize)
-		{
-			continue;
-		}
 
 		resources.optimized_bl_acc_buffers[as_index] = acceleration_structures::prepare_buffer(
 			vulkan, compacted_sizes[as_index],
