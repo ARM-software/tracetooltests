@@ -32,7 +32,6 @@ int main(int argc, char** argv)
 	VkBuffer child;
 	VkQueue queue;
 	uint32_t orig_crc_parent = 0;
-	uint32_t orig_crc_child = 0;
 
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
@@ -87,7 +86,7 @@ int main(int argc, char** argv)
 		assert(parent_crc == orig_crc_parent);
 		(void)parent_crc;
 		const uint32_t child_crc = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, "child buffer");
-		assert(child_crc == orig_crc_child);
+		assert(child_crc == orig_crc_parent);
 		(void)child_crc;
 	}
 
