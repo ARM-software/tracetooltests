@@ -2,13 +2,20 @@
 #include <inttypes.h>
 
 static vulkan_req_t reqs;
+static bool aliasing = false;
 
 static void show_usage()
 {
+	printf("-A / --alias           Add image/tensor aliasing\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
+	if (match(argv[i], "-A", "--alias"))
+	{
+		aliasing = true;
+		return true;
+	}
 	return false;
 }
 
@@ -40,12 +47,12 @@ int main(int argc, char** argv)
 	VkQueue queue;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
-	int64_t dimension = 64;
+	std::vector<int64_t> dimensions { 64, 64 };
 	VkTensorDescriptionARM td = { VK_STRUCTURE_TYPE_TENSOR_DESCRIPTION_ARM, nullptr };
 	td.tiling = VK_TENSOR_TILING_LINEAR_ARM;
 	td.format = VK_FORMAT_R8_UINT;
-	td.dimensionCount = 1;
-	td.pDimensions = &dimension;
+	td.dimensionCount = dimensions.size();
+	td.pDimensions = dimensions.data();
 	td.pStrides = nullptr;
 	td.usage = VK_TENSOR_USAGE_TRANSFER_SRC_BIT_ARM | VK_TENSOR_USAGE_TRANSFER_DST_BIT_ARM;
 	VkTensorCreateInfoARM tci = { VK_STRUCTURE_TYPE_TENSOR_CREATE_INFO_ARM, nullptr };
@@ -108,15 +115,39 @@ int main(int argc, char** argv)
 	check(r);
 	assert(memory != VK_NULL_HANDLE);
 
+	if (aliasing)
+	{
+		VkImageCreateInfo imageCreateInfo { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
+		imageCreateInfo.flags = 0;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = VK_FORMAT_R8_UINT;
+		imageCreateInfo.extent.width = 64;
+		imageCreateInfo.extent.height = 64;
+		imageCreateInfo.extent.depth = 1;
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCreateInfo.queueFamilyIndexCount = 0;
+		imageCreateInfo.pQueueFamilyIndices = nullptr;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		VkImage image;
+		r = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &image);
+		assert(r == VK_SUCCESS);
+		vkBindImageMemory(vulkan.device, image, memory, 0);
+	}
+
 	VkBindTensorMemoryInfoARM btmi = { VK_STRUCTURE_TYPE_BIND_TENSOR_MEMORY_INFO_ARM, nullptr };
 	btmi.tensor = tensor;
 	btmi.memory = memory;
 	btmi.memoryOffset = 0;
-	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi);
+	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi); // potentially aliasing the image
 	check(r);
 	btmi.tensor = target;
 	btmi.memoryOffset = aligned_size;
-	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi);
+	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi); // not aliasing any image
 	check(r);
 
 	VkCommandPool command_pool;
