@@ -128,8 +128,8 @@ int main(int argc, char** argv)
 		imageCreateInfo.mipLevels = 1;
 		imageCreateInfo.arrayLayers = 1;
 		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL; // see VUID-VkImageCreateInfo-tiling-09711
-		imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TENSOR_ALIASING_BIT_ARM | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR; // do note VUID-VkImageCreateInfo-tiling-09711
+		imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		imageCreateInfo.queueFamilyIndexCount = 0;
 		imageCreateInfo.pQueueFamilyIndices = nullptr;
