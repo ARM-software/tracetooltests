@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <vector>
 #include "spirv/unified1/spirv.h"
 #include "vulkan/vulkan.h"
 
@@ -19,20 +20,18 @@ static inline const void* find_extension(const void* sptr, VkStructureType sType
 	return ptr;
 }
 
-static inline bool shader_has_device_addresses(const uint32_t* code, uint32_t code_size)
+static inline bool shader_has_device_addresses(const std::vector<uint32_t>& code)
 {
 	uint16_t opcode;
 	uint16_t word_count;
-	const uint32_t* insn = code + 5;
-	assert(code_size % 4 == 0); // aligned
-	code_size /= 4; // from bytes to words
+	const uint32_t* insn = code.data() + 5;
 	do {
 		opcode = uint16_t(insn[0]);
 		word_count = uint16_t(insn[0] >> 16);
 		if (opcode == SpvOpExtension && strcmp((char*)&insn[2], "KHR_physical_storage_buffer") == 0) return true;
 		insn += word_count;
 	}
-	while (insn != code + code_size && opcode != SpvOpMemoryModel);
+	while (insn != code.data() + code.size() && opcode != SpvOpMemoryModel);
 	return false;
 }
 

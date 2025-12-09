@@ -124,7 +124,7 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
 
 	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = code.data();
-	createInfo.codeSize = code.size();
+	createInfo.codeSize = code.size() * sizeof(uint32_t);
 	if (!maintenance5)
 	{
 		VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);

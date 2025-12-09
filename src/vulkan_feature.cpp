@@ -87,7 +87,7 @@ int main()
 
 	VkShaderModuleCreateInfo smci = {};
 	smci.pCode = (uint32_t*)vulkan_compute_bda_sc_spirv;
-	smci.codeSize = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * 4;
+	smci.codeSize = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * sizeof(uint32_t);
 	VkResult r = check_vkCreateShaderModule(VK_NULL_HANDLE, &smci, nullptr, nullptr);
 	assert(r == VK_SUCCESS);
 

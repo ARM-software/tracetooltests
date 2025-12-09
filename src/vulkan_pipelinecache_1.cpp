@@ -59,7 +59,7 @@ static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
 
 static void createComputePipeline(vulkan_setup_t& vulkan, resources& r, VkPipelineCache cache)
 {
-	uint32_t code_size = long(ceil(vulkan_compute_1_spirv_len / 4.0)) * 4;
+	uint32_t code_size = long(ceil(vulkan_compute_1_spirv_len / 4.0)) * sizeof(uint32_t);
 	std::vector<uint32_t> code(code_size);
 	memcpy(code.data(), vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
 

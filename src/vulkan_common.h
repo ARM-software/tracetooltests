@@ -181,7 +181,7 @@ bool enable_frame_boundary(vulkan_req_t& reqs);
 static inline std::vector<uint32_t> copy_shader(unsigned char* arr, uint32_t size)
 {
 	std::vector<uint32_t> code;
-	const uint32_t code_size = long(ceil(size / 4.0)) * 4;
+	const uint32_t code_size = (size + 3) / 4;
 	code.resize(code_size);
 	memcpy(code.data(), arr, size);
 	return code;

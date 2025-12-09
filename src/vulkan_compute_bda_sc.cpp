@@ -28,10 +28,10 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 {
 	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = r.code.data();
-	createInfo.codeSize = r.code.size();
+	createInfo.codeSize = r.code.size() * sizeof(uint32_t);
 	VkResult result = vkCreateShaderModule(vulkan.device, &createInfo, NULL, &r.computeShaderModule);
 	check(result);
-	assert(shader_has_device_addresses(r.code.data(), r.code.size()));
+	assert(shader_has_device_addresses(r.code));
 
 	std::vector<VkSpecializationMapEntry> smentries(7);
 	for (unsigned i = 0; i < smentries.size(); i++)
