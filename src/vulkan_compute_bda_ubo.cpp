@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 	else
 	{
 		VkDeviceSize offset = 0;
-		VkAddressRemapARM ar = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_ARM, nullptr };
+		VkDeviceAddressOffsetsARM ar = { VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM, nullptr };
 		ar.count = 1;
 		ar.pOffsets = &offset;
 		VkUpdateMemoryInfoARM ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &ar };

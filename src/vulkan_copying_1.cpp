@@ -264,8 +264,15 @@ static void copying_1(int argc, char** argv)
 	{
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
-			const uint32_t orig = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE, "original buffer");
-			const uint32_t dest = vulkan.vkAssertBuffer(vulkan.device, target_buffers.at(i), 0, VK_WHOLE_SIZE, "target buffer");
+			uint32_t orig = 0;
+			uint32_t dest = 0;
+			VkResult result = VK_ERROR_UNKNOWN;
+			result = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE, &orig, "original buffer");
+			assert(result == VK_SUCCESS);
+			(void)result;
+			result = vulkan.vkAssertBuffer(vulkan.device, target_buffers.at(i), 0, VK_WHOLE_SIZE, &dest, "target buffer");
+			assert(result == VK_SUCCESS);
+			(void)result;
 			assert(orig == dest);
 		}
 	}

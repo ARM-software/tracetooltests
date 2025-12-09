@@ -104,13 +104,20 @@ int main(int argc, char** argv)
 
 	if (vulkan.vkAssertBuffer)
 	{
-		const uint32_t crc_child_1 = vulkan.vkAssertBuffer(vulkan.device, child_1, 0, VK_WHOLE_SIZE, "child_1 buffer");
+		uint32_t crc_child_1 = 0;
+		uint32_t crc_child_2 = 0;
+		VkResult result = VK_ERROR_UNKNOWN;
+		result = vulkan.vkAssertBuffer(vulkan.device, child_1, 0, VK_WHOLE_SIZE, &crc_child_1, "child_1 buffer");
+		assert(result == VK_SUCCESS);
 		assert(crc_child_1 != orig_crc_child_1);
         assert(crc_child_1 == latest_crc_child_1);
 		(void)crc_child_1;
-		const uint32_t crc_child_2 = vulkan.vkAssertBuffer(vulkan.device, child_2, 0, VK_WHOLE_SIZE, "child_2 buffer");
+		(void)result;
+		result = vulkan.vkAssertBuffer(vulkan.device, child_2, 0, VK_WHOLE_SIZE, &crc_child_2, "child_2 buffer");
+		assert(result == VK_SUCCESS);
 		assert(crc_child_2 == orig_crc_child_2);
 		(void)crc_child_2;
+		(void)result;
 	}
     
 	testQueueBuffer(vulkan, queue, { child_1, child_2 });
