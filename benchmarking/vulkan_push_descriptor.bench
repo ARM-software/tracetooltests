@@ -1,0 +1,1 @@
+{ "name": "vulkan_push_descriptor", "description": "Basic test for VK_KHR_push_descriptor" }

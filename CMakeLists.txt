@@ -247,6 +247,7 @@ vulkan_test(aliasing_3)
 vulkan_test(timeline_semaphore_1)
 vulkan_test(fence_delay)
 vulkan_test(updatedescriptor_1)
+vulkan_test(push_descriptor)
 vulkan_test(tensors_1)
 vulkan_test(cooperative_matrix)
 

@@ -221,6 +221,12 @@ int main(int argc, char** argv)
 		ret = 1;
 	}
 
+	if (vk.vkAssertBuffer)
+	{
+		printf("Writing out checksum\n");
+		vk.vkAssertBuffer(vk.device, buffer, 0, VK_WHOLE_SIZE, "Results buffer");
+	}
+
 	// 5) Cleanup
 	vkDestroyPipeline(vk.device, pipeline, nullptr);
 	vkDestroyPipelineLayout(vk.device, layout, nullptr);
