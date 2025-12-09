@@ -16,7 +16,6 @@
   - ARMv8: `cmake -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/fbdev_aarch64.cmake ..`
 - Build: `make -j`  | Run tests: `ctest --output-on-failure`
 - Example run: `./vulkan_general --help` (from `build/`).
-- Useful env for Vulkan: `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`.
 
 ## Coding Style & Naming Conventions
 - Language: C++17 with `-Wall -g`. Match existing style in `src/` and `include/`.
@@ -25,24 +24,25 @@
 - Bench files: add `benchmarking/<api>_<name>.bench` aligned with the target name.
 
 ## Testing Guidelines
-- Tests run via CTest; some skip on unsupported platforms (return code 77).
-- Focused runs: `ctest -R vulkan_general --output-on-failure`.
-- Runtime controls (see README): `TOOLSTEST_TIMES`, `TOOLSTEST_SANITY`, `TOOLSTEST_NULL_RUN`, `TOOLSTEST_STEP`, `TOOLSTEST_WINSYS=headless`, `TOOLSTEST_VALIDATION=1`.
-- For Vulkan validation, set `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`.
+- Run test binaries directly, do not run via CTest.
+- For Vulkan tests, add the command line parameter `--gpu-simulated` to workaround AI sandbox problems.
+- For Vulkan tests, also add the command line parameter `-v` to enable the Vulkan validation layer.
+- Some tests return error code 77 to indicate feature not supported.
 
 ## Commit & Pull Request Guidelines
 - Commits: concise, imperative present tense (e.g., “Add explicit flush for BDA”). Reference issues (`Fixes #123`) when applicable.
 - PRs: include purpose, platform details (OS, GPU/driver), reproduction steps, and before/after metrics or screenshots when relevant. Update docs/bench files and CMake as needed.
 
 ## Notes & Configuration Tips
-- Window system is selectable via `-DWINDOWSYSTEM=<x11|sdl|fbuffers|fbdev>`; default is X11.
+- For GLES, window system is selectable via `-DWINDOWSYSTEM=<x11|sdl|fbuffers|fbdev>`; default is X11.
 - Optional components can be toggled at configure time, e.g., `-DNO_VULKAN=1`, `-DNO_GLES=1`, `-DNO_CL=1`.
 - For Vulkan headers, install LunarG SDK or use provided `external/` headers as configured.
 
 ## Add A New Vulkan Test
 - Create source `src/vulkan_<name>.cpp` and a bench file `benchmarking/vulkan_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `vulkan_test(<name>)`.
-- Build and run: `ctest -R vulkan_<name> --output-on-failure`.
+- Build and run, from build directory: `./vulkan_<name> -v --gpu-simulated`.
+- Fix any Vulkan validation errors shown in the output from the run.
 
 Minimal `src/vulkan_<name>.cpp`:
 ```cpp
