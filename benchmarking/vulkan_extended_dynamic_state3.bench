@@ -1,0 +1,1 @@
+{ "name": "vulkan_extended_dynamic_state3", "description": "Validate VK_EXT_extended_dynamic_state3 dynamic commands (EXT/KHR only)" }

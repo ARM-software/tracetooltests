@@ -249,6 +249,7 @@ vulkan_test(fence_delay)
 vulkan_test(updatedescriptor_1)
 vulkan_test(push_descriptor)
 vulkan_test(host_image_copy)
+vulkan_test(extended_dynamic_state3)
 vulkan_test(tensors_1)
 vulkan_test(cooperative_matrix)
 
