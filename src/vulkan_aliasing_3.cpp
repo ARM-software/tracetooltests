@@ -82,10 +82,14 @@ int main(int argc, char** argv)
 
 	if (vulkan.vkAssertBuffer)
 	{
-		const uint32_t parent_crc = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, "parent buffer");
+		uint32_t parent_crc = 0;
+		result = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, &parent_crc, "parent buffer");
+		check(result);
 		assert(parent_crc == orig_crc_parent);
 		(void)parent_crc;
-		const uint32_t child_crc = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, "child buffer");
+		uint32_t child_crc = 0;
+		result = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, &child_crc, "child buffer");
+		check(result);
 		assert(child_crc == orig_crc_parent);
 		(void)child_crc;
 	}

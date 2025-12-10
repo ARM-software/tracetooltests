@@ -224,7 +224,9 @@ int main(int argc, char** argv)
 	if (vk.vkAssertBuffer)
 	{
 		printf("Writing out checksum\n");
-		vk.vkAssertBuffer(vk.device, buffer, 0, VK_WHOLE_SIZE, "Results buffer");
+		uint32_t crc = 0;
+		r = vk.vkAssertBuffer(vk.device, buffer, 0, VK_WHOLE_SIZE, &crc, "Results buffer");
+		check(r);
 	}
 
 	// 5) Cleanup
