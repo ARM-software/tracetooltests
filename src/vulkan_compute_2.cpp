@@ -15,12 +15,14 @@ static unsigned nodes = 10;
 static vulkan_req_t req;
 static int sync_variant = 0;
 static bool maintenance5 = false; // use maintenance5 implicit shader module creation
+static bool pipeline_binary = false; // use VK_KHR_pipeline_binary
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
 static int width = 64;
 static int height = 48;
 static VkPhysicalDeviceMaintenance5Features maint5features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES, nullptr };
+static VkPhysicalDevicePipelineBinaryFeaturesKHR pipelineBinaryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_BINARY_FEATURES_KHR, nullptr };
 
 struct resources
 {
@@ -35,6 +37,7 @@ struct resources
 	std::vector<VkDescriptorSet> descriptorSet;
 	std::vector<VkBuffer> buffer;
 	std::vector<VkCommandBuffer> commandBuffer;
+	VkPipelineBinaryKHR pipelineBinary;
 	uint32_t buffer_size;
 };
 
@@ -57,6 +60,7 @@ static void show_usage()
 	printf("\t2 - synchronized with fences\n");
 	printf("-i/--image-output      Save an image of the output to disk\n");
 	printf("-m5/--maintenance5     Use maintenance5 extension for implicit shader module creation\n");
+	printf("-b/--pipeline-binary   Enable VK_KHR_pipeline_binary for pipeline creation\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -90,6 +94,21 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	else if (match(argv[i], "-i", "--image-output"))
 	{
 		output = true;
+		return true;
+	}
+	else if (match(argv[i], "-b", "--pipeline-binary"))
+	{
+		pipeline_binary = true;
+		reqs.device_extensions.push_back("VK_KHR_pipeline_binary");
+		reqs.device_extensions.push_back("VK_KHR_maintenance5"); // required by pipeline binary
+		reqs.device_extensions.push_back("VK_KHR_depth_stencil_resolve"); // maintenance5 dependency
+		reqs.device_extensions.push_back("VK_KHR_dynamic_rendering"); // maintenance5 dependency
+		reqs.minApiVersion = std::max<unsigned>(VK_API_VERSION_1_2, reqs.minApiVersion);
+		reqs.apiVersion = std::max<unsigned>(VK_API_VERSION_1_2, reqs.apiVersion);
+		reqs.reqfeat14.maintenance5 = VK_TRUE;
+		pipelineBinaryFeatures.pNext = reqs.extension_features;
+		pipelineBinaryFeatures.pipelineBinaries = VK_TRUE;
+		reqs.extension_features = (VkBaseInStructure*)&pipelineBinaryFeatures;
 		return true;
 	}
 	else if (match(argv[i], "-m5", "--maintenance5"))
@@ -156,7 +175,78 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
         pipelineCreateInfo.stage = shaderStageCreateInfo;
         pipelineCreateInfo.layout = r.pipelineLayout;
 
+	VkPipelineBinaryInfoKHR pipelineBinaryInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_INFO_KHR, nullptr };
+	bool usingPipelineBinary = false;
+	if (pipeline_binary)
+	{
+		MAKEDEVICEPROCADDR(vulkan, vkCreatePipelineBinariesKHR);
+		MAKEDEVICEPROCADDR(vulkan, vkGetPipelineBinaryDataKHR);
+		MAKEDEVICEPROCADDR(vulkan, vkGetPipelineKeyKHR);
+
+		VkPipelineCreateInfoKHR pipelineCreateInfoKHR = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_INFO_KHR, &pipelineCreateInfo };
+		VkPipelineBinaryKeyKHR createKey = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR, nullptr };
+		VkResult keyResult = pf_vkGetPipelineKeyKHR(vulkan.device, &pipelineCreateInfoKHR, &createKey);
+		if (keyResult == VK_SUCCESS)
+		{
+			printf("Pipeline binary key size from create info %u\n", createKey.keySize);
+		}
+		else
+		{
+			printf("vkGetPipelineKeyKHR failed: %s\n", errorString(keyResult));
+		}
+
+		VkPipelineBinaryHandlesInfoKHR handlesInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_HANDLES_INFO_KHR, nullptr };
+		handlesInfo.pipelineBinaryCount = 1;
+		handlesInfo.pPipelineBinaries = &r.pipelineBinary;
+
+		VkPipelineBinaryCreateInfoKHR binaryCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_CREATE_INFO_KHR, nullptr };
+		binaryCreateInfo.pPipelineCreateInfo = &pipelineCreateInfoKHR;
+
+		VkResult binaryResult = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
+		if (binaryResult == VK_SUCCESS && r.pipelineBinary != VK_NULL_HANDLE)
+		{
+			VkPipelineBinaryDataInfoKHR dataInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_DATA_INFO_KHR, nullptr };
+			dataInfo.pipelineBinary = r.pipelineBinary;
+			VkPipelineBinaryKeyKHR pipelineKey = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR, nullptr };
+			size_t pipelineBinarySize = 0;
+			VkResult dataResult = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &pipelineKey, &pipelineBinarySize, nullptr);
+			if (dataResult == VK_SUCCESS)
+			{
+				printf("Pipeline binary key size %u, data size %zu\n", pipelineKey.keySize, pipelineBinarySize);
+				if (pipelineBinarySize > 0)
+				{
+					std::vector<uint8_t> binaryData(pipelineBinarySize);
+					dataResult = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &pipelineKey, &pipelineBinarySize, binaryData.data());
+					if (dataResult == VK_SUCCESS) printf("Retrieved pipeline binary data\n");
+					else printf("vkGetPipelineBinaryDataKHR (data) failed: %s\n", errorString(dataResult));
+				}
+			}
+			else
+			{
+				printf("vkGetPipelineBinaryDataKHR failed: %s\n", errorString(dataResult));
+			}
+			pipelineBinaryInfo.binaryCount = 1;
+			pipelineBinaryInfo.pPipelineBinaries = &r.pipelineBinary;
+			pipelineCreateInfo.pNext = &pipelineBinaryInfo;
+			usingPipelineBinary = true;
+		}
+		else if (binaryResult == VK_PIPELINE_BINARY_MISSING_KHR)
+		{
+			printf("Pipeline binary missing, continuing without cached binary\n");
+		}
+		else
+		{
+			printf("vkCreatePipelineBinariesKHR failed: %s\n", errorString(binaryResult));
+		}
+	}
+
 	result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+	if (result == VK_PIPELINE_BINARY_MISSING_KHR && usingPipelineBinary)
+	{
+		printf("Pipeline binary missing during pipeline creation, retrying without it\n");
+		pipelineCreateInfo.pNext = nullptr;
+		result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+	}
 	check(result);
 }
 
@@ -167,7 +257,7 @@ int main(int argc, char** argv)
 	req.queues = queues;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_2", req);
 	VkResult result;
-	resources r;
+	resources r{};
 
 	r.buffer_size = sizeof(pixel) * width * height;
 	r.buffer.resize(nodes);
@@ -338,6 +428,11 @@ int main(int argc, char** argv)
 	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
 	vkDestroyPipelineLayout(vulkan.device, r.pipelineLayout, NULL);
+	if (pipeline_binary && r.pipelineBinary != VK_NULL_HANDLE)
+	{
+		MAKEDEVICEPROCADDR(vulkan, vkDestroyPipelineBinaryKHR);
+		pf_vkDestroyPipelineBinaryKHR(vulkan.device, r.pipelineBinary, nullptr);
+	}
 	vkDestroyPipeline(vulkan.device, r.pipeline, NULL);
 	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
 
