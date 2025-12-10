@@ -43,6 +43,7 @@
 - Register the test in `CMakeLists.txt` with `vulkan_test(<name>)`.
 - Build and run, from build directory: `./vulkan_<name> -v --gpu-simulated`.
 - Fix any Vulkan validation errors shown in the output from the run.
+- Use the check() function to test Vulkan call return values. Put it on a separate line after the Vulkan call. Do not wrap the Vulkan call.
 
 Minimal `src/vulkan_<name>.cpp`:
 ```cpp
