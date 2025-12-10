@@ -66,6 +66,12 @@ Minimal `benchmarking/vulkan_<name>.bench`:
 { "name": "vulkan_<name>", "description": "Short description of test" }
 ```
 
+### Add a new shader file for Vulkan
+- Shaders shall be in separate files with extension giving their type, eg .comp for compute shaders, like `vulkan_<name>.<ext>`.
+- Generate SPIRV from the GLSL source code with `glslangValidator -V vulkan_<name>.<ext> -o vulkan_<name>_<ext>.spirv`
+- Then generate an include file with `xxd -i vulkan_<name>_<ext>.spirv > vulkan_<name>_<ext>.inc`
+- Include this file in the C++ source code with `#include "vulkan_<name>_<ext>.inc"`
+
 ## Add A New GLES Test
 - Create source `src/gles_<name>.cpp` and a bench file `benchmarking/gles_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `gles_test(<name>)`.
@@ -127,9 +133,3 @@ Minimal `benchmarking/opencl_<name>.bench`:
 ```json
 { "name": "opencl_<name>", "description": "Short description of test" }
 ```
-
-### Add a new shader file for Vulkan
-- Shaders shall be in separate files with extension giving their type, eg .comp for compute shaders, like `vulkan_<name>.<ext>`.
-- Generate SPIRV from the GLSL source code with `glslangValidator -V vulkan_<name>.<ext> -o vulkan_<name>_<ext>.spirv`
-- Then generate an include file with `xxd -i vulkan_<name>_<ext>.spirv > vulkan_<name>_<ext>.inc`
-- Include this file in the C++ source code with `#include "vulkan_<name>_<ext>.inc"`
