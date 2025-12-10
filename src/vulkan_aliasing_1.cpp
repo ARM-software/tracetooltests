@@ -107,15 +107,25 @@ int main(int argc, char** argv)
 
 	if (vulkan.vkAssertBuffer)
 	{
-		const uint32_t parent_crc = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, "parent buffer");
+		uint32_t parent_crc = 0;
+		uint32_t child_crc = 0;
+		uint32_t alien_crc = 0;
+		VkResult result = VK_ERROR_UNKNOWN;
+		result = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, &parent_crc, "parent buffer");
+		assert(result == VK_SUCCESS);
 		assert(parent_crc == orig_crc_parent);
 		(void)parent_crc;
-		const uint32_t child_crc = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, "child buffer");
+		(void)result;
+		result = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, &child_crc, "child buffer");
+		assert(result == VK_SUCCESS);
 		assert(child_crc == orig_crc_child);
 		(void)child_crc;
-		const uint32_t alien_crc = vulkan.vkAssertBuffer(vulkan.device, alien, 0, VK_WHOLE_SIZE, "aliased buffer");
+		(void)result;
+		result = vulkan.vkAssertBuffer(vulkan.device, alien, 0, VK_WHOLE_SIZE, &alien_crc, "aliased buffer");
+		assert(result == VK_SUCCESS);
 		assert(child_crc == orig_crc_alien);
 		(void)alien_crc;
+		(void)result;
 	}
 
 	testQueueBuffer(vulkan, queue, { parent, child });

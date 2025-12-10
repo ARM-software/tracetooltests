@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 		pushinfo.size = sizeof(PushConstants);
 		pushinfo.pValues = &constants;
 		VkDeviceSize markup_location = 0;
-		VkAddressRemapARM mm = { VK_STRUCTURE_TYPE_ADDRESS_REMAP_ARM, pushinfo.pNext };
+		VkDeviceAddressOffsetsARM mm = { VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM, pushinfo.pNext };
 		mm.count = 1;
 		mm.pOffsets = &markup_location;
 		if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
