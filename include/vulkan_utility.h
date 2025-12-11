@@ -20,19 +20,26 @@ static inline const void* find_extension(const void* sptr, VkStructureType sType
 	return ptr;
 }
 
-static inline bool shader_has_device_addresses(const std::vector<uint32_t>& code)
+static inline bool shader_has_device_addresses(const uint32_t* code, uint32_t code_size)
 {
 	uint16_t opcode;
 	uint16_t word_count;
-	const uint32_t* insn = code.data() + 5;
+	const uint32_t* insn = code + 5;
+	assert(code_size % 4 == 0); // aligned
+	code_size /= 4; // from bytes to words
 	do {
 		opcode = uint16_t(insn[0]);
 		word_count = uint16_t(insn[0] >> 16);
 		if (opcode == SpvOpExtension && strcmp((char*)&insn[2], "KHR_physical_storage_buffer") == 0) return true;
 		insn += word_count;
 	}
-	while (insn != code.data() + code.size() && opcode != SpvOpMemoryModel);
+	while (insn != code + code_size && opcode != SpvOpMemoryModel);
 	return false;
+}
+
+static inline bool shader_has_device_addresses(const std::vector<uint32_t>& code)
+{
+	return shader_has_device_addresses(code.data(), code.size() * sizeof(uint32_t));
 }
 
 static inline void* find_extension_parent(void* sptr, VkStructureType sType)
