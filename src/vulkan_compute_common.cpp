@@ -385,6 +385,18 @@ void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulka
 	}
 
 	result = vkCreateComputePipelines(vulkan.device, r.cache, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+	if (reqs.options.count("allow_compile_required") && (result == VK_PIPELINE_COMPILE_REQUIRED || result == VK_PIPELINE_COMPILE_REQUIRED_EXT))
+	{
+		printf("Pipeline compile required, retrying without FAIL_ON flag\n");
+		pipelineCreateInfo.flags &= ~VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT;
+		result = vkCreateComputePipelines(vulkan.device, r.cache, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+	}
+	if (reqs.options.count("allow_compile_required") && (result == VK_PIPELINE_COMPILE_REQUIRED || result == VK_PIPELINE_COMPILE_REQUIRED_EXT))
+	{
+		printf("Pipeline still needs compilation, skipping pipeline creation\n");
+		r.pipeline = VK_NULL_HANDLE;
+		return;
+	}
 	check(result);
 
 	if (reqs.apiVersion == VK_API_VERSION_1_3)

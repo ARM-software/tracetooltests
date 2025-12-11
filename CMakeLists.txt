@@ -253,7 +253,7 @@ vulkan_test(extended_dynamic_state3)
 vulkan_test(pipeline_executable_properties)
 vulkan_test(tensors_1)
 vulkan_test(cooperative_matrix)
-
+vulkan_test(pipeline_creation_cache_control)
 vulkan_test(graphics_1)
 
 # These are only built, not automatically run as part of the test suite
