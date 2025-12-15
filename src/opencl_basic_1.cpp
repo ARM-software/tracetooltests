@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 
 	cl_kernel kernel = clCreateKernel(program, "square", &r);
 	assert(kernel);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	unsigned int count = DATA_SIZE;
 	float data[DATA_SIZE];
@@ -77,25 +77,25 @@ int main(int argc, char** argv)
 	assert(output);
 
 	r = clEnqueueWriteBuffer(cl.commands, input, CL_TRUE, 0, sizeof(float) * count, data, 0, NULL, NULL);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	r  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	r = clSetKernelArg(kernel, 1, sizeof(cl_mem), &output);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	r = clSetKernelArg(kernel, 2, sizeof(unsigned int), &count);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	r = clGetKernelWorkGroupInfo(kernel, cl.device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	global = count;
 	r = clEnqueueNDRangeKernel(cl.commands, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	clFinish(cl.commands);
 	r = clEnqueueReadBuffer(cl.commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 
 	for (unsigned i = 0; i < count; i++)
 	{

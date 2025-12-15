@@ -36,7 +36,7 @@
 
 const char* errorString(const int errorCode);
 
-inline void check(int result)
+inline void cl_check(int result)
 {
 	if (result != CL_SUCCESS)
 	{

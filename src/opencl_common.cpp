@@ -52,11 +52,11 @@ std::string query_platform_string(cl_platform_id id, cl_platform_info param)
 {
 	size_t paramsize = 0;
 	cl_int r = clGetPlatformInfo(id, param, 0, nullptr, &paramsize);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	std::string str;
 	str.resize(paramsize);
 	r = clGetPlatformInfo(id, param, paramsize, str.data(), nullptr);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	return str;
 }
 
@@ -64,11 +64,11 @@ std::string query_device_string(cl_device_id id, cl_device_info param)
 {
 	size_t paramsize = 0;
 	cl_int r = clGetDeviceInfo(id, param, 0, nullptr, &paramsize);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	std::string str;
 	str.resize(paramsize);
 	r = clGetDeviceInfo(id, param, paramsize, str.data(), nullptr);
-	assert(r == CL_SUCCESS);
+	cl_check(r);
 	return str;
 }
 
@@ -184,10 +184,10 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 			printf("Platform %s has no %s type devices\n", platform_name.c_str(), type_name);
 			continue; // try to check another platform
 		}
-		assert(r == CL_SUCCESS);
+		cl_check(r);
 		std::vector<cl_device_id> devices(num_devices);
 		r = clGetDeviceIDs(platform, device_type, num_devices, devices.data(), nullptr);
-		assert(r == CL_SUCCESS);
+		cl_check(r);
 		printf("We found %d OpenCL %s devices on platform %s\n", (int)num_devices, type_name, platform_name.c_str());
 		for (const auto& device : devices)
 		{
@@ -203,7 +203,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 				cl_uchar uuid[CL_UUID_SIZE_KHR];
 				memset(uuid, 0, sizeof(uuid));
 				int r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
-				assert(r == CL_SUCCESS);
+				cl_check(r);
 				if (strcmp((char*)uuid, (char*)reqs.device_by_uuid) != 0)
 				{
 					printf("Platform %s device %s skipped -- not the requested device\n", platform_name.c_str(), device_name.c_str());

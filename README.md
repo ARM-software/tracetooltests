@@ -104,7 +104,7 @@ Known issues
 * The multi-surface tests do not work with the SDL backend.
 
 Ubuntu and OpenCL:
-* Install ocl-icd-opencl-dev and mesa-opencl-icd
+* apt install ocl-icd-opencl-dev mesa-opencl-icd pocl-opencl-icd
 * On Intel also install intel-opencl-icd
 
 AI code generation
