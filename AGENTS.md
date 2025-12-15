@@ -41,8 +41,10 @@
 ## Add A New Vulkan Test
 - Create source `src/vulkan_<name>.cpp` and a bench file `benchmarking/vulkan_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `vulkan_test(<name>)`.
-- Build and run, from build directory: `./vulkan_<name> -v --gpu-simulated`.
-- Fix any Vulkan validation errors shown in the output from the run.
+- Build with 'make -j'
+- Run from build directory without GPU: `./vulkan_<name> -v --gpu-simulated`.
+- Run from build directory with GPU: `./vulkan_<name> -v --gpu-native`.
+- Fix any Vulkan validation errors shown in the output from the above runs.
 - Use the check() function to test Vulkan call return values. Put it on a separate line after the Vulkan call. Do not wrap the Vulkan call.
 
 Minimal `src/vulkan_<name>.cpp`:
@@ -75,7 +77,8 @@ Minimal `benchmarking/vulkan_<name>.bench`:
 ## Add A New GLES Test
 - Create source `src/gles_<name>.cpp` and a bench file `benchmarking/gles_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `gles_test(<name>)`.
-- Build and run: `ctest -R gles_<name> --output-on-failure`.
+- Build with 'make -j'
+- Run test as: `ctest -R gles_<name> --output-on-failure`.
 
 Minimal `src/gles_<name>.cpp`:
 ```cpp
@@ -110,7 +113,11 @@ Minimal `benchmarking/gles_<name>.bench`:
 ## Add A New OpenCL Test
 - Create source `src/opencl_<name>.cpp` and a bench file `benchmarking/opencl_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `cl_test(<name> 300)`.
-- Build and run: `ctest -R cl_<name> --output-on-failure`.
+- Use the cl_check() function to test OpenCL call return values. Put it on a separate line after the OpenCL call. Do not wrap the OpenCL call.
+- Build with 'make -j'
+- Run from build directory without GPU: `./opencl_<name> -v --gpu-simulated`.
+- Run from build directory with GPU: `./opencl_<name> -v --gpu-native`.
+- Fix any errors shown in the output from the above runs.
 
 Minimal `src/opencl_<name>.cpp`:
 ```cpp

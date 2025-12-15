@@ -86,11 +86,14 @@ int main(int argc, char** argv)
 	r = clSetKernelArg(kernel, 2, sizeof(unsigned int), &count);
 	cl_check(r);
 
+	global = count;
 	r = clGetKernelWorkGroupInfo(kernel, cl.device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
 	cl_check(r);
+	// Use runtime-chosen local size if the reported max size does not divide the global size (common on CPU runtimes).
+	if (local == 0 || global % local != 0) local = 0;
 
-	global = count;
-	r = clEnqueueNDRangeKernel(cl.commands, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+	size_t* local_ptr = local ? &local : nullptr;
+	r = clEnqueueNDRangeKernel(cl.commands, kernel, 1, NULL, &global, local_ptr, 0, NULL, NULL);
 	cl_check(r);
 
 	clFinish(cl.commands);
