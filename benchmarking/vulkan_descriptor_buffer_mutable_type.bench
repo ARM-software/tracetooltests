@@ -1,0 +1,11 @@
+{
+	"name": "vulkan_descriptor_buffer_mutable_type",
+	"description": "Test of mutable descriptor type in descriptor_buffer",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.0", "1.1", "1.2", "1.3" ]
+		}
+	}
+}

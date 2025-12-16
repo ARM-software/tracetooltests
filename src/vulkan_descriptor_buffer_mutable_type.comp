@@ -1,0 +1,90 @@
+#version 450
+
+layout(local_size_x_id = 0) in;
+layout(local_size_y_id = 1) in;
+layout(local_size_z_id = 2) in;
+layout(constant_id = 3) const int indexCount = 0;
+
+struct DrawCmd {
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+};
+
+struct DrawIndexedCmd {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+
+layout(std430, set = 0, binding = 0) buffer IndirectCmdBuffer {
+    uint count;
+    DrawIndexedCmd cmds[];
+} outIndirect;
+
+layout(std430, set = 0, binding = 1) readonly buffer ObjectInputData
+{
+    vec4 boundingSphere[];  // center.xyz, radius
+} objIn;
+
+layout(std430, push_constant) uniform CameraData
+{
+    mat4 view;
+    mat4 proj;
+} camera;
+
+bool sphereInFrustum(vec3 center, float radius, mat4 vp)
+{
+    vec4 row0 = vec4(vp[0][0], vp[1][0], vp[2][0], vp[3][0]);
+    vec4 row1 = vec4(vp[0][1], vp[1][1], vp[2][1], vp[3][1]);
+    vec4 row2 = vec4(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
+    vec4 row3 = vec4(vp[0][3], vp[1][3], vp[2][3], vp[3][3]);
+
+    vec4 planes[6];
+    planes[0] = row3 + row0; // left
+    planes[1] = row3 - row0; // right
+    planes[2] = row3 + row1; // bottom
+    planes[3] = row3 - row1; // top
+    planes[4] = row3 + row2; // near
+    planes[5] = row3 - row2; // far
+
+    for (int i = 0; i < 6; ++i) {
+        float len = length(planes[i].xyz);
+        planes[i] /= len;
+        float d = dot(planes[i].xyz, center) + planes[i].w;
+        if (d < -radius) return false;
+    }
+    return true;
+}
+
+void main()
+{
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= objIn.boundingSphere.length())
+        return;
+
+    vec4 sphere = objIn.boundingSphere[idx];
+    vec3 center = sphere.xyz;
+    float radius = sphere.w;
+
+    mat4 vp = camera.proj * camera.view;
+    bool visible = sphereInFrustum(center, radius, vp);
+
+    if (visible)
+    {
+        uint dst = atomicAdd(outIndirect.count, 1u);
+        //outIndirect.cmds[dst].vertexCount = indexCount;
+        outIndirect.cmds[dst].indexCount = indexCount;
+
+        outIndirect.cmds[dst].instanceCount = 1u;
+
+        //outIndirect.cmds[dst].firstVertex = 0u;
+        outIndirect.cmds[dst].firstIndex = 0u;
+        outIndirect.cmds[dst].vertexOffset = 0;
+
+        outIndirect.cmds[dst].firstInstance = idx;
+    }
+}
