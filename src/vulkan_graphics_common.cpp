@@ -58,6 +58,7 @@ VkResult Buffer::create(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPro
 	m_createInfo.pNext = m_pCreateInfoNext;
 
 	m_memoryProperty = properties;
+	m_size = size;
 
 	// feature and version required should be checked at the beginning of benchmark
 	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
@@ -215,7 +216,7 @@ VkResult TexelBufferView::destroy()
 }
 
 VkResult Image::create(VkExtent3D extent, VkFormat format, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t queueFamilyIndexCount /*= 0*/,
-						uint32_t* queueFamilyIndex /*= nullptr*/, uint32_t mipLevels /*= 1*/, VkImageTiling tiling /*= VK_IMAGE_TILING_OPTIMAL*/)
+                       uint32_t* queueFamilyIndex /*= nullptr*/, uint32_t mipLevels /*= 1*/, VkImageTiling tiling /*= VK_IMAGE_TILING_OPTIMAL*/)
 {
 	m_format = format;
 	setAspectMask(format);
@@ -537,9 +538,25 @@ void CommandBuffer::bindPipeline(VkPipelineBindPoint bindpoint, const GraphicPip
 	vkCmdBindPipeline(m_handle, bindpoint, pipeline.getHandle());
 }
 
+void CommandBuffer::bufferMemoryBarrier(Buffer& buffer, VkDeviceSize offset, VkDeviceSize size,
+                                        VkAccessFlags srcAccess, VkAccessFlags dstAccess,
+                                        VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+{
+	VkBufferMemoryBarrier barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr};
+	barrier.srcAccessMask = srcAccess;
+	barrier.dstAccessMask = dstAccess;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = buffer.getHandle();
+	barrier.offset = offset;
+	barrier.size   = size;
+
+	vkCmdPipelineBarrier(m_handle, srcStage, dstStage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+}
+
 void CommandBuffer::imageMemoryBarrier(Image& image, VkImageLayout oldLayout, VkImageLayout newLayout,
-									VkAccessFlags srcAccess, VkAccessFlags dstAccess,
-									VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+                                       VkAccessFlags srcAccess, VkAccessFlags dstAccess,
+                                       VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
 {
 	if (image.m_imageLayout != oldLayout)
 	{
@@ -634,7 +651,7 @@ VkResult Shader::create()
 VkResult RenderPass::create(const std::vector<AttachmentInfo>& attachments, const std::vector<SubpassInfo>& subpasses)
 {
 	return create(static_cast<uint32_t>(attachments.size()), attachments,
-				static_cast<uint32_t>(subpasses.size()), subpasses);
+	              static_cast<uint32_t>(subpasses.size()), subpasses);
 }
 
 VkResult RenderPass::create(uint32_t attachmentCount, const std::vector<AttachmentInfo>& attachments, uint32_t subpassCount, const std::vector<SubpassInfo>& subpasses)
@@ -658,7 +675,7 @@ VkResult RenderPass::create(uint32_t attachmentCount, const std::vector<Attachme
 		subDescription.pColorAttachments = subpass.m_colorAttachments.data();
 		subDescription.pResolveAttachments = subpass.m_resolveAttachments.data();
 		subDescription.pDepthStencilAttachment =
-			(subpass.m_depthAttachment.attachment != VK_ATTACHMENT_UNUSED)? &subpass.m_depthAttachment : nullptr;
+		    (subpass.m_depthAttachment.attachment != VK_ATTACHMENT_UNUSED)? &subpass.m_depthAttachment : nullptr;
 		subDescription.preserveAttachmentCount = 0;
 		subDescription.pPreserveAttachments = nullptr;
 		m_subpassDescriptions.emplace_back(subDescription);
@@ -749,8 +766,8 @@ void ShaderPipelineState::setSpecialization(const std::vector<VkSpecializationMa
 	m_specializationInfo.dataSize = dataSize;
 
 	m_data = { reinterpret_cast<const char*>(pdata),
-			reinterpret_cast<const char*>(pdata) + dataSize
-	};
+	           reinterpret_cast<const char*>(pdata) + dataSize
+	         };
 	m_specializationInfo.pData = m_data.data();
 
 	m_createInfo.pSpecializationInfo = &m_specializationInfo;
@@ -811,9 +828,9 @@ GraphicPipelineState::GraphicPipelineState()
 	m_depthStencilState.depthBoundsTestEnable = false;
 	m_depthStencilState.stencilTestEnable     = false;
 	m_depthStencilState.front
-		= { VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_ALWAYS, 255u, 255u, 255u };
+	    = { VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_ALWAYS, 255u, 255u, 255u };
 	m_depthStencilState.back
-		= { VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_ALWAYS, 255u, 255u, 255u };
+	    = { VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_STENCIL_OP_KEEP, VK_COMPARE_OP_ALWAYS, 255u, 255u, 255u };
 	m_depthStencilState.minDepthBounds = 0.0f;
 	m_depthStencilState.maxDepthBounds = 1.0f;
 
@@ -934,6 +951,8 @@ VkResult DescriptorSetLayout::destroy()
 	}
 	m_createInfoNexts.clear();
 	m_bindingFlags.clear();
+	m_mutableTypeList.clear();
+	m_mutableTypes.clear();
 	m_pCreateInfoNext = nullptr;
 
 	m_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
@@ -948,7 +967,8 @@ void DescriptorSetLayout::insertBinding(uint32_t binding, VkDescriptorType type,
 VkDescriptorType DescriptorSetLayout::getDescriptorType(uint32_t binding) const
 {
 	auto bindingIter = std::find_if(m_bindings.begin(), m_bindings.end(),
-	[&](const VkDescriptorSetLayoutBinding& descriptorSetBinding) {
+	                                [&](const VkDescriptorSetLayoutBinding& descriptorSetBinding)
+	{
 		return descriptorSetBinding.binding == binding;
 	});
 
@@ -970,6 +990,36 @@ void DescriptorSetLayout::insertNext<VkDescriptorSetLayoutBindingFlagsCreateInfo
 	if (next.pBindingFlags)
 		m_bindingFlags = { next.pBindingFlags, next.pBindingFlags+next.bindingCount };
 	pInfo->pBindingFlags = m_bindingFlags.data();
+
+	m_pCreateInfoNext = (VkBaseInStructure*)pInfo;
+	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
+}
+
+template <>
+void DescriptorSetLayout::insertNext<VkMutableDescriptorTypeCreateInfoEXT>(const VkMutableDescriptorTypeCreateInfoEXT& next)
+{
+	VkMutableDescriptorTypeCreateInfoEXT* pInfo = (VkMutableDescriptorTypeCreateInfoEXT*)malloc(sizeof(VkMutableDescriptorTypeCreateInfoEXT));
+	pInfo->sType = next.sType;
+	pInfo->pNext = m_pCreateInfoNext;
+	pInfo->mutableDescriptorTypeListCount = next.mutableDescriptorTypeListCount;
+	if (next.pMutableDescriptorTypeLists)
+	{
+		uint32_t i = 0;
+		while (i < next.mutableDescriptorTypeListCount)
+		{
+			if (next.pMutableDescriptorTypeLists[i].pDescriptorTypes)
+			{
+				m_mutableTypes.push_back({next.pMutableDescriptorTypeLists[i].pDescriptorTypes,
+				                          next.pMutableDescriptorTypeLists[i].pDescriptorTypes + next.pMutableDescriptorTypeLists[i].descriptorTypeCount});
+			}
+			VkMutableDescriptorTypeListEXT mutable_desc;
+			mutable_desc.descriptorTypeCount = next.pMutableDescriptorTypeLists[i].descriptorTypeCount;
+			mutable_desc.pDescriptorTypes = (next.pMutableDescriptorTypeLists[i].pDescriptorTypes) ? m_mutableTypes.at(i).data() : nullptr;
+			m_mutableTypeList.push_back(mutable_desc);
+			i++;
+		}
+	}
+	pInfo->pMutableDescriptorTypeLists = m_mutableTypeList.data();
 
 	m_pCreateInfoNext = (VkBaseInStructure*)pInfo;
 	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
@@ -1034,7 +1084,7 @@ VkResult DescriptorSet::create()
 void DescriptorSet::insertNext(const VkDescriptorSetVariableDescriptorCountAllocateInfo& next)
 {
 	VkDescriptorSetVariableDescriptorCountAllocateInfo* pInfo
-		= (VkDescriptorSetVariableDescriptorCountAllocateInfo*)malloc(sizeof(VkDescriptorSetVariableDescriptorCountAllocateInfo));
+	    = (VkDescriptorSetVariableDescriptorCountAllocateInfo*)malloc(sizeof(VkDescriptorSetVariableDescriptorCountAllocateInfo));
 	pInfo->sType = next.sType;
 	pInfo->pNext = m_pCreateInfoNext;
 	pInfo->descriptorSetCount = next.descriptorSetCount;
@@ -1253,7 +1303,7 @@ VkResult PipelineLayout::destroy()
 	return result;
 }
 
-VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, uint32_t subpassIndex /*=0*/)
+VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags/* = 0*/, uint32_t subpassIndex /*=0*/)
 {
 	/* store resources to local storage, so that the objects in param list could be released */
 
@@ -1278,11 +1328,11 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 		{
 			m_specializationInfos[index] = *info.pSpecializationInfo;
 			m_specializationMapEntries[index] = { info.pSpecializationInfo->pMapEntries,
-												info.pSpecializationInfo->pMapEntries + info.pSpecializationInfo->mapEntryCount
-			};
+			                                      info.pSpecializationInfo->pMapEntries + info.pSpecializationInfo->mapEntryCount
+			                                    };
 			m_specializationData[index] = { reinterpret_cast<const char*>(info.pSpecializationInfo->pData),
-											reinterpret_cast<const char*>(info.pSpecializationInfo->pData) + info.pSpecializationInfo->dataSize
-			};
+			                                reinterpret_cast<const char*>(info.pSpecializationInfo->pData) + info.pSpecializationInfo->dataSize
+			                              };
 
 			m_specializationInfos[index].pMapEntries = m_specializationMapEntries[index].data();
 			m_specializationInfos[index].pData = m_specializationData[index].data();
@@ -1300,8 +1350,8 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 	}
 
 	m_vertexInputAttributeDescriptions = { graphicPipelineState.m_vertexInputAttribs.begin(),
-											graphicPipelineState.m_vertexInputAttribs.end()
-	};
+	                                       graphicPipelineState.m_vertexInputAttribs.end()
+	                                     };
 
 	m_vertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	m_vertexInputStateCreateInfo.pNext = nullptr;
@@ -1320,8 +1370,8 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 	if (graphicPipelineState.m_dynamicState.pDynamicStates)
 	{
 		m_dynamicStates = { graphicPipelineState.m_dynamicState.pDynamicStates,
-							graphicPipelineState.m_dynamicState.pDynamicStates + graphicPipelineState.m_dynamicState.dynamicStateCount
-		};
+		                    graphicPipelineState.m_dynamicState.pDynamicStates + graphicPipelineState.m_dynamicState.dynamicStateCount
+		                  };
 		m_dynamicStateCreateInfo.pDynamicStates = m_dynamicStates.data();
 	}
 
@@ -1333,8 +1383,8 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 	if (graphicPipelineState.m_colorBlendState.pAttachments)
 	{
 		m_colorBlendAttachments = { graphicPipelineState.m_colorBlendState.pAttachments,
-									graphicPipelineState.m_colorBlendState.pAttachments + graphicPipelineState.m_colorBlendState.attachmentCount
-		};
+		                            graphicPipelineState.m_colorBlendState.pAttachments + graphicPipelineState.m_colorBlendState.attachmentCount
+		                          };
 		m_colorBlendStateCreateInfo.pAttachments = m_colorBlendAttachments.data();
 	}
 
@@ -1342,19 +1392,20 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 	if (graphicPipelineState.m_viewportState.pViewports)
 	{
 		m_viewports = { graphicPipelineState.m_viewportState.pViewports,
-						graphicPipelineState.m_viewportState.pViewports + graphicPipelineState.m_viewportState.viewportCount
-		};
+		                graphicPipelineState.m_viewportState.pViewports + graphicPipelineState.m_viewportState.viewportCount
+		              };
 		m_viewportStateCreateInfo.pViewports = m_viewports.data();
 	}
 	if (graphicPipelineState.m_viewportState.pScissors)
 	{
 		m_scissors = { graphicPipelineState.m_viewportState.pScissors,
-						graphicPipelineState.m_viewportState.pScissors + graphicPipelineState.m_viewportState.scissorCount
-		};
+		               graphicPipelineState.m_viewportState.pScissors + graphicPipelineState.m_viewportState.scissorCount
+		             };
 		m_viewportStateCreateInfo.pScissors = m_scissors.data();
 	}
 
 	/******************************* setup createinfo *******************************/
+	m_createInfo.flags = flags;
 	m_createInfo.stageCount = static_cast<uint32_t>(m_shaderStageCreateInfos.size());
 	m_createInfo.pStages = m_shaderStageCreateInfos.data();
 	m_createInfo.pVertexInputState = &m_vertexInputStateCreateInfo;
@@ -1436,11 +1487,11 @@ VkResult ComputePipeline::create(const ShaderPipelineState& shaderStage, VkPipel
 	{
 		m_specializationInfo = *m_shaderStageCreateInfo.pSpecializationInfo;
 		m_specializationMapEntries = { m_shaderStageCreateInfo.pSpecializationInfo->pMapEntries,
-									m_shaderStageCreateInfo.pSpecializationInfo->pMapEntries + m_shaderStageCreateInfo.pSpecializationInfo->mapEntryCount
-		};
+		                               m_shaderStageCreateInfo.pSpecializationInfo->pMapEntries + m_shaderStageCreateInfo.pSpecializationInfo->mapEntryCount
+		                             };
 		m_specializationData = { reinterpret_cast<const char*>(m_shaderStageCreateInfo.pSpecializationInfo->pData),
-								reinterpret_cast<const char*>(m_shaderStageCreateInfo.pSpecializationInfo->pData) + m_shaderStageCreateInfo.pSpecializationInfo->dataSize
-		};
+		                         reinterpret_cast<const char*>(m_shaderStageCreateInfo.pSpecializationInfo->pData) + m_shaderStageCreateInfo.pSpecializationInfo->dataSize
+		                       };
 
 		m_specializationInfo.pMapEntries = m_specializationMapEntries.data();
 		m_specializationInfo.pData = m_specializationData.data();
@@ -1520,16 +1571,16 @@ void GraphicContext::updateImage(const char* srcData, VkDeviceSize size, Image& 
 
 	commandBufferStaging->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	commandBufferStaging->imageMemoryBarrier(dstImage, dstImage.m_imageLayout,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
+	        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	//before copyBufferToImage, host should make sure the right layout of image
 	commandBufferStaging->copyBufferToImage(*staging, dstImage, srcOffset, dstExtent, dstOffset);
 
 	//just workround : layout -> shader_read_only.  To be fixed
 	commandBufferStaging->imageMemoryBarrier(dstImage, dstImage.m_imageLayout,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+	        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	commandBufferStaging->end();
 
@@ -1543,9 +1594,9 @@ void GraphicContext::updateImage(const char* srcData, VkDeviceSize size, Image& 
 }
 
 VkSemaphore GraphicContext::submitStaging(     bool waitFence/*=true*/,
-	const std::vector<VkSemaphore>&          waitSemaphores /*={}*/,
-	const std::vector<VkPipelineStageFlags>& waitPipelineStageFlags /*={}*/,
-	bool returnSignalSemaphore /*=true*/)
+        const std::vector<VkSemaphore>&          waitSemaphores /*={}*/,
+        const std::vector<VkPipelineStageFlags>& waitPipelineStageFlags /*={}*/,
+        bool returnSignalSemaphore /*=true*/)
 {
 	if(m_stagingCommandBuffers.size() == 0)
 		return VK_NULL_HANDLE;
@@ -1560,7 +1611,7 @@ VkSemaphore GraphicContext::submitStaging(     bool waitFence/*=true*/,
 		vkCreateFence(m_vulkanSetup.device, &fenceInfo, nullptr, &fence);
 	}
 	VkSemaphore signalSemaphore = submit(m_defaultQueue, m_stagingCommandBuffers, fence, waitSemaphores,
-										waitPipelineStageFlags, returnSignalSemaphore, false);
+	                                     waitPipelineStageFlags, returnSignalSemaphore, false);
 	if (fence != VK_NULL_HANDLE)
 	{
 		VkResult result = vkWaitForFences(m_vulkanSetup.device, 1, &fence, VK_TRUE, UINT64_MAX);
@@ -1573,10 +1624,10 @@ VkSemaphore GraphicContext::submitStaging(     bool waitFence/*=true*/,
 }
 
 VkSemaphore GraphicContext::submit (VkQueue queue, const std::vector<std::shared_ptr<CommandBuffer>>& commandBuffers,
-									VkFence fence /*=VK_NULL_HANDLE*/,
-									const std::vector<VkSemaphore>&          waitSemaphores /*={}*/,
-									const std::vector<VkPipelineStageFlags>& waitPipelineStageFlags /*={}*/,
-									bool returnSignalSemaphore /*=true*/, bool returnFrameImage /*=false*/)
+                                    VkFence fence /*=VK_NULL_HANDLE*/,
+                                    const std::vector<VkSemaphore>&          waitSemaphores /*={}*/,
+                                    const std::vector<VkPipelineStageFlags>& waitPipelineStageFlags /*={}*/,
+                                    bool returnSignalSemaphore /*=true*/, bool returnFrameImage /*=false*/)
 {
 	std::vector<VkCommandBuffer> commands;
 	for (auto& iter : commandBuffers)
@@ -1653,14 +1704,14 @@ VkResult BasicContext::initBasic(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	m_imageBoundary = std::make_shared<Image>(vulkan.device);
 	uint32_t queueFamilyIndex = 0;
 	m_imageBoundary->create({width, height, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-							VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, &queueFamilyIndex);
+	                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, &queueFamilyIndex);
 
 	// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
 	m_frameBoundaryCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 	m_frameBoundaryCommandBuffer->imageMemoryBarrier(*m_imageBoundary,
-			m_imageBoundary->m_imageLayout, VK_IMAGE_LAYOUT_GENERAL,
-			VK_ACCESS_NONE, VK_ACCESS_NONE,
-			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	        m_imageBoundary->m_imageLayout, VK_IMAGE_LAYOUT_GENERAL,
+	        VK_ACCESS_NONE, VK_ACCESS_NONE,
+	        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 	m_frameBoundaryCommandBuffer->end();
 
 	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };

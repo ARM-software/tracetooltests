@@ -42,6 +42,9 @@ public:
 	inline VkMemoryPropertyFlags getMemoryProperty() const {
 		return m_memoryProperty;
 	}
+	inline VkDeviceSize getSize() const {
+		return m_size;
+	}
 
 	/* user definition createinfo: could used in corner cases, eg garbage data */
 	VkResult create(const BufferCreateInfoFunc& createInfoFunc, const AllocationCreateInfoFunc& allocationInfoFunc);
@@ -57,6 +60,7 @@ private:
 	VkDeviceMemory m_memory = VK_NULL_HANDLE;
 	VkMemoryPropertyFlags m_memoryProperty = VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM;
 	VkDeviceAddress m_deviceAddress = 0;
+	VkDeviceSize m_size = 0;
 
 	VkBufferCreateInfo m_createInfo { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	VkMemoryAllocateInfo m_allocateInfo { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr};
@@ -216,6 +220,9 @@ public:
 	void beginRenderPass(const RenderPass& renderPass, const FrameBuffer& frameBuffer);
 	void endRenderPass();
 	void bindPipeline(VkPipelineBindPoint bindpoint, const GraphicPipeline& pipeline);
+	void bufferMemoryBarrier(Buffer& buffer, VkDeviceSize offset, VkDeviceSize size,
+                             VkAccessFlags srcAccess, VkAccessFlags dstAccess,
+                             VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
 	void imageMemoryBarrier(Image& image, VkImageLayout oldLayout, VkImageLayout newLayout,
 	                        VkAccessFlags srcAccess, VkAccessFlags dstAccess,
 	                        VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
@@ -346,6 +353,8 @@ private:
 	// While the count and binding number in createInfo may be not matched, for the garbage test case usage
 
 	std::vector<VkDescriptorBindingFlags> m_bindingFlags;
+	std::vector<VkMutableDescriptorTypeListEXT> m_mutableTypeList;
+	std::vector<std::vector<VkDescriptorType>> m_mutableTypes;
 	VkBaseInStructure* m_pCreateInfoNext = nullptr;
 	std::vector<VkBaseInStructure*> m_createInfoNexts;
 };
@@ -534,7 +543,7 @@ typedef struct SubpassInfo
 	VkPipelineBindPoint m_pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	std::vector<VkAttachmentReference> m_inputAttachments;
 	std::vector<VkAttachmentReference> m_colorAttachments;
-	VkAttachmentReference m_depthAttachment;
+	VkAttachmentReference m_depthAttachment { VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_GENERAL };
 	std::vector<VkAttachmentReference> m_resolveAttachments;
 
 	SubpassInfo(VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS)
@@ -702,7 +711,7 @@ public:
 		destroy();
 	}
 
-	VkResult create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, uint32_t subpassIndex = 0);
+	VkResult create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags = 0,uint32_t subpassIndex = 0);
 	VkResult destroy();
 	bool hasDynamicState(VkDynamicState dynamic) const;
 	inline VkPipeline getHandle() const {
