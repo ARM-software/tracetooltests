@@ -204,7 +204,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 				memset(uuid, 0, sizeof(uuid));
 				int r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
 				cl_check(r);
-				if (strcmp((char*)uuid, (char*)reqs.device_by_uuid) != 0)
+				if (memcmp((char*)uuid, (char*)reqs.device_by_uuid, CL_UUID_SIZE_KHR) != 0)
 				{
 					printf("Platform %s device %s skipped -- not the requested device\n", platform_name.c_str(), device_name.c_str());
 					continue; // try another device

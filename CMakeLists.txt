@@ -272,7 +272,7 @@ endif()
 
 function(cl_test_build test_name cl_version)
 	add_executable(opencl_${ARGV0}_v${ARGV1} src/opencl_${ARGV0}.cpp src/opencl_common.cpp src/opencl_common.h src/util.cpp src/util.h)
-	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL pthread)
+	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL pthread vulkan_common vulkan)
 	target_compile_definitions(opencl_${ARGV0}_v${ARGV1} PUBLIC ${IT_DEFINES} CL_TARGET_OPENCL_VERSION=${ARGV1})
 	set_target_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
@@ -296,4 +296,5 @@ if (NOT NO_CL MATCHES "1")
 cl_test(basic_1 100) # Simple OpenCL 1.0 test
 cl_test(basic_1 200) # Simple OpenCL 2.0 test
 cl_test(basic_1 300) # Simple OpenCL 3.0 test
+cl_test(vulkan_interop_1 300)
 endif()

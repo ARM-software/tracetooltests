@@ -1,0 +1,8 @@
+{
+	"name": "opencl_vulkan_interop_1",
+	"description": "Test of Vulkan interop",
+	"settings": {
+	},
+	"capabilities": {
+	}
+}
