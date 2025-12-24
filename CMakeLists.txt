@@ -256,6 +256,7 @@ vulkan_test(tensors_1)
 vulkan_test(cooperative_matrix)
 vulkan_test(pipeline_creation_cache_control)
 vulkan_test(graphics_1)
+vulkan_test(maintenance7)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)
