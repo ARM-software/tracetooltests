@@ -1,0 +1,26 @@
+{
+	"name": "vulkan_trace_helpers",
+	"description": "Test of trace helpers extension",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_delay_reuse": {
+			"default": 1,
+			"modifiable": true
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}

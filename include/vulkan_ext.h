@@ -9,22 +9,44 @@
 #define VK_ARM_TRACE_HELPERS_EXTENSION_NAME "VK_ARM_trace_helpers"
 
 // Hope these random constants remain unused
-#define VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM (VkStructureType)1000998001
+#define VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM (VkStructureType)1000998001
 #define VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM (VkStructureType)1000998000
 
-// Mark where in memory buffer device addresses or shader group handles are stored, as they may need to be
-// remapped for trace replay.
+typedef enum VkMarkingTypeARM {
+	VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM = 0x00000001, // marks a device address in memory
+	VK_MARKING_TYPE_DESCRIPTOR_SIZE_BIT_ARM = 0x00000002, // marks the size of a descriptor type
+	VK_MARKING_TYPE_DESCRIPTOR_OFFSET_BIT_ARM = 0x00000004, // marks the offset to a descriptor
+	VK_MARKING_TYPE_DESCRIPTOR_BIT_ARM = 0x00000008, // marks a descriptor in memory
+	VK_MARKING_TYPE_SHADER_GROUP_HANDLE_BIT_ARM = 0x00000010, // marks a shader group handle in memory
+} VkMarkingTypeARM;
+
+typedef enum VkDeviceAddressTypeARM {
+	VK_DEVICE_ADDRESS_TYPE_BUFFER_BIT_ARM = 0x00000001,
+	VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM = 0x00000002,
+} VkDeviceAddressTypeARM;
+
+typedef union VkMarkingSubTypeARM
+{
+	VkDescriptorType descriptorType;
+	VkDeviceAddressTypeARM deviceAddressType;
+	uint64_t reserved; // to pad to largest possible type, shall be zero if shader group descriptor marking type
+} VkMarkingSubTypeARM;
+
+// Mark where in memory device addresses, shader group handles, descriptors or descriptor metainformation are
+// stored, as they may need to be remapped for trace replay.
 // Passed to the VkPipelineShaderStageCreateInfo of vkCreate*Pipelines for specialization constants,
 // vkCmdPushConstants2KHR for push constants, vkCmdUpdateBuffer2ARM for commandbuffer buffer updates,
 // or vkFlushMappedMemoryRanges for mapped memory buffer updates. When used with vkCmdPushConstants2KHR,
 // offsets given here are relative to the start of its dstOffset.
-typedef struct VkDeviceAddressOffsetsARM
+typedef struct VkMarkedOffsetsARM
 {
-	VkStructureType sType; // must be VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM
+	VkStructureType sType; // must be VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM
 	const void* pNext;
-	uint32_t count; // the number of offsets in pOffsets
-	const VkDeviceSize* pOffsets; // address offsets
-} VkDeviceAddressOffsetsARM;
+	uint32_t count; // the number of entries in pMarkingTypes, pDescriptorType and pOffsets
+	const VkMarkingTypeARM* pMarkingTypes; // the overall type of marking
+	VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking, if any
+	const VkDeviceSize* pOffsets; // offsets into memory to items we want to mark
+} VkMarkedOffsetsARM;
 
 typedef VkFlags VkUpdateMemoryInfoFlags;
 
@@ -45,29 +67,6 @@ typedef void (VKAPI_PTR *PFN_vkCmdUpdateBuffer2ARM)(VkCommandBuffer commandBuffe
 // Request validation of buffer contents by an Adler32 checksum. The command will return the checksum, and when stored in an API trace,
 // the trace replayer may verify that the buffer contents are correct according to the stored checksum. 'size' may be VK_WHOLE_SIZE.
 typedef VkResult (VKAPI_PTR *PFN_vkAssertBufferARM)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t* checksum, const char* comment);
-
-// -- VK_ARM_trace_descriptor_buffer
-//
-
-#define VK_ARM_TRACE_DESCRIPTOR_BUFFER_EXTENSION_NAME "VK_ARM_trace_descriptor_buffer"
-
-#define VK_STRUCTURE_TYPE_DESCRIPTOR_OFFSETS_ARM (VkStructureType)131318
-
-typedef enum VkMarkingTypeARM {
-	VK_MARKING_TYPE_DESCRIPTOR_SIZE_BIT_ARM = 0x00000001, // denotes the size of a descriptor type
-	VK_MARKING_TYPE_DESCRIPTOR_OFFSET_BIT_ARM = 0x00000002, // denotes the offset to a descriptor
-	VK_MARKING_TYPE_DESCRIPTOR_BIT_ARM = 0x00000004, // denotes a descriptor in memory
-} VkMarkingTypeARM;
-
-typedef struct VkDescriptorOffsetsARM
-{
-	VkStructureType sType; // must be VK_STRUCTURE_TYPE_DESCRIPTOR_OFFSETS_ARM
-	const void* pNext;
-	uint32_t count; // the number of entries in pMarkingTypes, pDescriptorType and pOffsets
-	const VkMarkingTypeARM* pMarkingTypes; // the type of marking
-	const VkDescriptorType* pDescriptorTypes; // the type of descriptor marked in pOffsets
-	const VkDeviceSize* pOffsets; // offsets into memory to items we want to mark
-} VkDescriptorOffsetsARM;
 
 // -- VK_ARM_explicit_host_updates
 //

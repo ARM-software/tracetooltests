@@ -106,9 +106,14 @@ int main(int argc, char** argv)
 	else
 	{
 		VkDeviceSize offset = 0;
-		VkDeviceAddressOffsetsARM ar = { VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM, nullptr };
+		VkMarkedOffsetsARM ar = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
+		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
+		VkMarkingSubTypeARM subType;
+		subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
 		ar.count = 1;
 		ar.pOffsets = &offset;
+		ar.pMarkingTypes = &markingType;
+		ar.pSubTypes = &subType;
 		VkUpdateMemoryInfoARM ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &ar };
 		ui.dstOffset = 0;
 		ui.dataSize = aligned_buffer_size;

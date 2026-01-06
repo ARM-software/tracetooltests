@@ -170,9 +170,14 @@ int main(int argc, char** argv)
 		pushinfo.size = sizeof(PushConstants);
 		pushinfo.pValues = &constants;
 		VkDeviceSize markup_location = 0;
-		VkDeviceAddressOffsetsARM mm = { VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM, pushinfo.pNext };
+		VkMarkedOffsetsARM mm = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, pushinfo.pNext };
+		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
+		VkMarkingSubTypeARM subType;
+		subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
 		mm.count = 1;
 		mm.pOffsets = &markup_location;
+		mm.pSubTypes = &subType;
+		mm.pMarkingTypes = &markingType;
 		if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
 		vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
 

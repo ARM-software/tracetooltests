@@ -117,12 +117,13 @@ int main(int argc, char** argv)
 		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
 		frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
 		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DESCRIPTOR_BIT_ARM;
-		VkDescriptorType descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		VkMarkingSubTypeARM subType;
+		subType.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		VkDeviceSize offset = 0;
-		VkDescriptorOffsetsARM offs = { VK_STRUCTURE_TYPE_DESCRIPTOR_OFFSETS_ARM, &frf };
+		VkMarkedOffsetsARM offs = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, &frf };
 		offs.count = 1;
 		offs.pMarkingTypes = &markingType;
-		offs.pDescriptorTypes = &descriptorType;
+		offs.pSubTypes = &subType;
 		offs.pOffsets = &offset;
 		VkMappedMemoryRange mmr = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, &offs };
 		mmr.memory = memory;

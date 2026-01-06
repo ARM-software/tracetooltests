@@ -493,12 +493,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			vulkan.has_trace_helpers2 = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_ARM_TRACE_DESCRIPTOR_BUFFER_EXTENSION_NAME) == 0)
-		{
-			enabledExtensions.push_back(s.extensionName);
-			vulkan.has_trace_descriptor_buffer = true;
-			vulkan.device_extensions.insert(s.extensionName);
-		}
 		else if (strcmp(s.extensionName, VK_ARM_EXPLICIT_HOST_UPDATES_EXTENSION_NAME) == 0 && no_explicit == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);

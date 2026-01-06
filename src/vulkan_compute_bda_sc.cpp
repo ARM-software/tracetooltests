@@ -66,10 +66,15 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 	shaderStageCreateInfo.pSpecializationInfo = &specInfo;
 
 	VkDeviceSize markup_location = 5 * sizeof(int32_t); // address in bytes
-	VkDeviceAddressOffsetsARM mm = { VK_STRUCTURE_TYPE_DEVICE_ADDRESS_OFFSETS_ARM, shaderStageCreateInfo.pNext };
-	mm.count = 1;
-	mm.pOffsets = &markup_location;
-	if (vulkan.has_trace_helpers) shaderStageCreateInfo.pNext = &mm;
+	VkMarkedOffsetsARM moffs = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, shaderStageCreateInfo.pNext };
+	VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
+	VkMarkingSubTypeARM subType;
+	subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
+	moffs.count = 1;
+	moffs.pMarkingTypes = &markingType;
+	moffs.pSubTypes = &subType;
+	moffs.pOffsets = &markup_location;
+	if (vulkan.has_trace_helpers) shaderStageCreateInfo.pNext = &moffs;
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
 	pipelineLayoutCreateInfo.setLayoutCount = 0;
