@@ -18,7 +18,7 @@ static VkBool32 callback(
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
-	reqs.device_extensions.push_back("VK_EXT_debug_report");
+	reqs.instance_extensions.push_back("VK_EXT_debug_report");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_debug_report", reqs);
 
 	// Test VK_EXT_debug_report
