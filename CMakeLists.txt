@@ -9,7 +9,7 @@ set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
 
 if(NOT DEFINED WINDOWSYSTEM) # to prevent overwriting toolchain setting
 	set(WINDOWSYSTEM "x11" CACHE STRING "Window system to use for build")
-	set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffer x11)
+	set_property(CACHE WINDOWSYSTEM PROPERTY STRINGS fbdev sdl pbuffers x11)
 endif()
 
 if(WINDOWSYSTEM MATCHES "sdl")

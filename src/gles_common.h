@@ -53,6 +53,7 @@ typedef void (GLAPIENTRY *TOOLSTEST_CALLBACK_FREE)(TOOLSTEST *handle);
 typedef void (*TOOLSTEST_CALLBACK_USAGE)();
 typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv);
 
+/// Test context
 struct TOOLSTEST
 {
 	std::string name;
@@ -77,6 +78,7 @@ struct TOOLSTEST
 	benchmarking bench;
 };
 
+/// Test setup requirements
 struct TOOLSTEST_INIT
 {
 	std::string name;
@@ -86,12 +88,15 @@ struct TOOLSTEST_INIT
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
 	void *user_data = nullptr;
-	EGLint *attribs = nullptr;
+	EGLint *surface_attribs = nullptr;
+	EGLint *context_attribs = nullptr;
 	int surfaces = 1;
+	EGLint major_version = 3;
+	EGLint minor_version = 2;
 };
 
 int init(int argc, char** argv, const TOOLSTEST_INIT& init);
-int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data = nullptr, EGLint *attribs = nullptr, int surfaces = 1);
+int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data = nullptr, EGLint *surface_attribs = nullptr, int surfaces = 1);
 void assert_fb(TOOLSTEST* handle);
 void checkError(const char *msg);
 void compile(const char *name, GLint shader);

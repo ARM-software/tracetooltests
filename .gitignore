@@ -1,5 +1,7 @@
-build
+build*
 .vscode
 reports
 traces
 __pycache__
+TODO
+tmp

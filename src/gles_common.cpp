@@ -138,6 +138,7 @@ static void usage(TOOLSTEST_CALLBACK_USAGE usage)
 	printf("-h/--help              This help\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default 0)\n");
 	printf("-t/--times N           Times to repeat (default 10)\n");
+	printf("-V/--variant M N       GLES major and minor versions for context initialization (default 3.2)\n");
 	printf("-s/--step              Step mode\n");
 	printf("-i/--inject            Inject sanity checking\n");
 	printf("-n/--null-run          Skip testing of results\n");
@@ -147,7 +148,6 @@ static void usage(TOOLSTEST_CALLBACK_USAGE usage)
 
 int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 {
-	const EGLint *attribs = init.attribs;
 	TOOLSTEST handle;
 	handle.name = init.name;
 	handle.swap = init.swap;
@@ -156,6 +156,8 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 	handle.times = p__loops;
 	handle.user_data = init.user_data;
 	handle.current_frame = 0;
+	int major_version = init.major_version;
+	int minor_version = init.minor_version;
 
 	if (get_env_int("TOOLSTEST_STEP", 0) > 0) step_mode = true;
 	inject_asserts = (bool)p__sanity;
@@ -174,6 +176,16 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		else if (match(argv[i], "-d", "--debug"))
 		{
 			handle.debug = get_arg(argv, ++i, argc);
+		}
+		else if (match(argv[i], "-V", "--variant"))
+		{
+			major_version = get_arg(argv, ++i, argc);
+			minor_version = get_arg(argv, ++i, argc);
+			if (major_version > 3 || minor_version > 2 || major_version < 0 || minor_version < 0)
+			{
+				printf("Bad GLES version: %d.%d\n", major_version, minor_version);
+				exit(-1);
+			}
 		}
 		else if (match(argv[i], "-n", "--null-run"))
 		{
@@ -201,13 +213,14 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		}
 	}
 
+	handle.bench.backend_name = "GLES " + std::to_string(major_version) + "." + std::to_string(minor_version);
 	check_bench(handle, init);
 
 #ifdef SDL
 	SDL_SetMainReady();
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_PROFILE_ES);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major_version);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		ELOG("SDL could not initialize! SDL_Error: %s", SDL_GetError());
@@ -253,6 +266,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		return -5;
 	}
 
+	EGLint renderable_type = (major_version <= 1) ? EGL_OPENGL_ES_BIT : EGL_OPENGL_ES2_BIT;
 	const EGLint surfaceAttribs[] = {
 		EGL_SURFACE_TYPE,
 #if PBUFFERS
@@ -260,7 +274,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 #else
 		EGL_WINDOW_BIT,
 #endif
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_RENDERABLE_TYPE, renderable_type,
 		EGL_ALPHA_SIZE, EGL_DONT_CARE,
 		EGL_STENCIL_SIZE, EGL_DONT_CARE,
 		EGL_RED_SIZE, 8,
@@ -270,11 +284,14 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		EGL_NONE, EGL_NONE,
 	};
 	const EGLint contextAttribs[] = {
-		EGL_CONTEXT_MAJOR_VERSION, 3,
-		EGL_CONTEXT_MINOR_VERSION, 2,
+		EGL_CONTEXT_MAJOR_VERSION, major_version,
+		EGL_CONTEXT_MINOR_VERSION, minor_version,
 		EGL_NONE, EGL_NONE,
 	};
-	if (attribs == nullptr) attribs = surfaceAttribs; // use defaults
+	const EGLint* surface_attribs = surfaceAttribs;
+	const EGLint* context_attribs = contextAttribs;
+	if (init.surface_attribs) surface_attribs = init.surface_attribs; // override
+	if (init.context_attribs) context_attribs = init.context_attribs; // override
 
 	EGLint majorVersion;
 	EGLint minorVersion;
@@ -284,17 +301,16 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		return -6;
 	}
 	DLOG("EGL version is %d.%d", majorVersion, minorVersion);
-	handle.bench.backend_name = "GLES 3.2";
 
 	EGLint numConfigs = 0;
-	if (!eglChooseConfig(handle.display, attribs, nullptr, 0, &numConfigs))
+	if (!eglChooseConfig(handle.display, surface_attribs, nullptr, 0, &numConfigs))
 	{
 		ELOG("eglChooseConfig(null) failed");
 		eglTerminate(handle.display);
 		return -7;
 	}
 	std::vector<EGLConfig> configs(numConfigs);
-	if (!eglChooseConfig(handle.display, attribs, configs.data(), configs.size(), &numConfigs))
+	if (!eglChooseConfig(handle.display, surface_attribs, configs.data(), configs.size(), &numConfigs))
 	{
 		ELOG("eglChooseConfig() failed");
 		eglTerminate(handle.display);
@@ -391,7 +407,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 			ELOG("create surface failed: 0x%04x", (unsigned)eglGetError());
 			return -10;
 		}
-		handle.context[j] = eglCreateContext(handle.display, configs[0], (j == 0) ? EGL_NO_CONTEXT : handle.context[0], contextAttribs);
+		handle.context[j] = eglCreateContext(handle.display, configs[0], (j == 0) ? EGL_NO_CONTEXT : handle.context[0], context_attribs);
 		if (handle.context[j] == EGL_NO_CONTEXT)
 		{
 			ELOG("eglCreateContext() failed: 0x%04x", (unsigned)eglGetError());
@@ -485,7 +501,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 	return 0;
 }
 
-int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data, EGLint *attribs, int surfaces)
+int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, TOOLSTEST_CALLBACK_INIT setup, TOOLSTEST_CALLBACK_FREE cleanup, void *user_data, EGLint *surface_attribs, int surfaces)
 {
 	TOOLSTEST_INIT initparam;
 	initparam.name = name;
@@ -493,7 +509,7 @@ int init(int argc, char** argv, const char *name, TOOLSTEST_CALLBACK_SWAP swap, 
 	initparam.init = setup;
 	initparam.done = cleanup;
 	initparam.user_data = user_data,
-	initparam.attribs = attribs;
+	initparam.surface_attribs = surface_attribs;
 	initparam.surfaces = surfaces;
 	return init(argc, argv, initparam);
 }
