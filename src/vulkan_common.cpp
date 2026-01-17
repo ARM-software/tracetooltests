@@ -65,11 +65,11 @@ static void print_usage(const vulkan_req_t& reqs)
 {
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
-	printf("-N/--gpu-native        Use the native GPU (default), fails if not available\n");
-	printf("-L/--gpu-simulated     Use a software rasterizer as your GPU, fails if not available\n");
+	printf("-G/--gpu               Use the GPU (default), fails if not available\n");
+	printf("-C/--cpu               Use a CPU software rasterizer as your GPU, fails if not available\n");
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
-	printf("-G/--garbage-pointers  Set ignored pointers to garbage values instead of null\n");
+	printf("-GP/--garbage-pointers Set ignored pointers to garbage values instead of null\n");
 	printf("-V/--vulkan-variant N  Set Vulkan variant (default %d)\n", apiversion2variant(reqs.apiVersion));
 	if (reqs.minApiVersion <= VK_API_VERSION_1_0) printf("\t0 - Vulkan 1.0\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_1 && reqs.maxApiVersion >= VK_API_VERSION_1_1) printf("\t1 - Vulkan 1.1\n");
@@ -194,15 +194,15 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		{
 			p__validation = true;
 		}
-		else if (match(argv[i], "-N", "--gpu-native"))
+		else if (match(argv[i], "-G", "--gpu"))
 		{
 			force_native_gpu = true;
 		}
-		else if (match(argv[i], "-L", "--gpu-simulated"))
+		else if (match(argv[i], "-C", "--cpu"))
 		{
 			use_simulated_gpu = true;
 		}
-		else if (match(argv[i], "-G", "--garbage-pointers"))
+		else if (match(argv[i], "-GP", "--garbage-pointers"))
 		{
 			vulkan.garbage_pointers = true;
 		}
@@ -247,7 +247,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (force_native_gpu && use_simulated_gpu)
 	{
-		ELOG("You cannot combine --gpu-native and --gpu-simulated, choose one!\n");
+		ELOG("You cannot combine --gpu and --cpu, choose one!\n");
 		print_usage(reqs);
 	}
 
@@ -487,12 +487,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			vulkan.has_trace_helpers = true;
 			vulkan.device_extensions.insert(s.extensionName);
 		}
-		else if (strcmp(s.extensionName, VK_TRACETOOLTEST_TRACE_HELPERS2_EXTENSION_NAME) == 0)
-		{
-			enabledExtensions.push_back(s.extensionName);
-			vulkan.has_trace_helpers2 = true;
-			vulkan.device_extensions.insert(s.extensionName);
-		}
 		else if (strcmp(s.extensionName, VK_ARM_EXPLICIT_HOST_UPDATES_EXTENSION_NAME) == 0 && no_explicit == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
@@ -574,13 +568,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (vulkan.has_trace_helpers && p__sanity > 0)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferARM)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferARM");
-	}
-
-	if (vulkan.has_trace_helpers2)
-	{
-		vulkan.vkUpdateBuffer = reinterpret_cast<PFN_vkUpdateBufferTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
-		vulkan.vkUpdateImage = reinterpret_cast<PFN_vkUpdateImageTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkUpdateBufferTRACETOOLTEST"));
-		vulkan.vkThreadBarrier = reinterpret_cast<PFN_vkThreadBarrierTRACETOOLTEST>(vkGetDeviceProcAddr(vulkan.device, "vkThreadBarrierTRACETOOLTEST"));
 	}
 
 	if (req_maintenance_6)
@@ -674,7 +661,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 		void *mapped;
 		check(vkMapMemory(vulkan.device, buffer.memory, 0, size, 0, &mapped));
 		memcpy(mapped, data, size);
-		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, buffer.memory, 0, size, vulkan.has_explicit_host_updates);
+		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, buffer.memory, 0, size, true);
 		vkUnmapMemory(vulkan.device, buffer.memory);
 	}
 	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
@@ -960,7 +947,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 	return aligned_size;
 }
 
-void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size, bool extra)
+void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size, bool extra, VkMarkedOffsetsARM* markings)
 {
 	VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
 	frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
@@ -968,7 +955,8 @@ void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDevi
 	range.memory = memory;
 	range.size = size;
 	range.offset = offset;
-	if (vulkan.has_explicit_host_updates && extra) range.pNext = &frf;
+	if (markings) { assert(vulkan.has_trace_helpers); range.pNext = markings; }
+	if (extra) { assert(vulkan.has_explicit_host_updates || vulkan.has_trace_helpers); frf.pNext = range.pNext; range.pNext = &frf; }
 	VkResult result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
 	check(result);
 }

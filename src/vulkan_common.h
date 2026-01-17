@@ -90,12 +90,6 @@ struct vulkan_setup_t
 	PFN_vkCmdUpdateBuffer2ARM vkCmdUpdateBuffer2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
 
-	// trace helpers2 extension - very experimental! please ignore
-	PFN_vkUpdateBufferTRACETOOLTEST vkUpdateBuffer = nullptr;
-	PFN_vkUpdateImageTRACETOOLTEST vkUpdateImage = nullptr;
-	//PFN_vkUpdateAccelerationStructureTRACETOOLTEST
-	PFN_vkThreadBarrierTRACETOOLTEST vkThreadBarrier = nullptr;
-
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;
 	std::unordered_set<std::string> device_extensions;
@@ -162,7 +156,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, VkDeviceMemory memory, VkDeviceSize offset, const char* name = nullptr);
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size);
 void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory);
-void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size, bool extra);
+void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size = VK_WHOLE_SIZE, bool extra = false, VkMarkedOffsetsARM* markings = nullptr);
 
 /// Adds a dummy queue submit with a pipeline barrier that references the passed buffers in order to make tools not ignore them.
 void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vector<VkBuffer>& buffers);

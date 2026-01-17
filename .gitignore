@@ -4,4 +4,6 @@ reports
 traces
 __pycache__
 TODO
-tmp
+tmp*
+old
+wip*

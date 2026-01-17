@@ -95,31 +95,21 @@ int main(int argc, char** argv)
 	bdainfo.buffer = r.buffer;
 	VkDeviceAddress address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 
-	if (!vulkan.has_trace_helpers2)
-	{
-		char* data = nullptr;
-		result = vkMapMemory(vulkan.device, ubo_memory, 0, aligned_buffer_size, 0, (void**)&data);
-		*((uint64_t*)data) = address;
-		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, ubo_memory, 0, aligned_buffer_size, vulkan.has_explicit_host_updates);
-		vkUnmapMemory(vulkan.device, ubo_memory);
-	}
-	else
-	{
-		VkDeviceSize offset = 0;
-		VkMarkedOffsetsARM ar = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
-		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
-		VkMarkingSubTypeARM subType;
-		subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
-		ar.count = 1;
-		ar.pOffsets = &offset;
-		ar.pMarkingTypes = &markingType;
-		ar.pSubTypes = &subType;
-		VkUpdateMemoryInfoARM ui = { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &ar };
-		ui.dstOffset = 0;
-		ui.dataSize = aligned_buffer_size;
-		ui.pData = &address;
-		vulkan.vkUpdateBuffer(vulkan.device, ubo, &ui);
-	}
+	char* data = nullptr;
+	result = vkMapMemory(vulkan.device, ubo_memory, 0, aligned_buffer_size, 0, (void**)&data);
+	*((uint64_t*)data) = address;
+	VkDeviceSize offset = 0;
+	VkMarkedOffsetsARM ar = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
+	VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
+	VkMarkingSubTypeARM subType;
+	subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
+	ar.count = 1;
+	ar.pOffsets = &offset;
+	ar.pMarkingTypes = &markingType;
+	ar.pSubTypes = &subType;
+	if (vulkan.has_trace_helpers) testFlushMemory(vulkan, ubo_memory, 0, aligned_buffer_size, true, &ar);
+	else if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, ubo_memory, 0, aligned_buffer_size, true, nullptr);
+	vkUnmapMemory(vulkan.device, ubo_memory);
 
 	// generic setup
 

@@ -6,8 +6,8 @@ static void print_usage(const opencl_req_t& reqs)
 {
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
-	printf("-G/--gpu-native        Use the native GPU (default), fails if not available\n");
-	printf("-C/--cpu-native        Use the native CPU, fails if not available\n");
+	printf("-G/--gpu               Use the GPU (default), fails if not available\n");
+	printf("-C/--cpu               Use the CPU, fails if not available\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	if (reqs.usage) reqs.usage();
 	exit(1);
@@ -97,11 +97,11 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 			p__debug_level = get_arg(argv, ++i, argc);
 			if (p__debug_level > 3) print_usage(reqs);
 		}
-		else if (match(argv[i], "-G", "--gpu-native"))
+		else if (match(argv[i], "-G", "--gpu"))
 		{
 			force_native_gpu = true;
 		}
-		else if (match(argv[i], "-C", "--cpu-native"))
+		else if (match(argv[i], "-C", "--cpu"))
 		{
 			force_native_cpu = true;
 		}
@@ -117,7 +117,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 
 	if (force_native_gpu && force_native_cpu)
 	{
-		ELOG("You cannot combine --gpu-native and --cpu-native, choose one!\n");
+		ELOG("You cannot combine --gpu and --cpu, choose one!\n");
 		print_usage(reqs);
 	}
 

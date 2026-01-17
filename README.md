@@ -113,4 +113,4 @@ AI code generation
 Generating small code samples seems almost like a perfect match for AI code agents.
 We have an AGENTS.md file to help it along the way. Sadly, most AI sandboxes seem
 to block access to the GPU, but you can run some of the Vulkan samples with the
---gpu-simulated option if you have llvmpipe installed.
+--cpu option if you have llvmpipe installed.

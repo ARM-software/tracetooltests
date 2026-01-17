@@ -18,7 +18,6 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	reqs.device_extensions.push_back("VK_ARM_trace_helpers");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_trace_helpers", reqs);
-	VkResult r;
 
 	bench_start_iteration(vulkan.bench);
 

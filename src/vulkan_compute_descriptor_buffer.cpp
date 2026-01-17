@@ -132,7 +132,7 @@ int main(int argc, char** argv)
 		vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 	}
 
-	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 0, 1024, vulkan.has_explicit_host_updates);
+	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, 0, 1024, true);
 	vkUnmapMemory(vulkan.device, memory);
 
 	r.code = copy_shader(vulkan_compute_1_spirv, vulkan_compute_1_spirv_len);
