@@ -171,9 +171,8 @@ int main(int argc, char** argv)
 		pushinfo.pValues = &constants;
 		VkDeviceSize markup_location = 0;
 		VkMarkedOffsetsARM mm = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, pushinfo.pNext };
-		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
-		VkMarkingSubTypeARM subType;
-		subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
+		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+		VkMarkingSubTypeARM subType = { .deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM };
 		mm.count = 1;
 		mm.pOffsets = &markup_location;
 		mm.pSubTypes = &subType;

@@ -13,16 +13,16 @@
 #define VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM (VkStructureType)1000998000
 
 typedef enum VkMarkingTypeARM {
-	VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM = 0x00000001, // marks a device address in memory
-	VK_MARKING_TYPE_DESCRIPTOR_SIZE_BIT_ARM = 0x00000002, // marks the size of a descriptor type
-	VK_MARKING_TYPE_DESCRIPTOR_OFFSET_BIT_ARM = 0x00000004, // marks the offset to a descriptor
-	VK_MARKING_TYPE_DESCRIPTOR_BIT_ARM = 0x00000008, // marks a descriptor in memory
-	VK_MARKING_TYPE_SHADER_GROUP_HANDLE_BIT_ARM = 0x00000010, // marks a shader group handle in memory
+	VK_MARKING_TYPE_DEVICE_ADDRESS_ARM = 0, // marks a device address in memory
+	VK_MARKING_TYPE_DESCRIPTOR_SIZE_ARM = 1, // marks the size of a descriptor type
+	VK_MARKING_TYPE_DESCRIPTOR_OFFSET_ARM = 2, // marks the offset to a descriptor
+	VK_MARKING_TYPE_DESCRIPTOR_ARM = 3, // marks a descriptor in memory
+	VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM = 4, // marks a shader group handle in memory
 } VkMarkingTypeARM;
 
 typedef enum VkDeviceAddressTypeARM {
-	VK_DEVICE_ADDRESS_TYPE_BUFFER_BIT_ARM = 0x00000001,
-	VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM = 0x00000002,
+	VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM = 0,
+	VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM = 1,
 } VkDeviceAddressTypeARM;
 
 typedef union VkMarkingSubTypeARM

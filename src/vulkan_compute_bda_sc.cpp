@@ -67,9 +67,8 @@ static void bda_sc_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r,
 
 	VkDeviceSize markup_location = 5 * sizeof(int32_t); // address in bytes
 	VkMarkedOffsetsARM moffs = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, shaderStageCreateInfo.pNext };
-	VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_BIT_ARM;
-	VkMarkingSubTypeARM subType;
-	subType.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_BIT_ARM;
+	VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+	VkMarkingSubTypeARM subType = { .deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM };
 	moffs.count = 1;
 	moffs.pMarkingTypes = &markingType;
 	moffs.pSubTypes = &subType;
