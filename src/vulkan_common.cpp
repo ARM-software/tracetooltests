@@ -955,7 +955,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;
 			VkMappedMemoryRange mmr = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, &frf };
 			mmr.memory = mem;
-			mmr.offset = 0;
+			mmr.offset = offset;
 			mmr.size = VK_WHOLE_SIZE;
 			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 		}
