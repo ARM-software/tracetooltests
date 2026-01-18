@@ -304,7 +304,7 @@ void prepare_graphic_pipeline()
 	// input vertext
 	GraphicPipelineState pipelineState;
 	pipelineState.setVertexBinding(0, *p_benchmark->m_vertBuffer, sizeof(Vertex));
-	pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Vertex::pos));
+	pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0u);
 
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_VIEWPORT);
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_SCISSOR);
