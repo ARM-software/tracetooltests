@@ -143,6 +143,7 @@ int main(int argc, char** argv)
 
 	for (int frame = 0; frame < p__loops; frame++)
 	{
+		test_marker(vulkan, "Frame " + std::to_string(frame));
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		if (vulkan.garbage_pointers) beginInfo.pInheritanceInfo = (const VkCommandBufferInheritanceInfo*)0xdeadbeef; // tools must ignore this

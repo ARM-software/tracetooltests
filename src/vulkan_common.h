@@ -84,6 +84,7 @@ struct vulkan_setup_t
 	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectName = nullptr;
 	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabel = nullptr;
 	PFN_vkGetBufferDeviceAddress vkGetBufferDeviceAddress = nullptr;
+	PFN_vkSubmitDebugUtilsMessageEXT vkSubmitDebugUtilsMessage = nullptr;
 
 	// trace helpers extension
 	PFN_vkAssertBufferARM vkAssertBuffer = nullptr;
@@ -151,6 +152,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 void test_done(vulkan_setup_t& vulkan, bool shared_instance = false);
 uint32_t get_device_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties);
 void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name);
+/// Add a test marker. Requires VK_EXT_debug_utils, but you do not need to add this to requirements yourself. It is added automatically and this is a no-op if it is not present.
+void test_marker(const vulkan_setup_t& vulkan, const std::string& text);
+/// As above, but also draws attention to a particular Vulkan object.
+void test_marker_mention(const vulkan_setup_t& vulkan, const std::string& text, VkObjectType type, uint64_t handle);
 
 uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, std::vector<VkDeviceMemory>& memory, bool deviceaddress, bool dedicated, bool pattern, const char* name);
 void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, VkDeviceMemory memory, VkDeviceSize offset, const char* name = nullptr);

@@ -387,6 +387,7 @@ int main(int argc, char** argv)
 	assert(p__loops > 0);
 	for (unsigned i = 0; i < p__loops; i++)
 	{
+		test_marker(vulkan, "Frame " + std::to_string(i));
 		bench_start_iteration(vulkan.bench);
 		for (unsigned node = 0; node < nodes; node++)
 		{

@@ -194,6 +194,7 @@ static void copying_2(int argc, char** argv)
 
 	for (int frame = 0; frame < p__loops; frame++)
 	{
+		test_marker(vulkan, "Frame " + std::to_string(frame));
 		bench_start_iteration(vulkan.bench);
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
@@ -256,6 +257,7 @@ static void copying_2(int argc, char** argv)
 	// Verification
 	if (vulkan.vkAssertBuffer)
 	{
+		test_marker(vulkan, "Injecting buffer assertions");
 		for (unsigned i = 0; i < num_buffers; i++)
 		{
 			uint32_t orig = 0;

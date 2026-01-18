@@ -22,12 +22,33 @@ static VkBool32 messenger_callback(
 
 void test_set_name(const vulkan_setup_t& vulkan, VkObjectType type, uint64_t handle, const char* name)
 {
-	VkDebugUtilsObjectNameInfoEXT info = {};
-	info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+	VkDebugUtilsObjectNameInfoEXT info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr };
 	info.objectType = type;
 	info.objectHandle = handle;
 	info.pObjectName = name;
 	if (vulkan.vkSetDebugUtilsObjectName) vulkan.vkSetDebugUtilsObjectName(vulkan.device, &info);
+}
+
+void test_marker(const vulkan_setup_t& vulkan, const std::string& text)
+{
+	if (!vulkan.vkSubmitDebugUtilsMessage) return;
+	VkDebugUtilsMessengerCallbackDataEXT dumc = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT, nullptr };
+	dumc.pMessage = text.c_str();
+	vulkan.vkSubmitDebugUtilsMessage(vulkan.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &dumc);
+}
+
+void test_marker_mention(const vulkan_setup_t& vulkan, const std::string& text, VkObjectType type, uint64_t handle)
+{
+	if (!vulkan.vkSubmitDebugUtilsMessage) return;
+	VkDebugUtilsMessengerCallbackDataEXT dumc = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT, nullptr };
+	dumc.pMessage = text.c_str();
+	dumc.objectCount = 1;
+	VkDebugUtilsObjectNameInfoEXT duoni = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr };
+	duoni.objectType = type;
+	duoni.objectHandle = handle;
+	duoni.pObjectName = nullptr; // we will not override the given name of the object
+	dumc.pObjects = &duoni;
+	vulkan.vkSubmitDebugUtilsMessage(vulkan.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &dumc);
 }
 
 void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory)
@@ -549,8 +570,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 
 	if (has_debug_utils)
 	{
+		// The internet seems divided on whether these should be instance or device ProcAddr. They take a device first argument, but are defined
+		// in an instance extension...
 		vulkan.vkSetDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(vulkan.device, "vkSetDebugUtilsObjectNameEXT");
 		vulkan.vkCmdInsertDebugUtilsLabel = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetDeviceProcAddr(vulkan.device, "vkCmdInsertDebugUtilsLabelEXT");
+		// This one takes an instance first argument, so has to be in an instance ProcAddr...
+		vulkan.vkSubmitDebugUtilsMessage = (PFN_vkSubmitDebugUtilsMessageEXT)vkGetInstanceProcAddr(vulkan.instance, "vkSubmitDebugUtilsMessageEXT");
 
 		if (vulkan.vkSetDebugUtilsObjectName && vulkan.vkCmdInsertDebugUtilsLabel) ILOG("Debug utils enabled");
 	}
