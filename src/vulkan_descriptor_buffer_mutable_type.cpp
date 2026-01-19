@@ -234,7 +234,8 @@ void prepare_descriptor_buffer()
 	// this buffer contains resource descriptor for all uniform/storage buffers
 	p_benchmark->m_descBuffer = std::make_unique<Buffer>(p_benchmark->m_vulkanSetup);
 	p_benchmark->m_descBuffer->create(VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-	                                  2*p_benchmark->m_layoutSize, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	                                  2*p_benchmark->m_layoutSize, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_descBuffer->getHandle(), "Descriptor buffer");
 
 	p_benchmark->m_descBuffer->map();
 	uint8_t* descriptor_buffer_ptr = (uint8_t*)p_benchmark->m_descBuffer->m_mappedAddress;
@@ -423,6 +424,7 @@ void prepare_object()
 	objectDataBuffer->create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 	                         size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	p_benchmark->m_objectDataBuffer = std::move(objectDataBuffer);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_objectDataBuffer->getHandle(), "Data buffer");
 
 	// read only ssbo of ObjectSphere
 	size = sizeof(ObjectSphere) * p_benchmark->m_objectCount;
@@ -430,6 +432,7 @@ void prepare_object()
 	sphereBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 	                     size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	p_benchmark->m_sphereBuffer = std::move(sphereBuffer);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_sphereBuffer->getHandle(), "Sphere buffer");
 
 	// ssbo of indirect draw cmd
 	size = sizeof(uint32_t) + sizeof(IndexedIndirectDrawCmd) * p_benchmark->m_objectCount;
@@ -437,6 +440,7 @@ void prepare_object()
 	indirectDrawBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 	                           size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	p_benchmark->m_indirectDrawBuffer = std::move(indirectDrawBuffer);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_indirectDrawBuffer->getHandle(), "Indirect draw buffer");
 
 	p_benchmark->m_indirectDrawBuffer->map();
 	uint8_t* ptr = (uint8_t*)p_benchmark->m_indirectDrawBuffer->m_mappedAddress;
@@ -454,6 +458,7 @@ void prepare_vertex()
 	auto vertBuffer = std::make_unique<Buffer>(p_benchmark->m_vulkanSetup);
 	vertBuffer->create(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	p_benchmark->m_vertBuffer = std::move(vertBuffer);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_vertBuffer->getHandle(), "Vertex buffer");
 
 	p_benchmark->updateBuffer(kCubeVerts, *p_benchmark->m_vertBuffer);
 
@@ -462,6 +467,7 @@ void prepare_vertex()
 	auto indexBuffer = std::make_unique<Buffer>(p_benchmark->m_vulkanSetup);
 	indexBuffer->create(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	p_benchmark->m_indexBuffer = std::move(indexBuffer);
+	test_set_name(p_benchmark->m_vulkanSetup, VK_OBJECT_TYPE_BUFFER, (uint64_t)p_benchmark->m_indexBuffer->getHandle(), "Index buffer");
 
 	p_benchmark->updateBuffer(kCubeIdx, *p_benchmark->m_indexBuffer);
 }
