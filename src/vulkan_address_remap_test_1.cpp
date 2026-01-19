@@ -105,6 +105,8 @@ int main(int argc, char** argv)
 
 	auto pipeline = std::make_shared<ComputePipeline>(pipeline_layout);
 	pipeline->create(shader_stage);
+	shader_stage.destroy();
+	shader_stage.m_pShader.reset();
 
 	auto command_pool = std::make_shared<CommandBufferPool>(vulkan.device);
 	command_pool->create(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, 0);
@@ -174,6 +176,17 @@ int main(int argc, char** argv)
 	{
 		ret = 1;
 	}
+
+	descriptor_set.reset();
+	set_pool.reset();
+	pipeline.reset();
+	shader.reset();
+	pipeline_layout.reset();
+	set_layout.reset();
+	command_buffer.reset();
+	command_pool.reset();
+	output_buffer.destroy();
+	offsets_buffer.destroy();
 
 	test_done(vulkan);
 	return ret;

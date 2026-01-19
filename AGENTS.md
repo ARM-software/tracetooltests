@@ -25,7 +25,7 @@
 
 ## Testing Guidelines
 - Run test binaries directly, do not run via CTest.
-- For Vulkan tests, add the command line parameter `--gpu-simulated` to workaround AI sandbox problems.
+- For Vulkan tests, add the command line parameter `--cpu` to workaround AI sandbox problems.
 - For Vulkan tests, also add the command line parameter `-v` to enable the Vulkan validation layer.
 - Some tests return error code 77 to indicate feature not supported.
 
@@ -42,8 +42,8 @@
 - Create source `src/vulkan_<name>.cpp` and a bench file `benchmarking/vulkan_<name>.bench`.
 - Register the test in `CMakeLists.txt` with `vulkan_test(<name>)`.
 - Build with 'make -j'
-- Run from build directory without GPU: `./vulkan_<name> -v --gpu-simulated`.
-- Run from build directory with GPU: `./vulkan_<name> -v --gpu-native`.
+- Run from build directory without GPU: `./vulkan_<name> -v --cpu`.
+- Run from build directory with GPU: `./vulkan_<name> -v --gpu`.
 - Fix any Vulkan validation errors shown in the output from the above runs.
 - Use the check() function to test Vulkan call return values. Put it on a separate line after the Vulkan call. Do not wrap the Vulkan call.
 
