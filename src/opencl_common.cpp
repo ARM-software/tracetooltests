@@ -126,6 +126,11 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 	r = clGetPlatformIDs(0, nullptr, &num_platforms);
 	if (r != CL_SUCCESS)
 	{
+		if (r == CL_PLATFORM_NOT_FOUND_KHR)
+		{
+			printf("No OpenCL runtime found!\n");
+			exit(77); // no OpenCL runtime present
+		}
 		printf("Failed to query number of platforms: %s\n", errorString(r));
 		exit(-1);
 	}
@@ -133,7 +138,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 	r = clGetPlatformIDs(num_platforms, platforms.data(), nullptr);
 	if (r != CL_SUCCESS)
 	{
-		printf("Failed to query platforms: %s\n", errorString(r));
+		printf("Failed to query platform info: %s\n", errorString(r));
 		exit(-1);
 	}
 	printf("We found %d OpenCL platforms\n", (int)num_platforms);
@@ -179,7 +184,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 #endif
 
 		r = clGetDeviceIDs(platform, device_type, 0, nullptr, &num_devices);
-		if (num_devices == 0 || r == CL_DEVICE_NOT_FOUND)
+		if (num_devices == 0 || r == CL_DEVICE_NOT_FOUND || r == CL_INVALID_DEVICE_TYPE)
 		{
 			printf("Platform %s has no %s type devices\n", platform_name.c_str(), type_name);
 			continue; // try to check another platform
@@ -220,10 +225,10 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		if (found) break;
 	}
 
-	if (num_devices == 0)
+	if (!found)
 	{
 		printf("We found no CL devices of the requested type\n");
-		exit(-77);
+		exit(77);
 	}
 
 #ifdef CL_VERSION_3_0
@@ -233,7 +238,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		printf("Supported host CL version is %d.%d.%d, while we require %d.%d.%d\n",
 		       CL_VERSION_MAJOR(version_int), CL_VERSION_MINOR(version_int), CL_VERSION_PATCH(version_int),
 		       CL_VERSION_MAJOR(reqs.minApiVersion), CL_VERSION_MINOR(reqs.minApiVersion), CL_VERSION_PATCH(reqs.minApiVersion));
-		exit(-77);
+		exit(77);
 	}
 #endif
 
@@ -255,7 +260,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		if (n == std::string::npos)
 		{
 			printf("CL extension %s is not supported\n", s.c_str());
-			exit(-77);
+			exit(77);
 		}
 	}
 

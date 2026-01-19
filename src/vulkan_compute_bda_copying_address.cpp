@@ -182,8 +182,9 @@ int main(int argc, char** argv)
 	}
 
 	// color buffer
-	VkMemoryPropertyFlags propFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	if (!p_benchmark->gpu_driven) propFlags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	VkMemoryPropertyFlags propFlags = 0;
+	if (!p_benchmark->gpu_driven) propFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	else propFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	size = p_benchmark->width * p_benchmark->height * sizeof(VkDeviceAddress);
 	p_benchmark->m_colorBuffer = std::make_unique<Buffer>(vulkan);

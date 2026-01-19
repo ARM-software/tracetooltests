@@ -181,6 +181,7 @@ int main(int argc, char** argv)
 	set_pool.reset();
 	pipeline.reset();
 	shader.reset();
+	layout_map.clear(); // drop shared_ptr ref before destroying device
 	pipeline_layout.reset();
 	set_layout.reset();
 	command_buffer.reset();
