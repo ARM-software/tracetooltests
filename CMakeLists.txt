@@ -238,6 +238,7 @@ vulkan_test(compute_bda_ubo) # buffer device address through uniform buffer obje
 vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
 vulkan_test(compute_bda_copying_address) # copying buffer device address
 vulkan_test_extra(compute_bda_copying_address_gpu_driven compute_bda_copying_address -gdriven)
+vulkan_test(address_remap_test_1)
 
 vulkan_test(deferred_1)
 vulkan_test(pipelinecache_1)
