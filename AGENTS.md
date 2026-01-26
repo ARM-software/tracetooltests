@@ -46,6 +46,8 @@
 - Run from build directory with GPU: `./vulkan_<name> -v --gpu`.
 - Fix any Vulkan validation errors shown in the output from the above runs.
 - Use the check() function to test Vulkan call return values. Put it on a separate line after the Vulkan call. Do not wrap the Vulkan call.
+- If asked to test an extension you are not familiar with, download the extension text from `https://docs.vulkan.org/refpages/latest/refpages/source/<extension name>.html`
+  and read it.
 
 Minimal `src/vulkan_<name>.cpp`:
 ```cpp
