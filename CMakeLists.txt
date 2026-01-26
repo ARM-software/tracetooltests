@@ -210,6 +210,7 @@ vulkan_test(feature_1)
 vulkan_test(feature_2)
 vulkan_test(debug_marker)
 vulkan_test(debug_report)
+vulkan_test(debug_utils)
 
 vulkan_test(compute_1)
 add_custom_command(TARGET vulkan_compute_1 PRE_BUILD COMMAND rm -f test.bin)

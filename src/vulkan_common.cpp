@@ -380,38 +380,32 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	assert(result == VK_SUCCESS);
 	assert(num_devices == physical_devices.size());
 	int selected_gpu = -1;
+	printf("Found %d physical devices\n", (int)num_devices);
 	for (unsigned i = 0; i < physical_devices.size(); i++)
 	{
 		VkPhysicalDeviceProperties device_properties = {};
 		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
-		if (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU && force_native_gpu) continue; // skip it
-		else if (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU && use_simulated_gpu) { selected_gpu = i; break; } // pick first simulated GPU
-		else if (device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_CPU && !use_simulated_gpu) { selected_gpu = i; break; } // pick first native GPU
-		else selected_gpu = i;
+		const bool is_cpu = (device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU || device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU);
+		printf("\t%u : %s (Vulkan %d.%d.%d) %s\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
+		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion), is_cpu ? "CPU" : "GPU");
+		if (is_cpu && force_native_gpu) continue; // skip it
+		else if (!is_cpu && use_simulated_gpu) continue; // skip it
+		else if (selected_gpu == -1) selected_gpu = i;
 	}
 	if (selected_gpu == -1)
 	{
 		printf("No GPU of the desired type found\n");
 		exit(77);
 	}
-	printf("Found %d physical devices (selecting %d)\n", (int)num_devices, selected_gpu);
-	for (unsigned i = 0; i < physical_devices.size(); i++)
+	printf("Selecting physical device %d\n", selected_gpu);
+	assert(selected_gpu < (int)num_devices); // Should not be possible
+	VkPhysicalDeviceProperties device_properties = {};
+	vkGetPhysicalDeviceProperties(physical_devices[selected_gpu], &device_properties);
+	if (device_properties.apiVersion < reqs.apiVersion)
 	{
-		VkPhysicalDeviceProperties device_properties = {};
-		vkGetPhysicalDeviceProperties(physical_devices[i], &device_properties);
-		printf("\t%u : %s (Vulkan %d.%d.%d)\n", i, device_properties.deviceName, VK_VERSION_MAJOR(device_properties.apiVersion),
-		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion));
-		if (i == (unsigned)selected_gpu && device_properties.apiVersion < reqs.apiVersion)
-		{
-			printf("Selected GPU does support required Vulkan version %d.%d.%d\n", VK_VERSION_MAJOR(reqs.apiVersion),
-			       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
-			exit(77);
-		}
-	}
-	if (selected_gpu >= (int)num_devices)
-	{
-		printf("Selected GPU %d does not exist!\n", selected_gpu);
-		exit(-1);
+		printf("Selected GPU does support required Vulkan version %d.%d.%d\n", VK_VERSION_MAJOR(reqs.apiVersion),
+		       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
+		exit(77);
 	}
 	vulkan.physical = physical_devices.at(selected_gpu);
 

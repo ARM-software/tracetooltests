@@ -36,8 +36,23 @@ int main(int argc, char** argv)
 	pf_vkCreateDebugReportCallbackEXT(vulkan.instance, &info, nullptr, &cb);
 	pf_vkDebugReportMessageEXT(vulkan.instance, VK_DEBUG_REPORT_DEBUG_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT, (uint64_t)vulkan.instance, 0, 0, "vulkan_debug_report", "instance test");
 	pf_vkDebugReportMessageEXT(vulkan.instance, VK_DEBUG_REPORT_DEBUG_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT, (uint64_t)vulkan.device, 0, 0, "vulkan_debug_report", "device test");
-	pf_vkDestroyDebugReportCallbackEXT(vulkan.instance, cb, nullptr);
+	pf_vkDebugReportMessageEXT(vulkan.instance, VK_DEBUG_REPORT_DEBUG_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT, (uint64_t)vulkan.physical, 0, 0, "vulkan_debug_report", "physical device test");
 
+	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
+	pAllocateMemInfo.memoryTypeIndex = 0;
+	pAllocateMemInfo.allocationSize = 1024;
+	VkDeviceMemory memory = 0;
+	VkResult result = vkAllocateMemory(vulkan.device, &pAllocateMemInfo, nullptr, &memory);
+	check(result);
+	assert(memory != 0);
+	pf_vkDebugReportMessageEXT(vulkan.instance, VK_DEBUG_REPORT_DEBUG_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT, (uint64_t)memory, 0, 0, "vulkan_debug_report", "memory test");
+	vkFreeMemory(vulkan.device, memory, nullptr);
+
+	VkQueue queue;
+	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
+	pf_vkDebugReportMessageEXT(vulkan.instance, VK_DEBUG_REPORT_DEBUG_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT, (uint64_t)queue, 0, 0, "vulkan_debug_report", "queue test");
+
+	pf_vkDestroyDebugReportCallbackEXT(vulkan.instance, cb, nullptr);
 	test_done(vulkan);
 	return 0;
 }

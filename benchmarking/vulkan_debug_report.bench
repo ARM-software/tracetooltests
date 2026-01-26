@@ -1,6 +1,6 @@
 {
 	"name": "vulkan_debug_report",
-	"description": "Test of accelleration structures",
+	"description": "Test of VK_EXT_debug_report extension",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",
