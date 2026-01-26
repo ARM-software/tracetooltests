@@ -205,6 +205,8 @@ vulkan_test_extra(copying_3_test_0 copying_3 -c 0 -t 3)
 vulkan_test_extra(copying_3_test_1 copying_3 -c 1 -t 3)
 vulkan_test_extra(copying_3_test_2 copying_3 -c 2 -t 3)
 
+vulkan_test(nested_commandbuffers)
+
 vulkan_test(tool_1)
 vulkan_test(feature_1)
 vulkan_test(feature_2)
