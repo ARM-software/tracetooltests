@@ -18,12 +18,21 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs{};
-	reqs.apiVersion = VK_API_VERSION_1_4;
-	reqs.minApiVersion = VK_API_VERSION_1_4;
+	reqs.apiVersion = VK_API_VERSION_1_3;
+	reqs.device_extensions.push_back("VK_EXT_host_image_copy");
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
-	reqs.reqfeat14.hostImageCopy = VK_TRUE;
-	auto vk = test_init(argc, argv, "vulkan_host_image_copy", reqs);
+	VkPhysicalDeviceHostImageCopyFeatures hostCopyFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES, nullptr };
+	hostCopyFeatures.hostImageCopy = VK_TRUE;
+	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&hostCopyFeatures);
+
+	auto vk = test_init(argc, argv, "vulkan_host_image_copy_ext", reqs);
+
+	MAKEDEVICEPROCADDR(vk, vkCopyMemoryToImageEXT);
+	MAKEDEVICEPROCADDR(vk, vkCopyImageToMemoryEXT);
+	MAKEDEVICEPROCADDR(vk, vkTransitionImageLayoutEXT);
+	MAKEDEVICEPROCADDR(vk, vkCopyImageToImageEXT);
+	MAKEDEVICEPROCADDR(vk, vkGetImageSubresourceLayout2EXT);
 
 	bench_start_iteration(vk.bench);
 
@@ -82,7 +91,7 @@ int main(int argc, char** argv)
 	transition.subresourceRange.levelCount = 1;
 	transition.subresourceRange.baseArrayLayer = 0;
 	transition.subresourceRange.layerCount = 1;
-	result = vkTransitionImageLayout(vk.device, 1, &transition);
+	result = pf_vkTransitionImageLayoutEXT(vk.device, 1, &transition);
 	check(result);
 
 	VkHostImageLayoutTransitionInfo transitionCopy{ VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO, nullptr };
@@ -90,7 +99,7 @@ int main(int argc, char** argv)
 	transitionCopy.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	transitionCopy.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 	transitionCopy.subresourceRange = transition.subresourceRange;
-	result = vkTransitionImageLayout(vk.device, 1, &transitionCopy);
+	result = pf_vkTransitionImageLayoutEXT(vk.device, 1, &transitionCopy);
 	check(result);
 
 	std::vector<uint8_t> data(width * height * 4);
@@ -118,10 +127,10 @@ int main(int argc, char** argv)
 	subresourceInfo.imageSubresource.mipLevel = regionToImage.imageSubresource.mipLevel;
 	subresourceInfo.imageSubresource.arrayLayer = regionToImage.imageSubresource.baseArrayLayer;
 	VkSubresourceLayout2 subresourceLayout{ VK_STRUCTURE_TYPE_SUBRESOURCE_LAYOUT_2, nullptr };
-	vkGetImageSubresourceLayout2(vk.device, image, &subresourceInfo, &subresourceLayout);
+	pf_vkGetImageSubresourceLayout2EXT(vk.device, image, &subresourceInfo, &subresourceLayout);
 
 	VkSubresourceLayout2 subresourceLayoutCopy{ VK_STRUCTURE_TYPE_SUBRESOURCE_LAYOUT_2, nullptr };
-	vkGetImageSubresourceLayout2(vk.device, imageCopy, &subresourceInfo, &subresourceLayoutCopy);
+	pf_vkGetImageSubresourceLayout2EXT(vk.device, imageCopy, &subresourceInfo, &subresourceLayoutCopy);
 
 	VkCopyMemoryToImageInfo copyToImage{ VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO, nullptr };
 	copyToImage.flags = 0;
@@ -129,7 +138,7 @@ int main(int argc, char** argv)
 	copyToImage.dstImageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	copyToImage.regionCount = 1;
 	copyToImage.pRegions = &regionToImage;
-	result = vkCopyMemoryToImage(vk.device, &copyToImage);
+	result = pf_vkCopyMemoryToImageEXT(vk.device, &copyToImage);
 	check(result);
 
 	std::vector<uint8_t> readback(data.size(), 0);
@@ -157,7 +166,7 @@ int main(int argc, char** argv)
 	copyImageToImage.dstImageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	copyImageToImage.regionCount = 1;
 	copyImageToImage.pRegions = &imageCopyRegion;
-	result = vkCopyImageToImage(vk.device, &copyImageToImage);
+	result = pf_vkCopyImageToImageEXT(vk.device, &copyImageToImage);
 	check(result);
 
 	VkCopyImageToMemoryInfo copyToMemory{ VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO, nullptr };
@@ -166,7 +175,7 @@ int main(int argc, char** argv)
 	copyToMemory.srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	copyToMemory.regionCount = 1;
 	copyToMemory.pRegions = &regionToMemory;
-	result = vkCopyImageToMemory(vk.device, &copyToMemory);
+	result = pf_vkCopyImageToMemoryEXT(vk.device, &copyToMemory);
 	check(result);
 
 	assert(readback == data);

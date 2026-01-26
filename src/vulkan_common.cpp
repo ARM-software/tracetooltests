@@ -939,8 +939,21 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		const VkDeviceSize offset = dedicated ? 0 : i * aligned_size;
 		uint8_t* data = nullptr;
 		VkDeviceMemory mem = memory.at(dedicated ? i : 0);
-		VkResult result = vkMapMemory(vulkan.device, mem, offset, aligned_size, 0, (void**)&data);
-		assert(result == VK_SUCCESS);
+		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+		{
+			VkMemoryMapInfo map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO, nullptr };
+			map_info.flags = 0;
+			map_info.memory = mem;
+			map_info.offset = offset;
+			map_info.size = aligned_size;
+			VkResult result = vkMapMemory2(vulkan.device, &map_info, (void**)&data);
+			check(result);
+		}
+		else
+		{
+			VkResult result = vkMapMemory(vulkan.device, mem, offset, aligned_size, 0, (void**)&data);
+			assert(result == VK_SUCCESS);
+		}
 		memset(data, pattern ? i : 0, aligned_size);
 		// Explicit notification
 		if (vulkan.has_explicit_host_updates)
@@ -953,7 +966,18 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			mmr.size = VK_WHOLE_SIZE;
 			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 		}
-		vkUnmapMemory(vulkan.device, mem);
+		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+		{
+			VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr };
+			unmap_info.flags = 0;
+			unmap_info.memory = mem;
+			VkResult result = vkUnmapMemory2(vulkan.device, &unmap_info);
+			check(result);
+		}
+		else
+		{
+			vkUnmapMemory(vulkan.device, mem);
+		}
 	}
 	// Label
 	for (unsigned i = 0; i < buffers.size() && name; i++)

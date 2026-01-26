@@ -165,22 +165,36 @@ int main(int argc, char** argv)
 		check(result);
 		vkCmdBindPipeline(r.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, r.pipeline);
 
-		VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
-		pushinfo.layout = r.pipelineLayout;
-		pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		pushinfo.offset = 0;
-		pushinfo.size = sizeof(PushConstants);
-		pushinfo.pValues = &constants;
 		VkDeviceSize markup_location = 0;
-		VkMarkedOffsetsARM mm = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, pushinfo.pNext };
+		VkMarkedOffsetsARM mm = { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
 		VkMarkingTypeARM markingType = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
 		VkMarkingSubTypeARM subType = { .deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM };
 		mm.count = 1;
 		mm.pOffsets = &markup_location;
 		mm.pSubTypes = &subType;
 		mm.pMarkingTypes = &markingType;
-		if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
-		vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
+		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+		{
+			VkPushConstantsInfo pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO, nullptr };
+			pushinfo.layout = r.pipelineLayout;
+			pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			pushinfo.offset = 0;
+			pushinfo.size = sizeof(PushConstants);
+			pushinfo.pValues = &constants;
+			if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
+			vkCmdPushConstants2(r.commandBuffer, &pushinfo);
+		}
+		else
+		{
+			VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
+			pushinfo.layout = r.pipelineLayout;
+			pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			pushinfo.offset = 0;
+			pushinfo.size = sizeof(PushConstants);
+			pushinfo.pValues = &constants;
+			if (vulkan.has_trace_helpers) pushinfo.pNext = &mm;
+			vulkan.vkCmdPushConstants2(r.commandBuffer, &pushinfo);
+		}
 
 		vkCmdDispatch(r.commandBuffer, (uint32_t)ceil(width / float(workgroup_size)), (uint32_t)ceil(height / float(workgroup_size)), 1);
 		result = vkEndCommandBuffer(r.commandBuffer);

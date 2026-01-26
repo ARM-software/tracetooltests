@@ -25,7 +25,14 @@ int main(int argc, char** argv)
 
 	auto vk = test_init(argc, argv, "vulkan_push_descriptor", reqs);
 
-	MAKEDEVICEPROCADDR(vk, vkCmdPushDescriptorSetKHR);
+	const bool use_core_push_descriptor = vk.apiVersion >= VK_API_VERSION_1_4;
+	PFN_vkCmdPushDescriptorSetKHR pf_vkCmdPushDescriptorSetKHR = nullptr;
+	if (!use_core_push_descriptor)
+	{
+		pf_vkCmdPushDescriptorSetKHR = reinterpret_cast<PFN_vkCmdPushDescriptorSetKHR>(
+			vkGetDeviceProcAddr(vk.device, "vkCmdPushDescriptorSetKHR"));
+		assert(pf_vkCmdPushDescriptorSetKHR);
+	}
 
 	bench_start_iteration(vk.bench);
 
@@ -95,7 +102,14 @@ int main(int argc, char** argv)
 	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	write.pBufferInfo = &dbi;
 
-	pf_vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &write);
+	if (use_core_push_descriptor)
+	{
+		vkCmdPushDescriptorSet(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &write);
+	}
+	else
+	{
+		pf_vkCmdPushDescriptorSetKHR(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &write);
+	}
 
 	check(vkEndCommandBuffer(cmd));
 
