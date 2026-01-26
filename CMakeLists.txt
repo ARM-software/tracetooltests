@@ -230,6 +230,7 @@ vulkan_test(compute_3)
 vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
 
 vulkan_test(compute_shader_object)
+vulkan_test(compute_shader_module_identifier)
 
 vulkan_test(compute_descriptor_buffer)
 vulkan_test(descriptor_buffer_mutable_type)
