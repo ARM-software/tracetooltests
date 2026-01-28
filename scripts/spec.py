@@ -146,6 +146,9 @@ indirect_command_c_struct_names = {
 	'vkCmdDrawIndexedIndirectCountAMD': 'VkDrawIndexedIndirectCommand',
 }
 
+# dict containing union name in key and in value: list of type definitions deciding the union variant to use, the type of this union, and the name of this union member
+unions = {}
+
 draw_commands = [] # vkCmdDraw*
 compute_commands = [] # vkCmdDispatch*
 raytracing_commands = [] # vkCmdTraceRays*
@@ -259,12 +262,28 @@ def scan_type(v):
 		name = v.find('name').text
 		atype = v.find('type')
 		if atype is not None: type_mappings[name] = atype.text
+	elif category == 'union':
+		# handle aliases (assuming they are in the right order)
+		if v.attrib.get('name') == None: # TBD can we generalize this and move it up?
+			alias_name = v.attrib.get('alias')
+			name = v.attrib.get('name')
+			if not alias_name in type_mappings: assert False, 'Could not find alias %s for %s' % (alias_name, name)
+			type_mappings[name] = type_mappings[alias_name]
+			return
+		# handle normal types
+		name = v.attrib.get('name')
+		for m in v.findall('member'):
+			selection = m.attrib.get('selection')
+			if selection == None: return # not a supported union, must be hardcoded
+			member_name = m.find('name').text
+			member_type = m.find('type').text
+			unions[name] = [ selection.split(','), member_type, member_name ]
 	elif category == 'bitmask':
 		# handle aliases (assuming they are in the right order)
 		if v.find('name') == None:
 			alias_name = v.attrib.get('alias')
 			name = v.attrib.get('name')
-			if not alias_name in type_mappings: assert false, 'Could not find alias %s for %s' % (alias_name, name)
+			if not alias_name in type_mappings: assert False, 'Could not find alias %s for %s' % (alias_name, name)
 			type_mappings[name] = type_mappings[alias_name]
 			return
 		# handle normal types
@@ -275,7 +294,7 @@ def scan_type(v):
 		elif atype == 'VkFlags':
 			type_mappings[name] = 'uint32_t'
 		else:
-			assert false, 'Unknown bitmask type: %s' % atype
+			assert False, 'Unknown bitmask type: %s' % atype
 
 def init():
 	# Autogenerate list of feature detection functions
@@ -513,6 +532,7 @@ class base_parameter(object):
 		if '* const*' in raw:
 			self.param_ptrstr = '* const* '
 		self.length = node.attrib.get('len') # eg 'null-terminated' or parameter name
+		self.selector = node.attrib.get('selector') # required for members of `unions` dict
 		altlen = node.attrib.get('altlen') # alternative to latex stuff
 		self.fixedsize = False
 		if altlen:
