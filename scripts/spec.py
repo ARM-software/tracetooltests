@@ -114,9 +114,17 @@ packed_bitfields = [
 	'StdVideoEncodeH265ReferenceInfoFlags',
 ]
 
+# These are misordered in the Vulkan spec, putting size _after_ the thing is sets the size of. First time it happened is in VK_EXT_descriptor_heap.
+misordered_counts = {
+	'VkHostAddressRangeEXT' : [ 'size' ],
+	'VkHostAddressRangeConstEXT' : [ 'size' ],
+}
+
 # Parameters not named *Count with type uint32_t or size_t that need temporaries created for access to them by other parameters.
 # TODO: Autogenerate this from the len field in the XML
 other_counts = {
+	'VkHostAddressRangeEXT' : [ 'size' ],
+	'VkHostAddressRangeConstEXT' : [ 'size' ],
 	'VkPipelineShaderStageModuleIdentifierCreateInfoEXT' : [ 'identifierSize' ],
 	'VkPushConstantsInfoKHR' : [ 'size' ],
 	'VkPushConstantsInfo' : [ 'size' ],
@@ -272,12 +280,13 @@ def scan_type(v):
 			return
 		# handle normal types
 		name = v.attrib.get('name')
+		unions[name] = []
 		for m in v.findall('member'):
 			selection = m.attrib.get('selection')
 			if selection == None: return # not a supported union, must be hardcoded
 			member_name = m.find('name').text
 			member_type = m.find('type').text
-			unions[name] = [ selection.split(','), member_type, member_name ]
+			unions[name].append([selection.split(','), member_type, member_name ])
 	elif category == 'bitmask':
 		# handle aliases (assuming they are in the right order)
 		if v.find('name') == None:
@@ -422,6 +431,8 @@ def init():
 					if typename == 'void': typename = 'char'
 					if 'vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCounters' in name: # special case it for now, only case of double out param
 						special_count_funcs[name] = [ countname, counttype, [ [ 'pCounters', 'VkPerformanceCounterKHR' ], [ lastname, typename ] ] ]
+					elif 'vkEnumeratePhysicalDeviceQueueFamilyPerformanceCountersByRegionARM' in name: # another case!
+						special_count_funcs[name] = [ countname, counttype, [ [ 'pCounters', 'VkPerformanceCounterARM' ], [ lastname, typename ] ] ]
 					else:
 						special_count_funcs[name] = [ countname, counttype, [ [ lastname, typename ] ] ]
 
