@@ -1,4 +1,4 @@
 {
-	"name": "vulkan_bloom_minimal",
+	"name": "vulkan_demo_bloom_minimal",
 	"description": "Minimal bloom-style blur using offscreen passes"
 }

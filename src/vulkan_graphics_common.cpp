@@ -1246,32 +1246,35 @@ VkResult DescriptorSet::destroy()
 
 VkResult PipelineLayout::create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges/*={}*/)
 {
-	for (auto& setLayout: setLayoutMap)
-	{
-		m_pDescriptorSetLayouts[setLayout.first] = setLayout.second;
-		m_descriptorSetLayouts.push_back(setLayout.second->getHandle());
-	}
-	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
-
-	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), static_cast<uint32_t>(m_pushConstantRanges.size()));
+	return create(setLayoutMap.size(), setLayoutMap, pushConstantRanges.size(), pushConstantRanges);
 }
 
 VkResult PipelineLayout::create(const std::vector<VkPushConstantRange>& pushConstantRanges)
 {
 	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
-	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), static_cast<uint32_t>(m_pushConstantRanges.size()));
+	return create(m_descriptorSetLayouts.size(), m_pushConstantRanges.size());
 }
 
 VkResult PipelineLayout::create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges)
 {
-	for (auto& setLayout: setLayoutMap)
+	m_pDescriptorSetLayouts.clear();
+	m_descriptorSetLayouts.clear();
+
+	uint32_t layoutCount = setLayoutCount;
+	if (layoutCount == 0) layoutCount = setLayoutMap.size();
+	for (const auto& setLayout : setLayoutMap)
+	{
+		if (setLayout.first + 1 > layoutCount) layoutCount = setLayout.first + 1;
+	}
+	m_descriptorSetLayouts.assign(layoutCount, VK_NULL_HANDLE);
+	for (const auto& setLayout: setLayoutMap)
 	{
 		m_pDescriptorSetLayouts[setLayout.first] = setLayout.second;
-		m_descriptorSetLayouts.push_back(setLayout.second->getHandle());
+		m_descriptorSetLayouts[setLayout.first] = setLayout.second->getHandle();
 	}
 	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
 
-	return create(setLayoutCount, pushConstantRangeCount);
+	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), pushConstantRangeCount);
 }
 
 VkResult PipelineLayout::create(uint32_t layoutCount, uint32_t constantCount)

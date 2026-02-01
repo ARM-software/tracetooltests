@@ -163,7 +163,6 @@ public:
 
 	void destroy()
 	{
-		DLOG3("MEM detection: bloom minimal destroy().");
 		sceneTarget = {};
 		blurTargetH = {};
 		blurTargetV = {};

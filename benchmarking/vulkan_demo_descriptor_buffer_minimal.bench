@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_demo_descriptor_buffer_minimal",
+	"description": "Minimal graphics test using VK_EXT_descriptor_buffer"
+}
