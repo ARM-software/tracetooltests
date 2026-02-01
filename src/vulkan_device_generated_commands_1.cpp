@@ -1,6 +1,7 @@
 #include "vulkan_common.h"
 #include <cstring>
 #include <vector>
+#include <assert.h>
 
 // contains our compute shader, generated with:
 //   glslangValidator -V vulkan_compute_1.comp -o vulkan_compute_1.spirv
@@ -135,6 +136,9 @@ int main(int argc, char** argv)
 	printf("\tdeviceGeneratedCommandsTransformFeedback = %s\n", dgc_props.deviceGeneratedCommandsTransformFeedback ? "true" : "false");
 	printf("\tdeviceGeneratedCommandsMultiDrawIndirectCount = %s\n", dgc_props.deviceGeneratedCommandsMultiDrawIndirectCount ? "true" : "false");
 
+	assert(dgc_props.maxIndirectSequenceCount >= 1);
+	assert(dgc_props.maxIndirectPipelineCount >= 1);
+
 	const uint32_t width = 1;
 	const uint32_t height = 1;
 	const uint32_t wg_size = 1;
@@ -151,6 +155,7 @@ int main(int argc, char** argv)
 	void* storage_data = nullptr;
 	VkResult vk_result = vkMapMemory(vulkan.device, storage_buffer.memory, 0, storage_buffer.size, 0, &storage_data);
 	check(vk_result);
+	assert(storage_data != nullptr);
 	memset(storage_data, 0, static_cast<size_t>(storage_buffer.size));
 	vkUnmapMemory(vulkan.device, storage_buffer.memory);
 
@@ -285,6 +290,7 @@ int main(int argc, char** argv)
 	VkDispatchIndirectCommand* indirect_cmd = nullptr;
 	vk_result = vkMapMemory(vulkan.device, indirect_commands.memory, 0, indirect_commands.size, 0, reinterpret_cast<void**>(&indirect_cmd));
 	check(vk_result);
+	assert(indirect_cmd != nullptr);
 	indirect_cmd->x = 1;
 	indirect_cmd->y = 1;
 	indirect_cmd->z = 1;
@@ -301,6 +307,8 @@ int main(int argc, char** argv)
 	VkMemoryRequirements2 preprocess_mem_reqs = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 	pf_vkGetGeneratedCommandsMemoryRequirementsEXT(vulkan.device, &mem_req_info, &preprocess_mem_reqs);
 
+	assert(preprocess_mem_reqs.memoryRequirements.size > 0);
+
 	buffer_with_memory preprocess_buffer = create_buffer(
 		vulkan,
 		preprocess_mem_reqs.memoryRequirements.size,
@@ -308,6 +316,11 @@ int main(int argc, char** argv)
 		0,
 		true,
 		VK_BUFFER_USAGE_2_PREPROCESS_BUFFER_BIT_EXT | VK_BUFFER_USAGE_2_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_2_SHADER_DEVICE_ADDRESS_BIT);
+
+	assert(preprocess_buffer.size >= preprocess_mem_reqs.memoryRequirements.size);
+	// Basic alignment check for 4 bytes, though often needs 256 or more depending on implementation
+	assert(preprocess_buffer.address % 4 == 0);
+	assert(indirect_commands.address % 4 == 0);
 
 	VkGeneratedCommandsInfoEXT generated_info = { VK_STRUCTURE_TYPE_GENERATED_COMMANDS_INFO_EXT, &generated_pipeline_info };
 	generated_info.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT;
