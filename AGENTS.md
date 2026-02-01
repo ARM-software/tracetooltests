@@ -22,6 +22,7 @@
 - Names: test binaries follow `vulkan_<name>`, `gles_<name>`, `opencl_<name>`; sources in `src/<api>_<name>.cpp`.
 - CMake helpers: prefer `vulkan_test(name)`, `gles_test(name)`, `cl_test(name, version)` to add tests and install bench files.
 - Bench files: add `benchmarking/<api>_<name>.bench` aligned with the target name.
+- Add assert() calls to verify assumptions. Do not work around problems with defensive coding.
 
 ## Testing Guidelines
 - Run test binaries directly, do not run via CTest.

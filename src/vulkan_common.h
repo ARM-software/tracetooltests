@@ -173,8 +173,9 @@ void testCopyBuffer(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer target
 /// Select which GPU to use
 void select_gpu(int chosen_gpu);
 
-/// Takes an RGBA8888 image and saves it to disk as PNG
-void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height);
+/// Takes an RGBA/BGRA8888 or R32G32B32A32_SFLOAT image and saves it to disk as PNG
+void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height,
+                     VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT);
 
 bool enable_frame_boundary(vulkan_req_t& reqs);
 

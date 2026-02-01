@@ -228,6 +228,7 @@ public:
 	                        VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage);
 	void copyBuffer(const Buffer& srcBuffer, const Buffer& dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset =0);
 	void copyBufferToImage(const Buffer& srcBuffer, Image& image, VkDeviceSize srcOffset, const VkExtent3D& dstExtent, const VkOffset3D& dstOffset = {0,0,0});
+	void copyImageToBuffer(const Image& image, const Buffer& dstBuffer, VkDeviceSize dstOffset, const VkExtent3D& srcExtent, const VkOffset3D& srcOffset = {0,0,0});
 
 	inline VkCommandBuffer getHandle() const {
 		return m_handle;
@@ -804,6 +805,10 @@ public:
 	// used for frame boundary extension
 	std::shared_ptr<Image> m_imageBoundary;
 	std::shared_ptr<CommandBuffer> m_frameBoundaryCommandBuffer;
+	std::unique_ptr<Buffer> m_imageOutputBuffer;
+	VkDeviceSize m_imageOutputBufferSize = 0;
+	bool m_imageOutput = false;
+	uint32_t m_imageOutputFrame = 0;
 
 	vulkan_setup_t m_vulkanSetup { };
 	VkQueue m_defaultQueue = VK_NULL_HANDLE;
@@ -817,6 +822,10 @@ protected:
 	{
 		DLOG3("MEM detection: BasicContext destroy().");
 		m_imageBoundary = nullptr;
+		m_imageOutputBuffer = nullptr;
+		m_imageOutputBufferSize = 0;
+		m_imageOutput = false;
+		m_imageOutputFrame = 0;
 		m_secondCommandBuffer = nullptr;
 		m_defaultCommandBuffer = nullptr;
 		m_frameBoundaryCommandBuffer = nullptr;
@@ -863,6 +872,7 @@ public:
 	                          const std::vector<VkSemaphore>&          waitSemaphores = {},
 	                          const std::vector<VkPipelineStageFlags>& waitPipelineStageFlags = {},
 	                          bool returnSignalSemaphore = true);
+	bool saveImageOutput();
 
 	virtual void destroy()
 	{

@@ -768,23 +768,51 @@ const char* errorString(const VkResult errorCode)
 	}
 }
 
-/// Takes an RGBA8888 image and saves it to disk as PNG
-void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset, uint32_t width, uint32_t height)
+/// Takes an RGBA/BGRA8888 or R32G32B32A32_SFLOAT image and saves it to disk as PNG
+void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDeviceMemory memory, uint32_t offset,
+                     uint32_t width, uint32_t height, VkFormat format)
 {
-	float* ptr = nullptr;
 	const uint32_t size = width * height * 4;
-	VkResult result = vkMapMemory(vulkan.device, memory, offset, size * sizeof(float), 0, (void**)&ptr);
-	check(result);
-	assert(ptr != nullptr);
 	std::vector<unsigned char> image;
 	image.reserve(size);
-	for (unsigned i = 0; i < size; i++)
+
+	if (format == VK_FORMAT_R32G32B32A32_SFLOAT)
 	{
-		image.push_back((unsigned char)(255.0f * ptr[i]));
+		float* ptr = nullptr;
+		VkResult result = vkMapMemory(vulkan.device, memory, offset, size * sizeof(float), 0, (void**)&ptr);
+		check(result);
+		assert(ptr != nullptr);
+		for (uint32_t i = 0; i < size; i++)
+		{
+			image.push_back((unsigned char)(255.0f * ptr[i]));
+		}
+		vkUnmapMemory(vulkan.device, memory);
 	}
+	else
+	{
+		uint8_t* ptr = nullptr;
+		VkResult result = vkMapMemory(vulkan.device, memory, offset, size * sizeof(uint8_t), 0, (void**)&ptr);
+		check(result);
+		assert(ptr != nullptr);
+		if (format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB)
+		{
+			for (uint32_t i = 0; i < size; i += 4)
+			{
+				image.push_back(ptr[i + 2]);
+				image.push_back(ptr[i + 1]);
+				image.push_back(ptr[i + 0]);
+				image.push_back(ptr[i + 3]);
+			}
+		}
+		else
+		{
+			image.insert(image.end(), ptr, ptr + size);
+		}
+		vkUnmapMemory(vulkan.device, memory);
+	}
+
 	int r = stbi_write_png(filename, width, height, 4, image.data(), 0);
 	assert(r != 0);
-	vkUnmapMemory(vulkan.device, memory);
 }
 
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size)

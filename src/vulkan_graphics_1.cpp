@@ -28,11 +28,17 @@
 
 static void show_usage()
 {
+	printf("-i/--image-output      Save an image of the output to disk\n");
 	usage();
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
+	if (match(argv[i], "-i", "--image-output"))
+	{
+		reqs.options["image_output"] = true;
+		return true;
+	}
 	return parseCmdopt(i, argc, argv, reqs);
 }
 
@@ -110,6 +116,7 @@ public:
 
 static std::unique_ptr<benchmarkContext> p_benchmark = nullptr;
 static void render(const vulkan_setup_t& vulkan);
+static void save_texture_debug(const vulkan_setup_t& vulkan, Image& image, uint32_t width, uint32_t height);
 
 int main(int argc, char** argv)
 {
@@ -165,8 +172,13 @@ int main(int argc, char** argv)
 	// create image/imageview to be sampled as the background
 	// image/imageView shared_ptr is stored in RenderPass' attachmentInfo
 	auto bgImage = std::make_shared<Image>(vulkan.device);
+	VkImageUsageFlags bgUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (req.options.count("image_output"))
+	{
+		bgUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
 	bgImage->create( {(uint32_t)texWidth, (uint32_t)texHeight, 1}, VK_FORMAT_R8G8B8A8_SRGB,
-	                 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	                 bgUsage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	auto bgImageView = std::make_unique<ImageView>(bgImage);
 	bgImageView->create(VK_IMAGE_VIEW_TYPE_2D);
 
@@ -176,9 +188,14 @@ int main(int argc, char** argv)
 	                  req.samplerAnisotropy, vulkan.device_properties.limits.maxSamplerAnisotropy);
 
 	p_benchmark->updateImage((char*)pixels, imageSize, *bgImage, {(uint32_t)texWidth, (uint32_t)texHeight, 1});
+	stbi_image_free(pixels);
 
 	/*********************** initialize data and submit staging commandBuffer ***************************/
 	p_benchmark->submitStaging(true, {}, {}, false);
+	if (req.options.count("image_output"))
+	{
+		save_texture_debug(vulkan, *bgImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+	}
 
 	// ---------------------------- descriptor setup ---------------------------------
 
@@ -223,6 +240,7 @@ int main(int argc, char** argv)
 	pipelineState.setVertexAttribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos));  //pos, color and texCoord Attrib in vertexBuffer
 	pipelineState.setVertexAttribute(1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
 	pipelineState.setVertexAttribute(2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord));
+	pipelineState.m_rasterizationState.cullMode = VK_CULL_MODE_NONE;
 
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_VIEWPORT);
 	pipelineState.setDynamic(0, VK_DYNAMIC_STATE_SCISSOR);
@@ -340,6 +358,40 @@ void updateTransformData(Buffer& dstBuffer)
 	dstBuffer.flush(true);
 }
 
+static void save_texture_debug(const vulkan_setup_t& vulkan, Image& image, uint32_t width, uint32_t height)
+{
+	const VkDeviceSize size = static_cast<VkDeviceSize>(width) * height * 4;
+	auto staging = std::make_unique<Buffer>(vulkan);
+	staging->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	auto commandBuffer = std::make_shared<CommandBuffer>(p_benchmark->m_defaultCommandPool);
+	commandBuffer->create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	commandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	commandBuffer->imageMemoryBarrier(image, image.m_imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	                                  VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+	                                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	commandBuffer->copyImageToBuffer(image, *staging, 0, {width, height, 1});
+	commandBuffer->bufferMemoryBarrier(*staging, 0, size,
+	                                   VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
+	                                   VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	commandBuffer->imageMemoryBarrier(image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+	                                  VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT,
+	                                  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	commandBuffer->end();
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	VkFence fence = VK_NULL_HANDLE;
+	VkResult result = vkCreateFence(vulkan.device, &fenceInfo, nullptr, &fence);
+	check(result);
+	p_benchmark->submit(p_benchmark->m_defaultQueue, std::vector<std::shared_ptr<CommandBuffer>> {commandBuffer}, fence, {}, {}, false);
+	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
+	check(result);
+	vkDestroyFence(vulkan.device, fence, nullptr);
+
+	test_save_image(vulkan, "texture_upload.png", staging->getMemory(), 0, width, height, image.m_format);
+}
+
 static void render(const vulkan_setup_t& vulkan)
 {
 	bool first_loop = true;
@@ -404,4 +456,5 @@ static void render(const vulkan_setup_t& vulkan)
 
 	vkWaitForFences(vulkan.device, 1, &p_benchmark->m_frameFence, VK_TRUE, UINT64_MAX);
 	bench_stop_iteration(bench);
+	p_benchmark->saveImageOutput();
 }

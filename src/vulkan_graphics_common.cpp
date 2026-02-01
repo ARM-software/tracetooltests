@@ -3,6 +3,7 @@
 #include <algorithm>
 
 // workround for passing compiling quicky
+// TBD - get rid of this
 vulkan_setup_t vulkan2;
 vulkan_req_t req2;
 
@@ -220,6 +221,10 @@ VkResult Image::create(VkExtent3D extent, VkFormat format, VkImageUsageFlags usa
 {
 	m_format = format;
 	setAspectMask(format);
+	if (req2.options.count("image_output") && (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+	{
+		usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
 
 	m_createInfo.flags = 0;
 	m_createInfo.imageType = findImageType(extent);
@@ -605,6 +610,23 @@ void CommandBuffer::copyBufferToImage(const Buffer& srcBuffer, Image& image, VkD
 	copyRegion.imageExtent = dstExtent;
 	//this command requires the image to be in the right layout first. It's host's responsibilty to ensure it.
 	vkCmdCopyBufferToImage(m_handle, srcBuffer.getHandle(), image.getHandle(), image.m_imageLayout, 1, &copyRegion);
+}
+
+void CommandBuffer::copyImageToBuffer(const Image& image, const Buffer& dstBuffer, VkDeviceSize dstOffset, const VkExtent3D& srcExtent, const VkOffset3D& srcOffset /*={0,0,0}*/)
+{
+	assert(image.m_aspect & VK_IMAGE_ASPECT_COLOR_BIT);
+	VkBufferImageCopy copyRegion{};
+	copyRegion.bufferOffset = dstOffset;
+	copyRegion.bufferRowLength = 0;
+	copyRegion.bufferImageHeight = 0;
+	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.imageSubresource.mipLevel = 0;
+	copyRegion.imageSubresource.baseArrayLayer = 0;
+	copyRegion.imageSubresource.layerCount = 1;
+	copyRegion.imageOffset = srcOffset;
+	copyRegion.imageExtent = srcExtent;
+	//this command requires the image to be in the right layout first. It's host's responsibilty to ensure it.
+	vkCmdCopyImageToBuffer(m_handle, image.getHandle(), image.m_imageLayout, dstBuffer.getHandle(), 1, &copyRegion);
 }
 
 VkResult Shader::create(const std::string& filename)
@@ -1378,9 +1400,16 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 		m_dynamicStateCreateInfo.pDynamicStates = m_dynamicStates.data();
 	}
 
-	m_sampleMasks = (graphicPipelineState.m_multiSampleState.pSampleMask == nullptr) ? 0 : *graphicPipelineState.m_multiSampleState.pSampleMask;
 	m_multisampleStateCreateInfo = graphicPipelineState.m_multiSampleState;
-	m_multisampleStateCreateInfo.pSampleMask = &m_sampleMasks;
+	if (graphicPipelineState.m_multiSampleState.pSampleMask)
+	{
+		m_sampleMasks = *graphicPipelineState.m_multiSampleState.pSampleMask;
+		m_multisampleStateCreateInfo.pSampleMask = &m_sampleMasks;
+	}
+	else
+	{
+		m_multisampleStateCreateInfo.pSampleMask = nullptr;
+	}
 
 	m_colorBlendStateCreateInfo = graphicPipelineState.m_colorBlendState;
 	if (graphicPipelineState.m_colorBlendState.pAttachments)
@@ -1680,16 +1709,136 @@ VkSemaphore GraphicContext::submit (VkQueue queue, const std::vector<std::shared
 	return signalSemaphore;
 }
 
+bool GraphicContext::saveImageOutput()
+{
+	if (!m_imageOutput)
+	{
+		return false;
+	}
+	assert(m_renderPass);
+	assert(!m_renderPass->m_attachmentInfos.empty());
+
+	AttachmentInfo* colorAttachment = nullptr;
+	for (auto& attachment : m_renderPass->m_attachmentInfos)
+	{
+		if (!attachment.m_pImageView || !attachment.m_pImageView->m_pImage)
+		{
+			continue;
+		}
+		if (attachment.m_pImageView->m_pImage->m_aspect & VK_IMAGE_ASPECT_COLOR_BIT)
+		{
+			colorAttachment = &attachment;
+			break;
+		}
+	}
+	assert(colorAttachment);
+	assert(colorAttachment->m_pImageView);
+	assert(colorAttachment->m_pImageView->m_pImage);
+	if (!colorAttachment || !colorAttachment->m_pImageView || !colorAttachment->m_pImageView->m_pImage)
+	{
+		return false;
+	}
+
+	Image& image = *colorAttachment->m_pImageView->m_pImage;
+	assert(image.m_aspect & VK_IMAGE_ASPECT_COLOR_BIT);
+	VkFormat format = image.m_format;
+	const bool format_ok = format == VK_FORMAT_R8G8B8A8_UNORM || format == VK_FORMAT_R8G8B8A8_SRGB ||
+	                       format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB;
+	assert(format_ok);
+	if (!format_ok)
+	{
+		return false;
+	}
+
+	VkExtent3D extent = image.getCreateInfo().extent;
+	assert(extent.width > 0);
+	assert(extent.height > 0);
+	const bool has_transfer_src = (image.getCreateInfo().usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+	assert(has_transfer_src);
+	if (!has_transfer_src)
+	{
+		return false;
+	}
+	VkDeviceSize size = static_cast<VkDeviceSize>(extent.width) * extent.height * 4;
+	if (!m_imageOutputBuffer || m_imageOutputBufferSize < size)
+	{
+		m_imageOutputBuffer = std::make_unique<Buffer>(m_vulkanSetup);
+		m_imageOutputBuffer->create(VK_BUFFER_USAGE_TRANSFER_DST_BIT, size,
+		                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		m_imageOutputBufferSize = size;
+	}
+	if (!m_secondCommandBuffer)
+	{
+		m_secondCommandBuffer = std::make_shared<CommandBuffer>(m_defaultCommandPool);
+		m_secondCommandBuffer->create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	}
+
+	VkImageLayout originalLayout = colorAttachment->m_description.finalLayout;
+	if (originalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		originalLayout = image.m_imageLayout;
+	}
+	assert(originalLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+	if (originalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		return false;
+	}
+
+	VkCommandBuffer cmd = m_secondCommandBuffer->getHandle();
+	vkResetCommandBuffer(cmd, 0);
+	m_secondCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	m_secondCommandBuffer->imageMemoryBarrier(image, originalLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	                                          VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+	                                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	m_secondCommandBuffer->copyImageToBuffer(image, *m_imageOutputBuffer, 0, { extent.width, extent.height, 1 });
+	m_secondCommandBuffer->bufferMemoryBarrier(*m_imageOutputBuffer, 0, size,
+	                                           VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
+	                                           VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	m_secondCommandBuffer->imageMemoryBarrier(image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, originalLayout,
+	                                          VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+	                                          VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+	m_secondCommandBuffer->end();
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	VkFence fence = VK_NULL_HANDLE;
+	VkResult result = vkCreateFence(m_vulkanSetup.device, &fenceInfo, nullptr, &fence);
+	check(result);
+
+	VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmd;
+	result = vkQueueSubmit(m_defaultQueue, 1, &submitInfo, fence);
+	check(result);
+	result = vkWaitForFences(m_vulkanSetup.device, 1, &fence, VK_TRUE, UINT64_MAX);
+	check(result);
+	vkDestroyFence(m_vulkanSetup.device, fence, nullptr);
+
+	std::string base = m_vulkanSetup.bench.test_name.empty() ? "graphics" : m_vulkanSetup.bench.test_name;
+	std::string filename = base + "_" + std::to_string(m_imageOutputFrame++) + ".png";
+	test_save_image(m_vulkanSetup, filename.c_str(), m_imageOutputBuffer->getMemory(), 0,
+	                extent.width, extent.height, format);
+	bench_stop_scene(m_vulkanSetup.bench, filename.c_str());
+	return true;
+}
 
 VkResult BasicContext::initBasic(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 {
 	m_vulkanSetup = vulkan;
+	vulkan2 = vulkan;
+	req2 = reqs;
 	vkGetDeviceQueue(vulkan.device, 0, 0, &m_defaultQueue);
 
 	// set defaults if not overridden
 	if (!reqs.options.count("width")) reqs.options["width"] = 640;
 	if (!reqs.options.count("height")) reqs.options["height"] = 480;
 	if (!reqs.options.count("wg_size")) reqs.options["wg_size"] = 32;
+
+	m_imageOutput = reqs.options.count("image_output") > 0;
+	m_imageOutputFrame = 0;
+	m_imageOutputBufferSize = 0;
 
 	width = static_cast<uint32_t>(std::get<int>(reqs.options.at("width")));
 	height = static_cast<uint32_t>(std::get<int>(reqs.options.at("height")));
