@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_demo_graphics_pipeline_library",
+	"description": "Minimal graphics pipeline library demo using VK_EXT_graphics_pipeline_library"
+}
