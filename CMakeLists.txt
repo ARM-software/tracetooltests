@@ -272,6 +272,8 @@ vulkan_test(graphics_1)
 vulkan_test(maintenance7)
 vulkan_test(trace_helpers)
 
+vulkan_test(demo_bloom_minimal)
+
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)
 vulkan_test_build(memory_mprotect)
