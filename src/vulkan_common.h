@@ -73,7 +73,8 @@ struct vulkan_req_t // Vulkan context requirements
 
 struct vulkan_setup_t
 {
-	VkPhysicalDeviceVulkan13Features hasfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan14Features hasfeat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	VkPhysicalDeviceVulkan13Features hasfeat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, &hasfeat14 };
 	VkPhysicalDeviceVulkan12Features hasfeat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &hasfeat13 };
 	VkPhysicalDeviceVulkan11Features hasfeat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &hasfeat12 };
 	VkPhysicalDeviceFeatures2 hasfeat2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &hasfeat11 };

@@ -548,6 +548,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 
 	result = vkCreateDevice(vulkan.physical, &deviceInfo, NULL, &vulkan.device);
+	if (result == VK_ERROR_FEATURE_NOT_PRESENT) { ILOG("Device creation failed due to missing feature"); exit(77); }
 	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_DEVICE, (uint64_t)vulkan.device, "Our device");
 
