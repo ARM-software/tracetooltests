@@ -358,8 +358,6 @@ int main(int argc, char** argv)
 	check(vk_result);
 	vkCmdBindPipeline(state_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 	vkCmdBindDescriptorSets(state_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
-	vk_result = vkEndCommandBuffer(state_cmd);
-	check(vk_result);
 
 	vk_result = vkBeginCommandBuffer(main_cmd, &begin_info);
 	check(vk_result);
@@ -368,6 +366,8 @@ int main(int argc, char** argv)
 	vkCmdBindDescriptorSets(main_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
 	pf_vkCmdExecuteGeneratedCommandsEXT(main_cmd, VK_TRUE, &generated_info);
 	vk_result = vkEndCommandBuffer(main_cmd);
+	check(vk_result);
+	vk_result = vkEndCommandBuffer(state_cmd);
 	check(vk_result);
 
 	VkQueue queue = VK_NULL_HANDLE;
