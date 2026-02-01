@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_demo_descriptor_indexing",
+	"description": "Minimal descriptor indexing demo using VK_EXT_descriptor_indexing"
+}

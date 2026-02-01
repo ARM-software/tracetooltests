@@ -274,6 +274,7 @@ vulkan_test(trace_helpers)
 
 vulkan_test(demo_bloom_minimal)
 vulkan_test(demo_descriptor_buffer_minimal)
+vulkan_test(demo_descriptor_indexing)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(window_1)
