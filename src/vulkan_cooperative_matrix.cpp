@@ -1,6 +1,13 @@
 #include "vulkan_common.h"
 // Shader using GL_KHR_cooperative_matrix (compiled to SPIR-V and embedded)
 #include "vulkan_cooperative_matrix_comp.inc"
+#include "vulkan_cooperative_matrix_m8n8k32_comp.inc"
+#include "vulkan_cooperative_matrix_m8n16k16_comp.inc"
+#include "vulkan_cooperative_matrix_m8n16k32_comp.inc"
+#include "vulkan_cooperative_matrix_m16n8k16_comp.inc"
+#include "vulkan_cooperative_matrix_m16n8k32_comp.inc"
+#include "vulkan_cooperative_matrix_m16n16k16_comp.inc"
+#include "vulkan_cooperative_matrix_m16n16k32_comp.inc"
 
 #include <vector>
 #include <cstdio>
@@ -14,6 +21,70 @@ static bool test_cmdopt(int& i, int argc, char **argv, vulkan_req_t& reqs)
 {
 	return false;
 }
+
+struct coop_shader_variant
+{
+	uint32_t m;
+	uint32_t n;
+	uint32_t k;
+	VkComponentTypeKHR aType;
+	VkComponentTypeKHR bType;
+	VkComponentTypeKHR cType;
+	VkComponentTypeKHR resultType;
+	unsigned char* spirv;
+	uint32_t spirv_len;
+};
+
+static const coop_shader_variant kVariants[] = {
+	{
+		8, 8, 16,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_comp_spirv, vulkan_cooperative_matrix_comp_spirv_len
+	},
+	{
+		8, 8, 32,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m8n8k32_comp_spirv, vulkan_cooperative_matrix_m8n8k32_comp_spirv_len
+	},
+	{
+		8, 16, 16,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m8n16k16_comp_spirv, vulkan_cooperative_matrix_m8n16k16_comp_spirv_len
+	},
+	{
+		8, 16, 32,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m8n16k32_comp_spirv, vulkan_cooperative_matrix_m8n16k32_comp_spirv_len
+	},
+	{
+		16, 8, 16,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m16n8k16_comp_spirv, vulkan_cooperative_matrix_m16n8k16_comp_spirv_len
+	},
+	{
+		16, 8, 32,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m16n8k32_comp_spirv, vulkan_cooperative_matrix_m16n8k32_comp_spirv_len
+	},
+	{
+		16, 16, 16,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m16n16k16_comp_spirv, vulkan_cooperative_matrix_m16n16k16_comp_spirv_len
+	},
+	{
+		16, 16, 32,
+		VK_COMPONENT_TYPE_FLOAT16_KHR, VK_COMPONENT_TYPE_FLOAT16_KHR,
+		VK_COMPONENT_TYPE_FLOAT32_KHR, VK_COMPONENT_TYPE_FLOAT32_KHR,
+		vulkan_cooperative_matrix_m16n16k32_comp_spirv, vulkan_cooperative_matrix_m16n16k32_comp_spirv_len
+	},
+};
 
 int main(int argc, char** argv)
 {
@@ -69,9 +140,50 @@ int main(int argc, char** argv)
 	}
 	printf("\tcooperativeMatrixSupportedStages=0x%x\n", coopProps.cooperativeMatrixSupportedStages);
 
+	if ((coopProps.cooperativeMatrixSupportedStages & VK_SHADER_STAGE_COMPUTE_BIT) == 0)
+	{
+		printf("Skipping: cooperative matrix not supported for compute stage\n");
+		bench_stop_iteration(vk.bench);
+		test_done(vk);
+		return 77;
+	}
+
+	const coop_shader_variant* variant = nullptr;
+	for (const auto &candidate : kVariants)
+	{
+		for (const auto &p : props)
+		{
+			if (p.scope != VK_SCOPE_SUBGROUP_KHR)
+				continue;
+			if (p.MSize != candidate.m || p.NSize != candidate.n || p.KSize != candidate.k)
+				continue;
+			if (p.AType != candidate.aType || p.BType != candidate.bType)
+				continue;
+			if (p.CType != candidate.cType || p.ResultType != candidate.resultType)
+				continue;
+			variant = &candidate;
+			break;
+		}
+		if (variant)
+			break;
+	}
+	if (!variant)
+	{
+		printf("Skipping: no supported cooperative matrix mode matches available shader variants\n");
+		for (const auto &p : props)
+		{
+			printf("\tmode: M=%u N=%u K=%u, A=%u B=%u C=%u Result=%u, scope=0x%x\n",
+			       p.MSize, p.NSize, p.KSize, p.AType, p.BType, p.CType, p.ResultType, p.scope);
+		}
+		bench_stop_iteration(vk.bench);
+		test_done(vk);
+		return 77;
+	}
+	printf("Using cooperative matrix mode M=%u N=%u K=%u\n", variant->m, variant->n, variant->k);
+
 	VkBuffer buffer = VK_NULL_HANDLE;
 	VkDeviceMemory memory = VK_NULL_HANDLE;
-	const VkDeviceSize buffer_size = sizeof(float) * 16 * 16; // full 16x16 result matrix
+	const VkDeviceSize buffer_size = sizeof(float) * variant->m * variant->n; // full result matrix
 	VkBufferCreateInfo bci = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bci.size = buffer_size;
 	bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -132,7 +244,7 @@ int main(int argc, char** argv)
 	vkUpdateDescriptorSets(vk.device, 1, &wds, 0, nullptr);
 
 	// 3) Shader module and pipeline layout/pipeline
-	std::vector<uint32_t> code = copy_shader(vulkan_cooperative_matrix_comp_spirv, vulkan_cooperative_matrix_comp_spirv_len);
+	std::vector<uint32_t> code = copy_shader(variant->spirv, variant->spirv_len);
 	VkShaderModuleCreateInfo smci{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	smci.pCode = code.data();
 	smci.codeSize = code.size() * sizeof(uint32_t);
@@ -200,13 +312,13 @@ int main(int argc, char** argv)
 	r = vkMapMemory(vk.device, memory, 0, buffer_size, 0, &mapped);
 	check(r);
 	const float* values = reinterpret_cast<const float*>(mapped);
-	const float expected = 16.0f;
+	const float expected = static_cast<float>(variant->k);
 	bool ok = true;
-	for (int i = 0; i < 16 * 16; ++i)
+	for (uint32_t i = 0; i < variant->m * variant->n; ++i)
 	{
 		if (fabsf(values[i] - expected) > 0.001f)
 		{
-			printf("  coop-matrix mismatch at %d: got %f expected %f\n", i, values[i], expected);
+			printf("  coop-matrix mismatch at %u: got %f expected %f\n", i, values[i], expected);
 			ok = false;
 			break;
 		}
@@ -214,7 +326,7 @@ int main(int argc, char** argv)
 	vkUnmapMemory(vk.device, memory);
 	if (ok)
 	{
-		printf("  coop-matrix compute verified: all %d values == %f\n", 16 * 16, expected);
+		printf("  coop-matrix compute verified: all %u values == %f\n", variant->m * variant->n, expected);
 	}
 	else
 	{

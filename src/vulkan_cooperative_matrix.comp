@@ -2,7 +2,16 @@
 #extension GL_KHR_memory_scope_semantics : require
 #extension GL_KHR_cooperative_matrix : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
-#extension GL_KHR_shader_subgroup_arithmetic : require
+
+#ifndef CM_M
+#define CM_M 8
+#endif
+#ifndef CM_N
+#define CM_N 8
+#endif
+#ifndef CM_K
+#define CM_K 16
+#endif
 
 // Minimal shader that exercises KHR cooperative matrix ops.
 // Stores the full matrix to SSBO for host verification.
@@ -15,20 +24,22 @@ layout(set = 0, binding = 0, std430) buffer OutBuf {
 
 void main()
 {
-	// Define a 16x16 cooperative matrix multiply supported on the target
-	coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> A = coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>(float16_t(1.0));
-	coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB> B = coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseB>(float16_t(1.0));
-	coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator> C = coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(0.0);
+	// Use MxNxK subgroup mode: A is MxK, B is KxN, C is MxN.
+	coopmat<float16_t, gl_ScopeSubgroup, CM_M, CM_K, gl_MatrixUseA> A =
+	    coopmat<float16_t, gl_ScopeSubgroup, CM_M, CM_K, gl_MatrixUseA>(float16_t(1.0));
+	coopmat<float16_t, gl_ScopeSubgroup, CM_K, CM_N, gl_MatrixUseB> B =
+	    coopmat<float16_t, gl_ScopeSubgroup, CM_K, CM_N, gl_MatrixUseB>(float16_t(1.0));
+	coopmat<float, gl_ScopeSubgroup, CM_M, CM_N, gl_MatrixUseAccumulator> C =
+	    coopmat<float, gl_ScopeSubgroup, CM_M, CM_N, gl_MatrixUseAccumulator>(0.0);
 
 	// Perform a single cooperative matrix MAD: C = A*B + C
 	C = coopMatMulAdd(A, B, C);
 
-	// Compute an expected scalar result (sum of one row) to verify on host
-	float partial = (gl_LocalInvocationIndex < 16) ? 1.0 : 0.0;
-	float expected = subgroupAdd(partial);
+	// Expected scalar result: each output element is sum of K ones.
+	float expected = float(CM_K);
 	if (gl_LocalInvocationIndex == 0)
 	{
-		for (int i = 0; i < 16 * 16; ++i)
+		for (int i = 0; i < CM_M * CM_N; ++i)
 		{
 			outdata[i] = expected;
 		}
