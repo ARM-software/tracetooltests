@@ -362,6 +362,19 @@ int main(int argc, char** argv)
 	vk_result = vkBeginCommandBuffer(main_cmd, &begin_info);
 	check(vk_result);
 	pf_vkCmdPreprocessGeneratedCommandsEXT(main_cmd, &generated_info, state_cmd);
+	VkMemoryBarrier preprocess_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
+	preprocess_barrier.srcAccessMask = VK_ACCESS_COMMAND_PREPROCESS_WRITE_BIT_EXT;
+	preprocess_barrier.dstAccessMask = VK_ACCESS_COMMAND_PREPROCESS_READ_BIT_EXT;
+	vkCmdPipelineBarrier(main_cmd,
+		VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_EXT,
+		VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_EXT,
+		0,
+		1,
+		&preprocess_barrier,
+		0,
+		nullptr,
+		0,
+		nullptr);
 	vkCmdBindPipeline(main_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 	vkCmdBindDescriptorSets(main_cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
 	pf_vkCmdExecuteGeneratedCommandsEXT(main_cmd, VK_TRUE, &generated_info);
