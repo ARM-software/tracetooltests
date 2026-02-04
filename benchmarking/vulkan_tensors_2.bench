@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_tensors_2",
+	"description": "Compute shaders accessing tensors (pre/post process)"
+}
