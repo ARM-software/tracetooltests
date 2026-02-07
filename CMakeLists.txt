@@ -72,7 +72,8 @@ endfunction()
 
 if (NOT NO_VULKAN MATCHES "1")
 add_library(vulkan_common STATIC src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
-	src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h src/util.cpp src/util.h)
+	src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h
+	src/vulkan_raytracing_common.cpp src/vulkan_raytracing_common.h src/util.cpp src/util.h)
 target_link_libraries(vulkan_common PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
 target_link_directories(vulkan_common PRIVATE ${API_LIBS})
 target_compile_definitions(vulkan_common PUBLIC ${IT_DEFINES})
@@ -201,6 +202,7 @@ vulkan_test(as_4)
 vulkan_test(as_5)
 vulkan_test(as_6)
 vulkan_test(as_7)
+vulkan_test(raytracing_1)
 
 vulkan_test(copying_2)
 vulkan_test_extra(copying_2_test_0_0_0 copying_2 -q 0 -f 0 -m 0 -t 3)
