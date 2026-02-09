@@ -54,7 +54,7 @@ int main(int argc, char** argv)
 	td.dimensionCount = dimensions.size();
 	td.pDimensions = dimensions.data();
 	td.pStrides = nullptr;
-	td.usage = VK_TENSOR_USAGE_TRANSFER_SRC_BIT_ARM | VK_TENSOR_USAGE_TRANSFER_DST_BIT_ARM;
+	td.usage = VK_TENSOR_USAGE_TRANSFER_SRC_BIT_ARM | VK_TENSOR_USAGE_TRANSFER_DST_BIT_ARM | VK_TENSOR_USAGE_SHADER_BIT_ARM;
 	if (aliasing) td.usage |= VK_TENSOR_USAGE_IMAGE_ALIASING_BIT_ARM;
 	VkTensorCreateInfoARM tci = { VK_STRUCTURE_TYPE_TENSOR_CREATE_INFO_ARM, nullptr };
 	tci.flags = 0;
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 	r = pf_vkCreateTensorViewARM(vulkan.device, &tvci, nullptr, &tensor_view);
 	check(r);
 
-	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_VIEW_ARM, (uint64_t)tensor, "Our tensor view object");
+	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_VIEW_ARM, (uint64_t)tensor_view, "Our tensor view object");
 
 	VkMemoryRequirements2 memreq_dev = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 	VkMemoryRequirements2 memreq = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
