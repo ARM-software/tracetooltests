@@ -2,6 +2,7 @@
 
 #include "vulkan_common.h"
 #include "vulkan_graphics_common.h"
+#include <array>
 
 // contains our compute shader, generated with:
 //   glslangValidator -V vulkan_compute_bda_copying_address_interleave.comp -o vulkan_compute_bda_copying_address_interleave.spirv
@@ -17,6 +18,56 @@ struct pushAddress
 	VkDeviceAddress colorBDA;
 	VkDeviceAddress addressBDA;
 };
+
+static void push_address_constants(VkCommandBuffer commandBuffer, const vulkan_setup_t& vulkan,
+		VkPipelineLayout layout, const pushAddress& push, uint32_t addressCount, VkDeviceSize sizeBytes)
+{
+	assert(addressCount <= 3);
+	if (!vulkan.has_trace_helpers)
+	{
+		vkCmdPushConstants(commandBuffer, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, static_cast<uint32_t>(sizeBytes), &push);
+		return;
+	}
+
+	std::array<VkDeviceSize, 3> offsets{};
+	std::array<VkMarkingTypeARM, 3> markingTypes{};
+	std::array<VkMarkingSubTypeARM, 3> subTypes{};
+	for (uint32_t i = 0; i < addressCount; i++)
+	{
+		offsets[i] = sizeof(VkDeviceAddress) * i;
+		markingTypes[i] = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+		subTypes[i].deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM;
+	}
+
+	VkMarkedOffsetsARM markings { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
+	markings.count = addressCount;
+	markings.pOffsets = offsets.data();
+	markings.pMarkingTypes = markingTypes.data();
+	markings.pSubTypes = subTypes.data();
+
+	if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+	{
+		VkPushConstantsInfo pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO, nullptr };
+		pushinfo.layout = layout;
+		pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		pushinfo.offset = 0;
+		pushinfo.size = sizeBytes;
+		pushinfo.pValues = &push;
+		pushinfo.pNext = &markings;
+		vkCmdPushConstants2(commandBuffer, &pushinfo);
+	}
+	else
+	{
+		VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
+		pushinfo.layout = layout;
+		pushinfo.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		pushinfo.offset = 0;
+		pushinfo.size = sizeBytes;
+		pushinfo.pValues = &push;
+		pushinfo.pNext = &markings;
+		vulkan.vkCmdPushConstants2(commandBuffer, &pushinfo);
+	}
+}
 
 static void show_usage()
 {
@@ -249,7 +300,8 @@ static void populate_addressAndColorBuffer_comp(VkCommandBuffer commandBuffer, u
 	push_address.BDA = p_benchmark->m_baseAddressBuffer->getBufferDeviceAddress();
 	push_address.colorBDA = p_benchmark->m_colorBuffer->getBufferDeviceAddress();
 	push_address.addressBDA = p_benchmark->m_addressBuffer->getBufferDeviceAddress();
-	vkCmdPushConstants(commandBuffer, p_benchmark->m_initPipeline->m_pipelineLayout->getHandle(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_address), &push_address);
+	push_address_constants(commandBuffer, p_benchmark->m_vulkanSetup, p_benchmark->m_initPipeline->m_pipelineLayout->getHandle(),
+	                       push_address, 3, sizeof(push_address));
 
 	vkCmdDispatch(commandBuffer, groupCount_x, groupCount_y, 1);
 
@@ -287,7 +339,34 @@ static void render(const vulkan_setup_t& vulkan)
 		// populate output buffers addresses to color/address buffer
 		if (p_benchmark->gpu_driven)
 		{
-			vkCmdUpdateBuffer(defaultCmd, p_benchmark->m_baseAddressBuffer->getHandle(), 0, p_benchmark->m_outputBuffers.size() * sizeof(VkDeviceAddress), p_benchmark->m_outputBaseAddress.data());
+			if (p_benchmark->m_vulkanSetup.has_trace_helpers)
+			{
+				std::array<VkDeviceSize, NUM_OUTPUT_BUFFERS> offsets{};
+				std::array<VkMarkingTypeARM, NUM_OUTPUT_BUFFERS> markingTypes{};
+				std::array<VkMarkingSubTypeARM, NUM_OUTPUT_BUFFERS> subTypes{};
+				for (uint32_t i = 0; i < NUM_OUTPUT_BUFFERS; i++)
+				{
+					offsets[i] = i * sizeof(VkDeviceAddress);
+					markingTypes[i] = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+					subTypes[i].deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM;
+				}
+				VkMarkedOffsetsARM markings { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr };
+				markings.count = NUM_OUTPUT_BUFFERS;
+				markings.pOffsets = offsets.data();
+				markings.pMarkingTypes = markingTypes.data();
+				markings.pSubTypes = subTypes.data();
+
+				VkUpdateMemoryInfoARM updateInfo { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &markings };
+				updateInfo.dstBuffer = p_benchmark->m_baseAddressBuffer->getHandle();
+				updateInfo.dstOffset = 0;
+				updateInfo.dataSize = p_benchmark->m_outputBuffers.size() * sizeof(VkDeviceAddress);
+				updateInfo.pData = p_benchmark->m_outputBaseAddress.data();
+				p_benchmark->m_vulkanSetup.vkCmdUpdateBuffer2(defaultCmd, &updateInfo);
+			}
+			else
+			{
+				vkCmdUpdateBuffer(defaultCmd, p_benchmark->m_baseAddressBuffer->getHandle(), 0, p_benchmark->m_outputBuffers.size() * sizeof(VkDeviceAddress), p_benchmark->m_outputBaseAddress.data());
+			}
 			VkMemoryBarrier memory_barrier {VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr};
 			memory_barrier.srcAccessMask   = VK_ACCESS_TRANSFER_WRITE_BIT;
 			memory_barrier.dstAccessMask   = VK_ACCESS_SHADER_READ_BIT;
@@ -308,7 +387,8 @@ static void render(const vulkan_setup_t& vulkan)
 		push_address.BDA = p_benchmark->m_interleaveBuffer->getBufferDeviceAddress();
 		push_address.colorBDA = p_benchmark->m_colorBuffer->getBufferDeviceAddress();
 		push_address.addressBDA = p_benchmark->m_addressBuffer->getBufferDeviceAddress();
-		vkCmdPushConstants(defaultCmd, p_benchmark->m_interleavePipeline->m_pipelineLayout->getHandle(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_address), &push_address);
+		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_interleavePipeline->m_pipelineLayout->getHandle(),
+		                       push_address, 3, sizeof(push_address));
 
 		vkCmdDispatch(defaultCmd, groupCount_x, groupCount_y, 1);
 		// barrie interleave buffer: shader write -> read
@@ -329,7 +409,8 @@ static void render(const vulkan_setup_t& vulkan)
 		push_address.colorBDA = 0;
 		push_address.addressBDA = 0;
 		push_address.BDA = p_benchmark->m_interleaveBuffer->getBufferDeviceAddress();
-		vkCmdPushConstants(defaultCmd, p_benchmark->m_outputPipeline->m_pipelineLayout->getHandle(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VkDeviceAddress), &push_address.BDA);
+		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_outputPipeline->m_pipelineLayout->getHandle(),
+		                       push_address, 1, sizeof(VkDeviceAddress));
 		vkCmdDispatch(defaultCmd, groupCount_x, groupCount_y, 1);
 
 		p_benchmark->m_defaultCommandBuffer->end();
