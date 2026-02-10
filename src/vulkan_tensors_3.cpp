@@ -228,16 +228,15 @@ static void destroy_data_graph_session(const vulkan_setup_t& vulkan, const data_
 
 int main(int argc, char** argv)
 {
-	vulkan_req_t reqs;
 	VkPhysicalDeviceTensorFeaturesARM tensor_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, nullptr };
 	tensor_features.tensors = VK_TRUE;
-	tensor_features.pNext = reqs.extension_features;
-	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&tensor_features);
+	tensor_features.shaderTensorAccess = VK_TRUE;
 
-	VkPhysicalDeviceDataGraphFeaturesARM data_graph_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DATA_GRAPH_FEATURES_ARM, nullptr };
+	VkPhysicalDeviceDataGraphFeaturesARM data_graph_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DATA_GRAPH_FEATURES_ARM, &tensor_features };
 	data_graph_features.dataGraph = VK_TRUE;
 	data_graph_features.dataGraphShaderModule = VK_TRUE;
-	data_graph_features.pNext = reqs.extension_features;
+
+	vulkan_req_t reqs;
 	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&data_graph_features);
 
 	reqs.device_extensions.push_back("VK_ARM_tensors");
