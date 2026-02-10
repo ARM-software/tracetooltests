@@ -323,7 +323,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			enabledExtensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
 		}
 #ifdef VK_USE_PLATFORM_XCB_KHR
-		else
+		else if (wsi)
 		{
 			enabledExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 		}
