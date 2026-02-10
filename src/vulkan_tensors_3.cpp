@@ -166,11 +166,7 @@ static data_graph_session create_data_graph_session(const vulkan_setup_t& vulkan
 
 	for (const auto& requirement : requirements)
 	{
-		if (requirement.bindPointType != VK_DATA_GRAPH_PIPELINE_SESSION_BIND_POINT_TYPE_MEMORY_ARM)
-		{
-			fprintf(stderr, "Unsupported data graph bind point type %u\n", requirement.bindPointType);
-			exit(77);
-		}
+		assert(requirement.bindPointType == VK_DATA_GRAPH_PIPELINE_SESSION_BIND_POINT_TYPE_MEMORY_ARM);
 		assert(requirement.numObjects > 0);
 
 		for (uint32_t object_index = 0; object_index < requirement.numObjects; ++object_index)
@@ -381,11 +377,7 @@ int main(int argc, char** argv)
 
 	VkPipeline data_graph_pipeline = VK_NULL_HANDLE;
 	result = graph_funcs.create_pipelines(vulkan.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &data_graph_pipeline);
-	if (result != VK_SUCCESS)
-	{
-		fprintf(stderr, "vkCreateDataGraphPipelinesARM failed: %s\n", errorString(result));
-		exit(77);
-	}
+	check(result);
 
 	data_graph_session graph_session = create_data_graph_session(vulkan, graph_funcs, data_graph_pipeline);
 
