@@ -78,16 +78,6 @@ int main(int argc, char** argv)
 	VkExternalTensorPropertiesARM etp = { VK_STRUCTURE_TYPE_EXTERNAL_TENSOR_PROPERTIES_ARM, nullptr };
 	pf_vkGetPhysicalDeviceExternalTensorPropertiesARM(vulkan.physical, &pdeti, &etp);
 
-	VkTensorViewCreateInfoARM tvci = { VK_STRUCTURE_TYPE_TENSOR_VIEW_CREATE_INFO_ARM, nullptr };
-	tvci.flags = 0;
-	tvci.tensor = tensor;
-	tvci.format = VK_FORMAT_R8_UINT;
-	VkTensorViewARM tensor_view = VK_NULL_HANDLE;
-	r = pf_vkCreateTensorViewARM(vulkan.device, &tvci, nullptr, &tensor_view);
-	check(r);
-
-	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_VIEW_ARM, (uint64_t)tensor_view, "Our tensor view object");
-
 	VkMemoryRequirements2 memreq_dev = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 	VkMemoryRequirements2 memreq = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 
@@ -151,6 +141,16 @@ int main(int argc, char** argv)
 	r = pf_vkBindTensorMemoryARM(vulkan.device, 1, &btmi); // not aliasing any image
 	check(r);
 
+	VkTensorViewCreateInfoARM tvci = { VK_STRUCTURE_TYPE_TENSOR_VIEW_CREATE_INFO_ARM, nullptr };
+	tvci.flags = 0;
+	tvci.tensor = tensor;
+	tvci.format = VK_FORMAT_R8_UINT;
+	VkTensorViewARM tensor_view = VK_NULL_HANDLE;
+	r = pf_vkCreateTensorViewARM(vulkan.device, &tvci, nullptr, &tensor_view);
+	check(r);
+
+	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_VIEW_ARM, (uint64_t)tensor_view, "Our tensor view object");
+
 	VkCommandPool command_pool;
 	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
 	command_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -175,7 +175,7 @@ int main(int argc, char** argv)
 	check(result);
 
 	VkTensorCopyARM tc = { VK_STRUCTURE_TYPE_TENSOR_COPY_ARM, nullptr };
-	tc.dimensionCount = 1;
+	tc.dimensionCount = dimensions.size();
 	tc.pSrcOffset = nullptr;
 	tc.pDstOffset = nullptr;
 	tc.pExtent = nullptr;
@@ -206,6 +206,7 @@ int main(int argc, char** argv)
 	pf_vkDestroyTensorViewARM(vulkan.device, tensor_view, nullptr);
 	pf_vkDestroyTensorARM(vulkan.device, VK_NULL_HANDLE, nullptr);
 	pf_vkDestroyTensorARM(vulkan.device, tensor, nullptr);
+	pf_vkDestroyTensorARM(vulkan.device, target, nullptr);
 	testFreeMemory(vulkan, memory);
 
 	bench_stop_iteration(vulkan.bench);
