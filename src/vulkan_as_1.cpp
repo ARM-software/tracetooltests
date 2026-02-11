@@ -1,5 +1,7 @@
 #include "vulkan_common.h"
 
+#define BUF_SIZE (1024 * 1024)
+
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
@@ -27,7 +29,7 @@ int main(int argc, char** argv)
 
 	VkBuffer buffer;
 	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
-	bufferCreateInfo.size = 1024 * 1024;
+	bufferCreateInfo.size = BUF_SIZE;
 	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer);
@@ -57,7 +59,7 @@ int main(int argc, char** argv)
 	asinfo.createFlags = 0;
 	asinfo.buffer = buffer;
 	asinfo.offset = 0; // "offset must be a multiple of 256 bytes"
-	asinfo.size = 0;
+	asinfo.size = BUF_SIZE; // should be enough for an empty AS
 	asinfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 	asinfo.deviceAddress = 0;
 	VkAccelerationStructureKHR as;
