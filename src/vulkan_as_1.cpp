@@ -8,6 +8,7 @@ int main(int argc, char** argv)
 	reqs.device_extensions.push_back("VK_KHR_deferred_host_operations");
 	reqs.extension_features = (VkBaseInStructure*)&accfeats;
 	reqs.apiVersion = VK_API_VERSION_1_2;
+	reqs.bufferDeviceAddress = true;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_1", reqs);
 	VkResult result;
 	VkQueue queue;
@@ -27,7 +28,7 @@ int main(int argc, char** argv)
 	VkBuffer buffer;
 	VkBufferCreateInfo bufferCreateInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	bufferCreateInfo.size = 1024 * 1024;
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+	bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	result = vkCreateBuffer(vulkan.device, &bufferCreateInfo, nullptr, &buffer);
 	check(result);
@@ -36,8 +37,9 @@ int main(int argc, char** argv)
 	vkGetBufferMemoryRequirements(vulkan.device, buffer, &req);
 	uint32_t memoryTypeIndex = get_device_memory_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	VkMemoryAllocateInfo pAllocateMemInfo = {};
-	pAllocateMemInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryAllocateFlagsInfo allocFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+	allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &allocFlagsInfo };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
 	pAllocateMemInfo.allocationSize = req.size;
 	VkDeviceMemory memory = 0;
