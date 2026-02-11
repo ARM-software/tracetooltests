@@ -536,7 +536,31 @@ VkDeviceAddress check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDe
 	return 0;
 }
 
+VkDeviceAddress check_vkGetBufferDeviceAddressKHR(VkDevice device, const VkBufferDeviceAddressInfoKHR* pInfo)
+{
+	instance->core12.bufferDeviceAddress = true;
+	return 0;
+}
+
+VkDeviceAddress check_vkGetBufferDeviceAddressEXT(VkDevice device, const VkBufferDeviceAddressInfoEXT* pInfo)
+{
+	instance->core12.bufferDeviceAddress = true;
+	return 0;
+}
+
 uint64_t check_vkGetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo)
+{
+	instance->core12.bufferDeviceAddressCaptureReplay = true;
+	return 0;
+}
+
+uint64_t check_vkGetBufferOpaqueCaptureAddressKHR(VkDevice device, const VkBufferDeviceAddressInfoKHR* pInfo)
+{
+	instance->core12.bufferDeviceAddressCaptureReplay = true;
+	return 0;
+}
+
+uint64_t check_vkGetBufferOpaqueCaptureAddressEXT(VkDevice device, const VkBufferDeviceAddressInfoEXT* pInfo)
 {
 	instance->core12.bufferDeviceAddressCaptureReplay = true;
 	return 0;

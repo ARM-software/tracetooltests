@@ -312,6 +312,8 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 				instance_required.erase(str);
 			}
 		}
+		if (enabledExtensions.size() > 0) printf("Required Vulkan instance extensions:\n");
+		for (auto str : enabledExtensions) printf("\t%s\n", str);
 		if (instance_required.size() > 0)
 		{
 			printf("Missing required Vulkan instance extensions:\n");
@@ -424,6 +426,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		printf("Buffer device address feature requires at least Vulkan 1.2 - set the Vulkan version with the -V parameter\n");
 		exit(77);
 	}
+	if (reqs.bufferDeviceAddress)
+	{
+		reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
+	}
 
 	// Get physical device capabilities
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
@@ -468,10 +474,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
 	if (reqs.samplerAnisotropy) reqs.reqfeat2.features.samplerAnisotropy = VK_TRUE;
-	if (reqs.bufferDeviceAddress)
-	{
-		reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
-	}
 
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 2)
 	{
