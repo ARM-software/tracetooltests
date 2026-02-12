@@ -183,11 +183,17 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		&build_size_info
 	);
 
+	VkBufferUsageFlags blas_buffer_usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	if (copy_format == CopyFormat::copy_vkCmdCopyBuffer)
+	{
+		blas_buffer_usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+	}
+
 	resources.blas_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
 		build_size_info.accelerationStructureSize,
 		nullptr,
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		blas_buffer_usage,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
@@ -346,7 +352,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 				vulkan,
 				build_size_info.accelerationStructureSize,
 				nullptr,
-				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+				VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 				VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
 			);
 
