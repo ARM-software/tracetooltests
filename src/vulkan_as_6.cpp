@@ -183,10 +183,10 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 	check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas.handle));
-	
+
 	VkAccelerationStructureDeviceAddressInfoKHR blas_device_adress_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
 
-	// If BLAS alias is created, use that alias handle in query for vkGetAccelerationStructureDeviceAddressKHR, otherwise - use regular BLAS handle 
+	// If BLAS alias is created, use that alias handle in query for vkGetAccelerationStructureDeviceAddressKHR, otherwise - use regular BLAS handle
 	if (blas_alias)
 	{
 		check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas_alias.handle));
@@ -362,7 +362,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 	check(vkQueueWaitIdle(resources.queue));
-	
+
 	// destroy TLAS handle as soon as it's done building. This handle should not be used anymore
 	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.tlas.handle, nullptr);
 
@@ -553,7 +553,7 @@ int main(int argc, char** argv)
 	reqs.options["tlas-build-frame"] = false;
 	reqs.options["blas-build-frame"] = false;
 	reqs.options["blas-alias"] = false;
-	
+
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &ray_tracing_features, VK_TRUE };
 	reqs.device_extensions.push_back("VK_KHR_acceleration_structure");
