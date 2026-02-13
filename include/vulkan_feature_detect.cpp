@@ -507,6 +507,12 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 		instance->core10.sparseResidencyBuffer = true;
 	}
 	if (info->flags & VK_BUFFER_CREATE_SPARSE_ALIASED_BIT) instance->core10.sparseResidencyAliased = true;
+	if (info->usage & (VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+	                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+	                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR))
+	{
+		instance->core12.bufferDeviceAddress = true;
+	}
 	return VK_SUCCESS;
 }
 
