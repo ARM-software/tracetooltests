@@ -817,6 +817,48 @@ void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDevic
 	assert(r != 0);
 }
 
+std::vector<uint8_t> make_checker(uint32_t width, uint32_t height,
+                                  const std::array<uint8_t, 4>& a,
+                                  const std::array<uint8_t, 4>& b,
+                                  uint32_t tile)
+{
+	std::vector<uint8_t> data(width * height * 4);
+	for (uint32_t y = 0; y < height; ++y)
+	{
+		for (uint32_t x = 0; x < width; ++x)
+		{
+			const bool use_a = ((x / tile) + (y / tile)) % 2 == 0;
+			const auto& c = use_a ? a : b;
+			const size_t idx = (y * width + x) * 4;
+			data[idx + 0] = c[0];
+			data[idx + 1] = c[1];
+			data[idx + 2] = c[2];
+			data[idx + 3] = c[3];
+		}
+	}
+	return data;
+}
+
+std::vector<uint8_t> make_gradient(uint32_t width, uint32_t height,
+                                   const std::array<uint8_t, 4>& top,
+                                   const std::array<uint8_t, 4>& bottom)
+{
+	std::vector<uint8_t> data(width * height * 4);
+	for (uint32_t y = 0; y < height; ++y)
+	{
+		const float t = (height > 1) ? static_cast<float>(y) / static_cast<float>(height - 1) : 0.0f;
+		for (uint32_t x = 0; x < width; ++x)
+		{
+			const size_t idx = (y * width + x) * 4;
+			data[idx + 0] = static_cast<uint8_t>(top[0] * (1.0f - t) + bottom[0] * t);
+			data[idx + 1] = static_cast<uint8_t>(top[1] * (1.0f - t) + bottom[1] * t);
+			data[idx + 2] = static_cast<uint8_t>(top[2] * (1.0f - t) + bottom[2] * t);
+			data[idx + 3] = static_cast<uint8_t>(top[3] * (1.0f - t) + bottom[3] * t);
+		}
+	}
+	return data;
+}
+
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size)
 {
 	// TBD if (vulkan.device_extensions.count("VK_KHR_copy_commands2") && VK_KHR_synchronization2)

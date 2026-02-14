@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <variant>
+#include <array>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -178,6 +179,16 @@ void test_save_image(const vulkan_setup_t& vulkan, const char* filename, VkDevic
                      VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT);
 
 bool enable_frame_boundary(vulkan_req_t& reqs);
+
+// Build a simple RGBA checkerboard for mock textures or tests.
+std::vector<uint8_t> make_checker(uint32_t width, uint32_t height,
+                                  const std::array<uint8_t, 4>& a,
+                                  const std::array<uint8_t, 4>& b,
+                                  uint32_t tile = 8);
+// Build a vertical RGBA gradient (top -> bottom) for mock textures or tests.
+std::vector<uint8_t> make_gradient(uint32_t width, uint32_t height,
+                                   const std::array<uint8_t, 4>& top,
+                                   const std::array<uint8_t, 4>& bottom);
 
 static inline std::vector<uint32_t> copy_shader(unsigned char* arr, uint32_t size)
 {

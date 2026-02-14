@@ -287,6 +287,7 @@ vulkan_tensor_test(tensors_4)
 vulkan_test(cooperative_matrix)
 vulkan_test(pipeline_creation_cache_control)
 vulkan_test(graphics_1)
+vulkan_test(vkquake2)
 vulkan_test(maintenance7)
 vulkan_test(trace_helpers)
 
