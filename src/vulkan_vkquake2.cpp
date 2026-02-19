@@ -297,9 +297,6 @@ public:
 			vkDestroyFence(m_vulkanSetup.device, frameFence, nullptr);
 			frameFence = VK_NULL_HANDLE;
 		}
-
-		GraphicContext::destroy();
-		BasicContext::destroy();
 	}
 
 	Texture baseTex;
