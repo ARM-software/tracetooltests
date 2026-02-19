@@ -3,6 +3,7 @@
 if [ "$LAYERPATH" != "" ];
 then
 	REPLAYER="${LAYERPATH}/gfxrecon-replay"
+	OPTIMIZER="${LAYERPATH}/gfxrecon-optimize"
 	TRACER="${LAYERPATH}/gfxrecon-capture-vulkan.py --capture-layer ${LAYERPATH}"
 fi
 
@@ -12,6 +13,7 @@ CSV=$REPORTDIR/report.csv
 DEMO_PARAMS="--benchmark -bfs 100 -bw 0"
 TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
+OPTIMIZER=${OPTIMIZER:-"$(which gfxrecon-optimize)"}
 TRACER=${TRACER:-"$(which gfxrecon-capture-vulkan.py)"}
 TIMER="/usr/bin/time -f %U -o $(pwd)/time.txt"
 
@@ -53,7 +55,8 @@ function demo_runner
 	# Make trace
 	( cd external/vulkan-demos ; ${TRACER} -o ${NAME}.gfxr $TIMER build/bin/$1 $DEMO_PARAMS )
 	CTIME=$(cat time.txt)
-	mv external/vulkan-demos/${NAME}*.gfxr $TRACEDIR/${NAME}.gfxr
+	$OPTIMIZER external/vulkan-demos/${NAME}*.gfxr $TRACEDIR/${NAME}.gfxr
+	rm -f external/vulkan-demos/${NAME}*.gfxr # delete non-optimized original
 
 	echo
 	echo "** replay $1 using $REPLAYER **"
@@ -82,7 +85,8 @@ function demo_runner
 
 	# Make fastforwarded trace from existing trace
 	${TRACER} -f 3-5 -o ${NAME}_ff.gfxr $REPLAYER -m none $TRACEDIR/$NAME.gfxr
-	mv ${NAME}_ff* $TRACEDIR/${NAME}_ff_frame3.gfxr
+	$OPTIMIZER ${NAME}_ff* $TRACEDIR/${NAME}_ff_frame3.gfxr
+	rm -f ${NAME}_ff* # delete non-optimized original
 
 	# Run the fastforwarded trace
 	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $TIMER $REPLAYER -m none $TRACEDIR/${NAME}_ff_frame3.gfxr
