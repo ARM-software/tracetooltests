@@ -261,7 +261,6 @@ vulkan_test(compute_bda_ubo) # buffer device address through uniform buffer obje
 vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
 vulkan_test(compute_bda_copying_address) # copying buffer device address
 vulkan_test_extra(compute_bda_copying_address_gpu_driven compute_bda_copying_address -gdriven)
-vulkan_test(address_remap_test_1)
 
 vulkan_test(deferred_1)
 vulkan_test(pipelinecache_1)
@@ -286,12 +285,16 @@ vulkan_tensor_test(tensors_1)
 vulkan_tensor_test(tensors_2)
 vulkan_tensor_test(tensors_3)
 vulkan_tensor_test(tensors_4)
-vulkan_test(cooperative_matrix)
 vulkan_test(pipeline_creation_cache_control)
 vulkan_test(graphics_1)
 vulkan_test(vkquake2)
 vulkan_test(maintenance7)
 vulkan_test(trace_helpers)
+
+if (NOT MOCK_DRIVER MATCHES "1")
+vulkan_test(cooperative_matrix)
+vulkan_test(address_remap_test_1)
+endif()
 
 vulkan_test(demo_bloom_minimal)
 vulkan_test(demo_descriptor_buffer_minimal)

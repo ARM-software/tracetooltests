@@ -63,10 +63,10 @@ function demo_runner
 	echo
 
 	# Replay -m rebind
-	$TIMER $REPLAYER -m rebind --vssb --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
+	$TIMER $REPLAYER -m rebind --vssb --measurement-frame-range 1-99999 $TRACEDIR/${NAME}.gfxr
 	RTIMERB=$(cat time.txt)
 	RFPSRB=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -m rebind --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $REPLAYER -m rebind --measurement-frame-range 1-99999 $TRACEDIR/${NAME}.gfxr
 	RTIMERBSS=$(cat time.txt)
 	RFPSRBSS=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/${NAME}_f3_replay_rebind.png
@@ -77,7 +77,7 @@ function demo_runner
 	$TIMER $REPLAYER --swapchain offscreen -m rebind $TRACEDIR/${NAME}.gfxr
 	RTIMEOFF=$(cat time.txt)
 	RFPSOFF=$(grep -e fps gfxrecon-measurements.json | sed 's/.*: //'| sed 's/,//')
-	$TIMER $REPLAYER --swapchain offscreen --screenshots 4 --screenshot-format png -m rebind --measurement-frame-range 0-99999 $TRACEDIR/${NAME}.gfxr
+	$TIMER $REPLAYER --swapchain offscreen --screenshots 4 --screenshot-format png -m rebind --measurement-frame-range 1-99999 $TRACEDIR/${NAME}.gfxr
 	RTIMEOFFSS=$(cat time.txt)
 	convert -alpha off screenshot_frame_4.png $REPORTDIR/${NAME}_f3_replay_offscreen.png
 	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_replay_offscreen.png $REPORTDIR/${NAME}_f3_compare_offscreen.png || true
@@ -89,7 +89,7 @@ function demo_runner
 	rm -f ${NAME}_ff* # delete non-optimized original
 
 	# Run the fastforwarded trace
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $TIMER $REPLAYER -m none $TRACEDIR/${NAME}_ff_frame3.gfxr
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=1 $TIMER $REPLAYER -m rebind $TRACEDIR/${NAME}_ff_frame3.gfxr
 	RTIMEFF=$(cat time.txt)
 	convert -alpha off 1.ppm $REPORTDIR/${NAME}_f3_ff_replay.png
 	compare -alpha off $REPORTDIR/${NAME}_f3_native.png $REPORTDIR/${NAME}_f3_ff_replay.png $REPORTDIR/${NAME}_f3_compare_ff.png || true
