@@ -19,10 +19,11 @@
 /// Implement support for naming threads, missing from c++11
 void set_thread_name(const char* name);
 
-extern uint_fast8_t p__loops;
+extern uint_fast32_t p__loops;
 extern uint_fast8_t p__sanity;
 extern uint_fast8_t p__debug_level;
 extern uint_fast8_t p__validation;
+extern int_fast8_t p__device;
 
 #ifdef ANDROID
 #include <sstream>

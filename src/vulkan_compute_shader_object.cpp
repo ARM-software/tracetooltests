@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 	result = pf_vkCreateShadersEXT(vulkan.device, 1, &shaderCreateInfo, nullptr, &shader);
 	check(result);
 
-	for (int frame = 0; frame < p__loops; frame++)
+	for (unsigned frame = 0; frame < p__loops; frame++)
 	{
 		test_marker(vulkan, "Frame " + std::to_string(frame));
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };

@@ -141,7 +141,7 @@ int main(int argc, char** argv)
 
 	compute_create_pipeline(vulkan, r, req);
 
-	for (int frame = 0; frame < p__loops; frame++)
+	for (unsigned frame = 0; frame < p__loops; frame++)
 	{
 		test_marker(vulkan, "Frame " + std::to_string(frame));
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };

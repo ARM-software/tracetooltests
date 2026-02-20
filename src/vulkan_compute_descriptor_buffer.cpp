@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 
 	compute_create_pipeline(vulkan, r, req, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-	for (int frame = 0; frame < p__loops; frame++)
+	for (unsigned frame = 0; frame < p__loops; frame++)
 	{
 		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

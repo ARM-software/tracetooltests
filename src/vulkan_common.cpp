@@ -88,6 +88,7 @@ static void print_usage(const vulkan_req_t& reqs)
 	printf("-h/--help              This help\n");
 	printf("-G/--gpu               Use the GPU (default), fails if not available\n");
 	printf("-C/--cpu               Use a CPU software rasterizer as your GPU, fails if not available\n");
+	printf("-D/--device #          Select physical device to use (by index value)\n");
 	printf("-v/--validation        Enable validation layer\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	printf("-GP/--garbage-pointers Set ignored pointers to garbage values instead of null\n");
@@ -222,6 +223,10 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		else if (match(argv[i], "-C", "--cpu"))
 		{
 			use_simulated_gpu = true;
+		}
+		else if (match(argv[i], "-D", "--device"))
+		{
+			p__device = get_arg(argv, ++i, argc);
 		}
 		else if (match(argv[i], "-GP", "--garbage-pointers"))
 		{
@@ -392,6 +397,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		       VK_VERSION_MINOR(device_properties.apiVersion), VK_VERSION_PATCH(device_properties.apiVersion), is_cpu ? "CPU" : "GPU");
 		if (is_cpu && force_native_gpu) continue; // skip it
 		else if (!is_cpu && use_simulated_gpu) continue; // skip it
+		else if (p__device != -1 && (int)i != (int)p__device) continue; // not the physical device we specified, skip it
 		else if (selected_gpu == -1) selected_gpu = i;
 	}
 	if (selected_gpu == -1)

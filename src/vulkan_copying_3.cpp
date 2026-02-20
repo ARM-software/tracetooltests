@@ -12,7 +12,7 @@ static void show_usage()
 	printf("\t0 - memset\n");
 	printf("\t1 - memcpy\n");
 	printf("\t2 - fread\n");
-	printf("-t/--times N           Times to repeat (default %d)\n", p__loops);
+	printf("-t/--times N           Times to repeat (default %d)\n", (int)p__loops);
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -81,7 +81,7 @@ static void copying_3(int argc, char** argv)
 	std::vector<char> buf(buffer_size);
 	size_t r = fread(buf.data(), buffer_size, 1, fp);
 	assert(r == 1); // this should not fail
-	for (int i = 0; i < p__loops; i++)
+	for (unsigned i = 0; i < p__loops; i++)
 	{
 		switch (method)
 		{

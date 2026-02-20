@@ -155,7 +155,7 @@ int main(int argc, char** argv)
 	bdainfo.buffer = r.buffer;
 	constants.address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 
-	for (int frame = 0; frame < p__loops; frame++)
+	for (unsigned frame = 0; frame < p__loops; frame++)
 	{
 		test_marker(vulkan, "Frame " + std::to_string(frame));
 

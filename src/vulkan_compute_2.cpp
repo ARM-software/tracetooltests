@@ -48,7 +48,7 @@ struct pixel
 
 static void show_usage()
 {
-	printf("-t/--times N           Times to repeat (default %u)\n", p__loops);
+	printf("-t/--times N           Times to repeat (default %d)\n", (int)p__loops);
 	printf("-n/--nodes N           Job nodes to process (default %u)\n", nodes);
 	printf("-q/--queues N          Set queues to use (default %d)\n", queues);
 	printf("-j/--job-variant N     Set cross-job synchronization variant (default %d)\n", job_variant);
