@@ -388,6 +388,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	assert(num_devices == physical_devices.size());
 	int selected_gpu = -1;
 	printf("Found %d physical devices\n", (int)num_devices);
+	assert(p__device < (int)num_devices);
 	for (unsigned i = 0; i < physical_devices.size(); i++)
 	{
 		VkPhysicalDeviceProperties device_properties = {};

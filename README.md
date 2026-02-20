@@ -30,8 +30,8 @@ cd build_name
 
 Then ONE of the following for ARMv7 or ARMv8, respectively:
 ```
-cmake -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/fbdev_arm.cmake ..
-cmake -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain/fbdev_aarch64.cmake ..
+cmake -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/fbdev_arm.cmake ..
+cmake -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/fbdev_aarch64.cmake ..
 ```
 
 Then complete as normal with:
@@ -39,12 +39,12 @@ Then complete as normal with:
 make
 ```
 
-Building for other backends
----------------------------
+Building for another GLES backend
+---------------------------------
 
-The default backend is fbdev, which is not supported on many systems.
-The change backend, pass -DWINDOWSYSTEM=<name of backend> where the
-backend can be one of the following:
+The default backend for GLES is `x11`. To change the backend, pass
+-DWINDOWSYSTEM=<name of backend> where the backend can be one of
+the following:
 
 * sdl
 * fbdev
@@ -112,5 +112,5 @@ AI code generation
 
 Generating small code samples seems almost like a perfect match for AI code agents.
 We have an AGENTS.md file to help it along the way. Sadly, most AI sandboxes seem
-to block access to the GPU, but you can run some of the Vulkan samples with the
---cpu option if you have llvmpipe installed.
+to block access to the GPU by default, but you can run some of the Vulkan samples with
+the --cpu option if you have llvmpipe installed.
