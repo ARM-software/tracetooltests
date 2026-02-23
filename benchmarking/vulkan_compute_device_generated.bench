@@ -1,0 +1,1 @@
+{ "name": "vulkan_compute_device_generated", "description": "Compute dispatch via VK_EXT_device_generated_commands" }

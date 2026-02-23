@@ -248,6 +248,8 @@ vulkan_test_extra(vulkan_compute_2_test_V4 compute_2 -V 4)
 vulkan_test(compute_3)
 vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
 
+vulkan_test(compute_device_generated)
+
 vulkan_test(compute_shader_object)
 vulkan_test(compute_shader_module_identifier)
 
