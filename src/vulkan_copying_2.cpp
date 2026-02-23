@@ -192,7 +192,7 @@ static void copying_2(int argc, char** argv)
 		check(result);
 	}
 
-	for (int frame = 0; frame < p__loops; frame++)
+	for (unsigned frame = 0; frame < p__loops; frame++)
 	{
 		test_marker(vulkan, "Frame " + std::to_string(frame));
 		bench_start_iteration(vulkan.bench);

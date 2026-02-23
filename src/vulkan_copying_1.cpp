@@ -30,7 +30,7 @@ static void show_usage()
 	printf("\t1 - memory map unmapped before submit\n");
 	printf("\t2 - memory map remapped to tiny area before submit\n");
 	printf("-B/--bufferdeviceaddress Create buffers with known buffer device addresses (requires Vulkan 1.2)\n");
-	printf("-D/--dedicatedallocation Create one device memory for each buffer\n");
+	printf("-DA/--dedicatedallocation Create one device memory for each buffer\n");
 }
 
 static void waitfence(vulkan_setup_t& vulkan, VkFence fence)
@@ -85,7 +85,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		reqs.bufferDeviceAddress = true;
 		return true;
 	}
-	else if (match(argv[i], "-D", "--dedicatedallocation"))
+	else if (match(argv[i], "-DA", "--dedicatedallocation"))
 	{
 		dedicated_allocation = true;
 		return true;

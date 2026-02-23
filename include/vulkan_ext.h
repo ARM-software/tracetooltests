@@ -10,7 +10,7 @@
 
 // Hope these random constants remain unused
 #define VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM (VkStructureType)1000998001
-#define VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM (VkStructureType)1000998000
+#define VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM (VkStructureType)1000998000
 
 typedef enum VkMarkingTypeARM {
 	VK_MARKING_TYPE_DEVICE_ADDRESS_ARM = 0, // marks a device address in memory
@@ -44,15 +44,15 @@ typedef struct VkMarkedOffsetsARM
 	const void* pNext;
 	uint32_t count; // the number of entries in pMarkingTypes, pDescriptorType and pOffsets
 	const VkMarkingTypeARM* pMarkingTypes; // the overall type of marking
-	VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking, if any
+	const VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking, if any
 	const VkDeviceSize* pOffsets; // offsets into memory to items we want to mark
 } VkMarkedOffsetsARM;
 
-typedef VkFlags VkUpdateMemoryInfoFlags;
+typedef VkFlags VkUpdateBufferInfoFlags;
 
-typedef struct VkUpdateMemoryInfoARM
+typedef struct VkUpdateBufferInfoARM
 {
-	VkStructureType sType; // must be VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM
+	VkStructureType sType; // must be VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM
 	const void* pNext;
 	VkBuffer dstBuffer;
 	VkDeviceSize dstOffset;
@@ -62,7 +62,7 @@ typedef struct VkUpdateMemoryInfoARM
 
 // Adding a version 2 of vkCmdUpdateBuffer that tools can upgrade to since the original lacks a pNext chain, and we may want to add
 // a remap struct. The 'flags' member of pInfo must be zero.
-typedef void (VKAPI_PTR *PFN_vkCmdUpdateBuffer2ARM)(VkCommandBuffer commandBuffer, const VkUpdateMemoryInfoARM* pInfo);
+typedef void (VKAPI_PTR *PFN_vkCmdUpdateBuffer2ARM)(VkCommandBuffer commandBuffer, const VkUpdateBufferInfoARM* pInfo);
 
 // Request validation of buffer contents by an Adler32 checksum. The command will return the checksum, and when stored in an API trace,
 // the trace replayer may verify that the buffer contents are correct according to the stored checksum. 'size' may be VK_WHOLE_SIZE.

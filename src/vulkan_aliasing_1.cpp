@@ -113,12 +113,13 @@ int main(int argc, char** argv)
 		VkResult result = VK_ERROR_UNKNOWN;
 		result = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, &parent_crc, "parent buffer");
 		assert(result == VK_SUCCESS);
-		assert(parent_crc == orig_crc_parent);
+		assert(parent_crc != orig_crc_parent);
 		(void)parent_crc;
 		(void)result;
 		result = vulkan.vkAssertBuffer(vulkan.device, child, 0, VK_WHOLE_SIZE, &child_crc, "child buffer");
 		assert(result == VK_SUCCESS);
-		assert(child_crc == orig_crc_child);
+		assert(child_crc != orig_crc_child);
+		assert(child_crc == orig_crc_alien);
 		(void)child_crc;
 		(void)result;
 		result = vulkan.vkAssertBuffer(vulkan.device, alien, 0, VK_WHOLE_SIZE, &alien_crc, "aliased buffer");

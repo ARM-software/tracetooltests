@@ -356,7 +356,7 @@ static void render(const vulkan_setup_t& vulkan)
 				markings.pMarkingTypes = markingTypes.data();
 				markings.pSubTypes = subTypes.data();
 
-				VkUpdateMemoryInfoARM updateInfo { VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM, &markings };
+				VkUpdateBufferInfoARM updateInfo { VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, &markings };
 				updateInfo.dstBuffer = p_benchmark->m_baseAddressBuffer->getHandle();
 				updateInfo.dstOffset = 0;
 				updateInfo.dataSize = p_benchmark->m_outputBuffers.size() * sizeof(VkDeviceAddress);
