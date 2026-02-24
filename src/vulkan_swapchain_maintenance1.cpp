@@ -71,8 +71,16 @@ static VkPresentGravityFlagsEXT pick_gravity(VkPresentGravityFlagsEXT supported)
 
 int main(int argc, char** argv)
 {
+	const char* winsys = getenv("TOOLSTEST_WINSYS");
 	VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT, nullptr, VK_TRUE };
-	reqs.instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+	if (winsys && strcmp(winsys, "headless") == 0)
+	{
+		reqs.instance_extensions.push_back("VK_EXT_headless_surface");
+	}
+	else
+	{
+		reqs.instance_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+	}
 	reqs.instance_extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 	reqs.instance_extensions.push_back(VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);

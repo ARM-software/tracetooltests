@@ -316,6 +316,7 @@ vulkan_test(demo_graphics_pipeline_library)
 
 vulkan_window_test(window_1)
 vulkan_window_test(swapchain_maintenance1)
+vulkan_window_test(surface_maintenance1)
 
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(memory_mprotect)
