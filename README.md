@@ -11,14 +11,25 @@ To build for linux desktop:
 
 You may need to install the LunarG SDK first to get up to date headers.
 
+You also may need to install some dependencies. For Ubuntu:
+
+```
+sudo apt-get install xvfb libvulkan-dev
+```
+
+Then run:
+
 ```
 mkdir build
 cd build
 cmake ..
 make
+make test
 ```
 
-See below for selecting your window system backend.
+See below for selecting your window system backend. You can set the
+`NO_GLES`, `NO_VULKAN` and `NO_CL` cmake variables to skip building
+parts of the codebase you are not interested in.
 
 Linux cross-compile
 -------------------
