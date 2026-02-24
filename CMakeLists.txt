@@ -103,6 +103,17 @@ function(vulkan_test test_name)
 	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 endfunction()
 
+function(vulkan_window_test test_name)
+	vulkan_test_build(${ARGV0})
+	add_test(NAME vulkan_${ARGV0} COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/vulkan_${ARGV0})
+	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
+	set_tests_properties(vulkan_${ARGV0} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};${TRACETOOLTESTS_TEST_ARGUMENTS}")
+	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION tests)
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_${ARGV0}.bench ${SYMLINK_DIR}/vulkan_${ARGV0}.bench)")
+	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+endfunction()
+
 function(vulkan_tensor_test test_name)
 	vulkan_test_build(${ARGV0})
 	add_test(NAME vulkan_${ARGV0} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_${ARGV0})
@@ -304,7 +315,7 @@ vulkan_test(demo_descriptor_indexing)
 vulkan_test(demo_graphics_pipeline_library)
 
 # These are only built, not automatically run as part of the test suite
-vulkan_test_build(window_1)
+vulkan_window_test(window_1)
 vulkan_test_build(memory_mprotect)
 
 add_executable(vulkan_featuretest src/vulkan_feature.cpp include/vulkan_feature_detect.h include/vulkan_feature_detect.cpp)

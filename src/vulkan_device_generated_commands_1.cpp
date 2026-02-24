@@ -19,7 +19,7 @@ struct buffer_with_memory
 };
 
 static buffer_with_memory create_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, VkBufferUsageFlags usage,
-	VkMemoryPropertyFlags properties, bool device_address, VkBufferUsageFlags2 usage2 = 0)
+	VkMemoryPropertyFlags properties, bool device_address, VkBufferUsageFlags2 usage2 = 0, uint32_t required_mem_bits = 0)
 {
 	buffer_with_memory result_buffer{};
 	result_buffer.size = size;
@@ -42,6 +42,13 @@ static buffer_with_memory create_buffer(const vulkan_setup_t& vulkan, VkDeviceSi
 	VkMemoryRequirements mem_reqs{};
 	vkGetBufferMemoryRequirements(vulkan.device, result_buffer.buffer, &mem_reqs);
 
+	uint32_t allowed_mem_bits = mem_reqs.memoryTypeBits;
+	if (required_mem_bits != 0)
+	{
+		allowed_mem_bits &= required_mem_bits;
+		assert(allowed_mem_bits != 0);
+	}
+
 	VkMemoryAllocateFlagsInfo flags_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr, 0, 0 };
 	VkMemoryAllocateInfo alloc_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
 	if (device_address)
@@ -50,7 +57,7 @@ static buffer_with_memory create_buffer(const vulkan_setup_t& vulkan, VkDeviceSi
 		alloc_info.pNext = &flags_info;
 	}
 	alloc_info.allocationSize = mem_reqs.size;
-	alloc_info.memoryTypeIndex = get_device_memory_type(mem_reqs.memoryTypeBits, properties);
+	alloc_info.memoryTypeIndex = get_device_memory_type(allowed_mem_bits, properties);
 	vk_result = vkAllocateMemory(vulkan.device, &alloc_info, nullptr, &result_buffer.memory);
 	check(vk_result);
 
@@ -315,7 +322,8 @@ int main(int argc, char** argv)
 		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		0,
 		true,
-		VK_BUFFER_USAGE_2_PREPROCESS_BUFFER_BIT_EXT | VK_BUFFER_USAGE_2_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_2_SHADER_DEVICE_ADDRESS_BIT);
+		VK_BUFFER_USAGE_2_PREPROCESS_BUFFER_BIT_EXT | VK_BUFFER_USAGE_2_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_2_SHADER_DEVICE_ADDRESS_BIT,
+		preprocess_mem_reqs.memoryRequirements.memoryTypeBits);
 
 	assert(preprocess_buffer.size >= preprocess_mem_reqs.memoryRequirements.size);
 	// Basic alignment check for 4 bytes, though often needs 256 or more depending on implementation
