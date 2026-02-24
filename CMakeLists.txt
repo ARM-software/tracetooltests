@@ -314,8 +314,10 @@ vulkan_test(demo_descriptor_buffer_minimal)
 vulkan_test(demo_descriptor_indexing)
 vulkan_test(demo_graphics_pipeline_library)
 
-# These are only built, not automatically run as part of the test suite
 vulkan_window_test(window_1)
+vulkan_window_test(swapchain_maintenance1)
+
+# These are only built, not automatically run as part of the test suite
 vulkan_test_build(memory_mprotect)
 
 add_executable(vulkan_featuretest src/vulkan_feature.cpp include/vulkan_feature_detect.h include/vulkan_feature_detect.cpp)

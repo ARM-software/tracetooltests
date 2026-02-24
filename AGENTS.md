@@ -41,7 +41,7 @@
 
 ## Add A New Vulkan Test
 - Create source `src/vulkan_<name>.cpp` and a bench file `benchmarking/vulkan_<name>.bench`.
-- Register the test in `CMakeLists.txt` with `vulkan_test(<name>)`.
+- Register the test in `CMakeLists.txt` with `vulkan_test(<name>)` (or `vulkan_window_test` if it uses a surface).
 - Build with 'make -j'
 - Run from build directory without GPU: `./vulkan_<name> -v --cpu`.
 - Run from build directory with GPU: `./vulkan_<name> -v --gpu`.

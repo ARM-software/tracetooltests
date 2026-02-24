@@ -1,0 +1,1 @@
+{ "name": "vulkan_swapchain_maintenance1", "description": "Exercise VK_EXT_swapchain_maintenance1 present and release paths" }
