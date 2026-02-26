@@ -419,13 +419,28 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	vulkan.physical = physical_devices.at(selected_gpu);
 
 	uint32_t family_count = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
-	std::vector<VkQueueFamilyProperties> familyprops(family_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, familyprops.data());
-	if (familyprops[0].queueCount < reqs.queues)
+	if (vulkan.apiVersion > VK_API_VERSION_1_2) // requirement is 1.1 but want to test both and nobody would run 1.0 anymore
 	{
-		printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueCount, reqs.queues);
-		exit(77);
+		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, nullptr);
+		std::vector<VkQueueFamilyProperties2> familyprops(family_count);
+		for (uint32_t i = 0; i++; i < family_count) familyprops[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, familyprops.data());
+		if (familyprops[0].queueFamilyProperties.queueCount < reqs.queues)
+		{
+			printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueFamilyProperties.queueCount, reqs.queues);
+			exit(77);
+		}
+	}
+	else // old style
+	{
+		vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
+		std::vector<VkQueueFamilyProperties> familyprops(family_count);
+		vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, familyprops.data());
+		if (familyprops[0].queueCount < reqs.queues)
+		{
+			printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueCount, reqs.queues);
+			exit(77);
+		}
 	}
 
 	if (reqs.bufferDeviceAddress && reqs.apiVersion < VK_API_VERSION_1_2)
