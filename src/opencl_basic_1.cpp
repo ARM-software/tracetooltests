@@ -4,7 +4,6 @@
 #include <inttypes.h>
 
 static bool ugly_exit = false;
-static opencl_req_t reqs;
 
 static void show_usage()
 {
@@ -37,6 +36,7 @@ const char *source = "\n" \
 
 int main(int argc, char** argv)
 {
+	opencl_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	opencl_setup_t cl = cl_test_init(argc, argv, "opencl_general", reqs);

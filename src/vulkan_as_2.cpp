@@ -345,11 +345,11 @@ void build_bottom_level_acceleration_structures(const vulkan_setup_t &vulkan, Re
 void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Resources & resources)
 {
 	// This test covers the scenario when the same TLAS is rebuilt several times with different instance buffer
-	static VkTransformMatrixKHR identity = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f
-	};
+	static VkTransformMatrixKHR identity = {{
+			{1.0f, 0.0f, 0.0f, 0.0f},
+			{0.0f, 1.0f, 0.0f, 0.0f},
+			{0.0f, 0.0f, 1.0f, 0.0f}
+	}};
 
 	// Instances of BLAS build before - for the simplicity, each BLAS has one instance with identity transform
 	std::vector<VkAccelerationStructureInstanceKHR> as_instances(bl_as_build_count);

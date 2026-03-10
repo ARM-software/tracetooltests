@@ -136,11 +136,11 @@ void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, Si
 	vkFreeMemory(vulkan.device, scratch.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch.handle, nullptr);
 
-	static VkTransformMatrixKHR identity = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-	};
+	static VkTransformMatrixKHR identity = {{
+		{1.0f, 0.0f, 0.0f, 0.0f},
+		{0.0f, 1.0f, 0.0f, 0.0f},
+		{0.0f, 0.0f, 1.0f, 0.0f},
+	}};
 
 	VkAccelerationStructureInstanceKHR instance{};
 	instance.transform = identity;

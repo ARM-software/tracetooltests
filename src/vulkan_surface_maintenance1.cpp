@@ -2,8 +2,6 @@
 #include <inttypes.h>
 #include <vector>
 
-static vulkan_req_t reqs;
-
 static void show_usage()
 {
 }
@@ -20,6 +18,7 @@ static bool is_special_extent(const VkExtent2D& extent)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	const char* winsys = getenv("TOOLSTEST_WINSYS");
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;

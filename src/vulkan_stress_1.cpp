@@ -1,7 +1,6 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
 static int loops = 250000;
 static int variant = 1;
 
@@ -71,6 +70,7 @@ static const char* case_2(vulkan_setup_t& vulkan, bool active)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_stress_1", reqs);

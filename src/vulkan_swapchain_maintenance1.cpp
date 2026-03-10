@@ -2,8 +2,6 @@
 #include <algorithm>
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
-
 static void show_usage()
 {
 }
@@ -71,6 +69,7 @@ static VkPresentGravityFlagsEXT pick_gravity(VkPresentGravityFlagsEXT supported)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	const char* winsys = getenv("TOOLSTEST_WINSYS");
 	VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT, nullptr, VK_TRUE };
 	if (winsys && strcmp(winsys, "headless") == 0)

@@ -1,8 +1,6 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
-
 static void show_usage()
 {
 }
@@ -14,6 +12,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	reqs.reqfeat13.privateData = VK_TRUE;
 	reqs.minApiVersion = VK_API_VERSION_1_3;
 	reqs.apiVersion = VK_API_VERSION_1_3;

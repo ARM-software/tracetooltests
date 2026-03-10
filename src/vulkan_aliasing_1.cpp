@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 		uint32_t parent_crc = 0;
 		uint32_t child_crc = 0;
 		uint32_t alien_crc = 0;
-		VkResult result = VK_ERROR_UNKNOWN;
+		result = VK_ERROR_UNKNOWN;
 		result = vulkan.vkAssertBuffer(vulkan.device, parent, 0, VK_WHOLE_SIZE, &parent_crc, "parent buffer");
 		assert(result == VK_SUCCESS);
 		assert(parent_crc != orig_crc_parent);

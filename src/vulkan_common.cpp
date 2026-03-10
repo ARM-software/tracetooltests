@@ -674,7 +674,7 @@ acceleration_structures::functions acceleration_structures::query_acceleration_s
 	return functions;
 }
 
-acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties)
+acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_props)
 {
 	VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	create_info.usage = usage;
@@ -689,7 +689,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	VkMemoryAllocateInfo memory_allocate_info{};
 	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_properties);
+	memory_allocate_info.memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memory_props);
 
 	VkMemoryAllocateFlagsInfoKHR allocation_flags_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR, nullptr };
 	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)

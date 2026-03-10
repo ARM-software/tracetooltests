@@ -1,7 +1,6 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
 static bool aliasing = false;
 
 static void show_usage()
@@ -21,6 +20,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	VkPhysicalDeviceTensorFeaturesARM tensor_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, nullptr };
 	tensor_features.tensors = VK_TRUE;
 	reqs.usage = show_usage;

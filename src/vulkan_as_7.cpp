@@ -437,20 +437,20 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		frameBoundary.pNext = nullptr;
 		frameBoundary.frameID++;
 
-		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
-		submitInfo.pNext = &frameBoundary;
-		submitInfo.commandBufferCount = 0;
-		submitInfo.pCommandBuffers = nullptr;
+		VkSubmitInfo submitInfo2 = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+		submitInfo2.pNext = &frameBoundary;
+		submitInfo2.commandBufferCount = 0;
+		submitInfo2.pCommandBuffers = nullptr;
 
-		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo2, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 	}
 
-	static VkTransformMatrixKHR identity = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f
-	};
+	static VkTransformMatrixKHR identity = {{
+			{1.0f, 0.0f, 0.0f, 0.0f},
+			{0.0f, 1.0f, 0.0f, 0.0f},
+			{0.0f, 0.0f, 1.0f, 0.0f}
+	}};
 
 	// Build top level acceleration structure
 	VkAccelerationStructureInstanceKHR instance;
@@ -556,12 +556,12 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		frameBoundary.pNext = nullptr;
 		frameBoundary.frameID++;
 
-		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
-		submitInfo.pNext = &frameBoundary;
-		submitInfo.commandBufferCount = 0;
-		submitInfo.pCommandBuffers = nullptr;
+		VkSubmitInfo submitInfo2 = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+		submitInfo2.pNext = &frameBoundary;
+		submitInfo2.commandBufferCount = 0;
+		submitInfo2.pCommandBuffers = nullptr;
 
-		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
+		check(vkQueueSubmit(resources.queue, 1, &submitInfo2, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 	}
 

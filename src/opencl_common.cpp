@@ -207,7 +207,7 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 			{
 				cl_uchar uuid[CL_UUID_SIZE_KHR];
 				memset(uuid, 0, sizeof(uuid));
-				int r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
+				r = clGetDeviceInfo(device, CL_DEVICE_UUID_KHR, CL_UUID_SIZE_KHR, uuid, nullptr);
 				cl_check(r);
 				if (memcmp((char*)uuid, (char*)reqs.device_by_uuid, CL_UUID_SIZE_KHR) != 0)
 				{

@@ -10,7 +10,6 @@ enum class FenceDelayUnit
 
 static FenceDelayUnit fence_delay_unit = FenceDelayUnit::Calls;
 static uint64_t fence_delay_threshold = 0;
-static vulkan_req_t reqs;
 static vulkan_setup_t vulkan;
 static const std::chrono::milliseconds sleep_duration(1);
 
@@ -93,6 +92,7 @@ static void submitFrame()
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.device_extensions.push_back("VK_EXT_frame_boundary");

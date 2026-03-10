@@ -11,16 +11,6 @@
 #define MAX_BUFFERS 100
 #define BUFFER_SIZE 100
 
-static vulkan_setup_t vulkan;
-static VkCommandPool pool;
-static VkCommandBuffer cmd;
-static std::atomic<VkBuffer> buffers[MAX_BUFFERS];
-static VkDeviceMemory memory;
-static std::atomic_int next_buffer = 0;
-static int sleep_time = 10;
-static VkDeviceSize offsets[MAX_BUFFERS];
-static int aligned_buffer_size = 0;
-
 static void dummy_vkCmdBindIndexBuffer(VkCommandBuffer cmd, VkBuffer buffer)
 {
 	assert(cmd != VK_NULL_HANDLE);
@@ -28,7 +18,7 @@ static void dummy_vkCmdBindIndexBuffer(VkCommandBuffer cmd, VkBuffer buffer)
 	vkCmdBindIndexBuffer(cmd, buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-static void dummy_vkCmdBindVertexBuffers(VkCommandBuffer cmd, const std::vector<VkBuffer>& buffers)
+static void dummy_vkCmdBindVertexBuffers(VkCommandBuffer cmd, const std::vector<VkBuffer>& buffers, VkDeviceSize* offsets)
 {
 	assert(cmd != VK_NULL_HANDLE);
 	assert(buffers.size() > 0);
@@ -42,6 +32,16 @@ static void dummy_vkCmdFillBuffer(VkCommandBuffer cmd, VkBuffer buffer)
 	assert(buffer != VK_NULL_HANDLE);
 	vkCmdFillBuffer(cmd, buffer, 0, BUFFER_SIZE, 0xdeadbeef);
 }
+
+static vulkan_setup_t vulkan;
+static VkCommandPool pool;
+static VkCommandBuffer cmd;
+static std::atomic<VkBuffer> buffers[MAX_BUFFERS];
+static VkDeviceMemory memory;
+static std::atomic_int next_buffer = 0;
+static int sleep_time = 10;
+static VkDeviceSize offsets[MAX_BUFFERS];
+static int aligned_buffer_size = 0;
 
 static VkBufferCreateInfo dummy_VkBufferCreateInfo()
 {
@@ -278,7 +278,7 @@ int main(int argc, char** argv)
 			assert(buffer != VK_NULL_HANDLE);
 			avail[j] = buffer;
 		}
-		dummy_vkCmdBindVertexBuffers(cmd, avail);
+		dummy_vkCmdBindVertexBuffers(cmd, avail, offsets);
 		i += count;
 	}
 	helper->join();

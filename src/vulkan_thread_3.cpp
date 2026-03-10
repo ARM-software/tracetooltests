@@ -211,7 +211,7 @@ int main(int argc, char** argv)
 		dummy_cmd(cmd1);
 		dummy_cmd(cmd2);
 		helper = new std::thread(thread_case5);
-		for (int i = 0; i < 500; i++) dummy_cmd(cmd1);
+		for (int j = 0; j < 500; j++) dummy_cmd(cmd1);
 		helper->join();
 		delete helper;
 		helper = nullptr;
@@ -253,7 +253,7 @@ int main(int argc, char** argv)
 		delete helper;
 		helper = nullptr;
 		dummy_cmd(cmd1);
-		for (int i = 0; i < 50; i++) dummy_cmd(cmd1);
+		for (int j = 0; j < 50; j++) dummy_cmd(cmd1);
 		result = vkEndCommandBuffer(cmd1);
 		check(result);
 		result = vkResetCommandPool(vulkan.device, pool1, 0);

@@ -262,7 +262,7 @@ static void copying_2(int argc, char** argv)
 		{
 			uint32_t orig = 0;
 			uint32_t dest = 0;
-			VkResult result = VK_ERROR_UNKNOWN;
+			result = VK_ERROR_UNKNOWN;
 			result = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE, &orig, "origin buffer");
 			assert(result == VK_SUCCESS);
 			(void) result;

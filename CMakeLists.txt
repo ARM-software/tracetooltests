@@ -35,7 +35,7 @@ elseif (WINDOWSYSTEM MATCHES "pbuffers")
 else()
 	message(FATAL_ERROR "Invalid window system: ${WINDOWSYSTEM}")
 endif()
-set(IT_CFLAGS "-Wall -g -std=c++17")
+set(IT_CFLAGS "-Wall -g -std=c++20 -Werror -Wshadow")
 
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:

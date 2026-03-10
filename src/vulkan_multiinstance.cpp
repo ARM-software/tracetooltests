@@ -1,8 +1,6 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
-
 static void show_usage()
 {
 }
@@ -14,6 +12,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan1 = test_init(argc, argv, "vulkan_multiinstance_1", reqs);

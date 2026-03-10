@@ -8,8 +8,6 @@
 //   xxd -i vulkan_compute_1.spirv > vulkan_compute_1.inc
 #include "vulkan_compute_1.inc"
 
-static vulkan_req_t reqs;
-
 struct buffer_with_memory
 {
 	VkBuffer buffer = VK_NULL_HANDLE;
@@ -89,6 +87,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	VkPhysicalDeviceDeviceGeneratedCommandsFeaturesEXT dgc_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT, nullptr };
 	dgc_features.deviceGeneratedCommands = VK_TRUE;
 	VkPhysicalDeviceMaintenance5FeaturesKHR maint5_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR, nullptr };

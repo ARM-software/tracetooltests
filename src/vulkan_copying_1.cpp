@@ -8,7 +8,6 @@ static int map_variant = 0;
 static int fence_variant = 0;
 static unsigned buffer_size = (32 * 1024);
 static unsigned num_buffers = 10;
-static vulkan_req_t reqs;
 static bool dedicated_allocation = false;
 
 static void show_usage()
@@ -95,6 +94,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 static void copying_1(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_copying_1", reqs);
@@ -266,7 +266,7 @@ static void copying_1(int argc, char** argv)
 		{
 			uint32_t orig = 0;
 			uint32_t dest = 0;
-			VkResult result = VK_ERROR_UNKNOWN;
+			result = VK_ERROR_UNKNOWN;
 			result = vulkan.vkAssertBuffer(vulkan.device, origin_buffers.at(i), 0, VK_WHOLE_SIZE, &orig, "original buffer");
 			assert(result == VK_SUCCESS);
 			(void)result;

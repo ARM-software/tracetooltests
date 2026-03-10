@@ -276,7 +276,7 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 
 
 	std::vector<VkMarkingTypeARM>  marking_types(numPixels, VK_MARKING_TYPE_DEVICE_ADDRESS_ARM);
-	std::vector<VkMarkingSubTypeARM> sub_types(numPixels, VkMarkingSubTypeARM{.deviceAddressType{VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM}});
+	std::vector<VkMarkingSubTypeARM> sub_types(numPixels, VkMarkingSubTypeARM{.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM});
 	std::vector<VkDeviceSize> offsets(numPixels);
 
 	for (uint32_t i = 0; i < numPixels; i++)

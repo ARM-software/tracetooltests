@@ -224,11 +224,11 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	vkFreeMemory(vulkan.device, scratch_bottom.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, scratch_bottom.handle, nullptr);
 
-	static VkTransformMatrixKHR identity = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f
-	};
+	static VkTransformMatrixKHR identity = {{
+			{1.0f, 0.0f, 0.0f, 0.0f},
+			{0.0f, 1.0f, 0.0f, 0.0f},
+			{0.0f, 0.0f, 1.0f, 0.0f}
+	}};
 
 	// Build top level acceleration structure
 	VkAccelerationStructureInstanceKHR instance;

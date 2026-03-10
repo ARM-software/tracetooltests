@@ -1,8 +1,6 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
 
-static vulkan_req_t reqs;
-
 static void show_usage()
 {
 }
@@ -14,6 +12,7 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 int main(int argc, char** argv)
 {
+	vulkan_req_t reqs;
 	VkPhysicalDevicePrivateDataFeaturesEXT privfeats = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT, nullptr, VK_TRUE };
 	reqs.device_extensions.push_back("VK_EXT_private_data");
 	reqs.extension_features = (VkBaseInStructure*)&privfeats;
