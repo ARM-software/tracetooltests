@@ -149,6 +149,7 @@ int main(int argc, char** argv)
 	req.bufferDeviceAddress = true;
 	req.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	req.apiVersion = VK_API_VERSION_1_2;
+	req.device_extensions.push_back("VK_KHR_maintenance6");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_falseAddress", req);
 
 	p_benchmark->initBasic(vulkan, req);
@@ -273,6 +274,11 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 	uint32_t *colorData = reinterpret_cast<uint32_t *>(p_benchmark->m_colorBuffer->m_mappedAddress);
 	uint32_t *addressData = reinterpret_cast<uint32_t *>(p_benchmark->m_addressBuffer->m_mappedAddress);
 
+
+	std::vector<VkMarkingTypeARM>  marking_types(numPixels, VK_MARKING_TYPE_DEVICE_ADDRESS_ARM);
+	std::vector<VkMarkingSubTypeARM> sub_types(numPixels, VkMarkingSubTypeARM{.deviceAddressType{VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM}});
+	std::vector<VkDeviceSize> offsets(numPixels);
+
 	for (uint32_t i = 0; i < numPixels; i++)
 	{
 		uint32_t outputIndex = i / numPixelsPerBuffer;
@@ -285,6 +291,22 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 
 		addressData[i*2] = static_cast<uint32_t>(address & 0xFFFFFFFF);
 		addressData[i*2+1] = static_cast<uint32_t>(address >> 32);
+		offsets[i] = (i*2)*sizeof(uint32_t);
+	}
+
+	if(p_benchmark->m_vulkanSetup.has_trace_helpers && p_benchmark->m_vulkanSetup.has_explicit_host_updates)
+	{
+		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr,p_benchmark->m_addressBuffer->getMemory(), 0, VK_WHOLE_SIZE};
+		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr, VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM };
+		VkMarkedOffsetsARM markings { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr, numPixels, marking_types.data(),sub_types.data(), offsets.data()};
+
+		range.pNext = &frf; 
+		frf.pNext = &markings; 
+		
+		VkResult result = vkFlushMappedMemoryRanges(p_benchmark->m_colorBuffer->m_device, 1, &range);
+		check(result);
+		result = vkFlushMappedMemoryRanges(p_benchmark->m_addressBuffer->m_device, 1, &range);
+		check(result);
 	}
 
 	p_benchmark->m_colorBuffer->unmap();
