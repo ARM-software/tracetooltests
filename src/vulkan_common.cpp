@@ -423,7 +423,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, nullptr);
 		std::vector<VkQueueFamilyProperties2> familyprops(family_count);
-		for (uint32_t i = 0; i++; i < family_count) familyprops[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+		for (uint32_t i = 0; i < family_count; i++) familyprops[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
 		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, familyprops.data());
 		if (familyprops[0].queueFamilyProperties.queueCount < reqs.queues)
 		{
