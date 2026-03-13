@@ -240,6 +240,18 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	submitInfo.commandBufferCount = 1;
 	if (reqs.options.count("frame_boundary"))
 	{
+		VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr };
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		barrier.image = r.image;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+
 		const uint32_t width = std::get<int>(reqs.options.at("width"));
 		const uint32_t height = std::get<int>(reqs.options.at("height"));
 
@@ -256,6 +268,7 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
 		check(result);
+		vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 		vkCmdCopyBufferToImage(r.commandBufferFrameBoundary, r.buffer, r.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
 		result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
 		check(result);
@@ -282,6 +295,11 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 	else bench_stop_scene(vulkan.bench);
 
 	vkResetCommandBuffer(r.commandBuffer, 0);
+
+	if (reqs.options.count("frame_boundary"))
+	{
+		vkResetCommandBuffer(r.commandBufferFrameBoundary, 0);
+	}
 }
 
 void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs)
