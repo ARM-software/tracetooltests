@@ -315,6 +315,7 @@ vulkan_test(demo_descriptor_indexing)
 vulkan_test(demo_graphics_pipeline_library)
 
 vulkan_window_test(window_1)
+vulkan_test(display)
 vulkan_test(headless_surface)
 vulkan_window_test(swapchain_maintenance1)
 vulkan_window_test(surface_maintenance1)

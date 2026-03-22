@@ -1,11 +1,21 @@
 #include "vulkan_common.h"
 
+static bool use_display_swapchain = false;
+
 static void show_usage()
 {
+	printf("--display-swapchain    Use VK_KHR_display_swapchain\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
+	if (match(argv[i], nullptr, "--display-swapchain"))
+	{
+		use_display_swapchain = true;
+		reqs.instance_extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
+		reqs.device_extensions.push_back(VK_KHR_DISPLAY_SWAPCHAIN_EXTENSION_NAME);
+		return true;
+	}
 	return false;
 }
 
@@ -128,8 +138,25 @@ int main(int argc, char** argv)
 	bench_start_iteration(vulkan.bench);
 
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	r = vkCreateSwapchainKHR(vulkan.device, &swapchain_info, nullptr, &swapchain);
-	check(r);
+	if (use_display_swapchain)
+	{
+		MAKEDEVICEPROCADDR(vulkan, vkCreateSharedSwapchainsKHR);
+		r = pf_vkCreateSharedSwapchainsKHR(vulkan.device, 1, &swapchain_info, nullptr, &swapchain);
+		if (r == VK_ERROR_INCOMPATIBLE_DISPLAY_KHR)
+		{
+			printf("VK_KHR_display_swapchain is present, but the surface is not compatible with shared display swapchains.\n");
+			bench_stop_iteration(vulkan.bench);
+			vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
+			test_done(vulkan);
+			return 77;
+		}
+		check(r);
+	}
+	else
+	{
+		r = vkCreateSwapchainKHR(vulkan.device, &swapchain_info, nullptr, &swapchain);
+		check(r);
+	}
 	test_set_name(vulkan, VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain, "headless_swapchain");
 	test_marker_mention(vulkan, "Created headless swapchain", VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain);
 
