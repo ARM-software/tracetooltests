@@ -1,0 +1,1 @@
+{ "name": "vulkan_raytracing_3", "description": "Minimal ray tracing pipeline using vkCmdTraceRaysIndirect2KHR" }

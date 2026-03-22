@@ -124,6 +124,7 @@ namespace acceleration_structures
 		PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
 		PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
 		PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
+		PFN_vkCmdTraceRaysIndirect2KHR vkCmdTraceRaysIndirect2KHR = nullptr;
 	};
 
 	functions query_acceleration_structure_functions(const vulkan_setup_t & vulkan);

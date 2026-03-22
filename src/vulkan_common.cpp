@@ -669,6 +669,12 @@ acceleration_structures::functions acceleration_structures::query_acceleration_s
 
 		functions.vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetRayTracingShaderGroupHandlesKHR"));
 		assert(functions.vkGetRayTracingShaderGroupHandlesKHR);
+
+		if (vulkan.device_extensions.count(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME) != 0)
+		{
+			functions.vkCmdTraceRaysIndirect2KHR = reinterpret_cast<PFN_vkCmdTraceRaysIndirect2KHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdTraceRaysIndirect2KHR"));
+			assert(functions.vkCmdTraceRaysIndirect2KHR);
+		}
 	}
 
 	return functions;
