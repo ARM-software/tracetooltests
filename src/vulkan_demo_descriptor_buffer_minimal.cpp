@@ -439,10 +439,44 @@ int main(int argc, char** argv)
 
 	p_benchmark->uniformDesc.buffer->flush(true);
 	p_benchmark->imageDesc.buffer->flush(true);
-	if (vulkan.has_explicit_host_updates)
+	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates)
 	{
-		testFlushMemory(vulkan, p_benchmark->uniformDesc.buffer->getMemory(), 0, p_benchmark->uniformDesc.buffer->getSize(), true);
-		testFlushMemory(vulkan, p_benchmark->imageDesc.buffer->getMemory(), 0, p_benchmark->imageDesc.buffer->getSize(), true);
+		VkMarkedOffsetsARM* uniform_marks_ptr = nullptr;
+		VkMarkedOffsetsARM uniform_marks{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+		VkMarkingTypeARM uniform_mark_types[2] = { VK_MARKING_TYPE_DESCRIPTOR_ARM, VK_MARKING_TYPE_DESCRIPTOR_ARM };
+		VkMarkingSubTypeARM uniform_mark_subtypes[2] = {};
+		VkDeviceSize uniform_mark_offsets[2] = {
+			p_benchmark->uniformDesc.layoutOffset,
+			p_benchmark->uniformDesc.layoutSize + p_benchmark->uniformDesc.layoutOffset,
+		};
+		uniform_mark_subtypes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniform_mark_subtypes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		if (vulkan.has_trace_helpers)
+		{
+			uniform_marks.count = 2;
+			uniform_marks.pMarkingTypes = uniform_mark_types;
+			uniform_marks.pSubTypes = uniform_mark_subtypes;
+			uniform_marks.pOffsets = uniform_mark_offsets;
+			uniform_marks_ptr = &uniform_marks;
+		}
+
+		VkMarkedOffsetsARM* image_marks_ptr = nullptr;
+		VkMarkedOffsetsARM image_marks{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+		VkMarkingTypeARM image_mark_types[1] = { VK_MARKING_TYPE_DESCRIPTOR_ARM };
+		VkMarkingSubTypeARM image_mark_subtypes[1] = {};
+		VkDeviceSize image_mark_offsets[1] = { p_benchmark->imageDesc.layoutOffset };
+		image_mark_subtypes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		if (vulkan.has_trace_helpers)
+		{
+			image_marks.count = 1;
+			image_marks.pMarkingTypes = image_mark_types;
+			image_marks.pSubTypes = image_mark_subtypes;
+			image_marks.pOffsets = image_mark_offsets;
+			image_marks_ptr = &image_marks;
+		}
+
+		testFlushMemory(vulkan, p_benchmark->uniformDesc.buffer->getMemory(), 0, p_benchmark->uniformDesc.buffer->getSize(), true, uniform_marks_ptr);
+		testFlushMemory(vulkan, p_benchmark->imageDesc.buffer->getMemory(), 0, p_benchmark->imageDesc.buffer->getSize(), true, image_marks_ptr);
 	}
 	p_benchmark->uniformDesc.buffer->unmap();
 	p_benchmark->imageDesc.buffer->unmap();
