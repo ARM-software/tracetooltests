@@ -100,9 +100,7 @@ struct vulkan_setup_t
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR device_ray_tracing_pipeline_properties = {};
 	benchmarking bench;
 	bool has_trace_helpers = false;
-	bool has_trace_helpers2 = false;
 	bool has_explicit_host_updates = false;
-	bool has_trace_descriptor_buffer = false;
 	bool garbage_pointers = false;
 };
 

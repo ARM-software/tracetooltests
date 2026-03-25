@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 	dgi.data = dde;
 	pf_vkGetDescriptorEXT(vulkan.device, &dgi, pddbp.storageBufferDescriptorSize, ptr);
 
-	if (vulkan.has_trace_descriptor_buffer)
+	if (vulkan.has_trace_helpers)
 	{
 		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr };
 		frf.flags = VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM;

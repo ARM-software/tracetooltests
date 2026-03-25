@@ -189,6 +189,8 @@ def str_contains_vendor(s):
 	for t in extension_tags:
 		if s.endswith(t):
 			return True
+		if s.startswith("VK_" + t):
+			return True
 	return False
 
 def scan(req):
