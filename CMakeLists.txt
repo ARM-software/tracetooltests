@@ -304,6 +304,7 @@ vulkan_test(graphics_1)
 vulkan_test(vkquake2)
 vulkan_test(maintenance7)
 vulkan_test(trace_helpers)
+vulkan_test(anki_scene2)
 
 if (NOT MOCK_DRIVER MATCHES "1")
 vulkan_test(cooperative_matrix)
