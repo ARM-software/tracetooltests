@@ -348,6 +348,14 @@ int main(int argc, char** argv)
 
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	r = vkCreateSwapchainKHR(vulkan.device, &swapchain_info, nullptr, &swapchain);
+	if (r == VK_ERROR_INITIALIZATION_FAILED)
+	{
+		printf("vkCreateSwapchainKHR returned VK_ERROR_INITIALIZATION_FAILED for the selected display surface.\n");
+		bench_stop_iteration(vulkan.bench);
+		vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
+		test_done(vulkan);
+		return 77;
+	}
 	check(r);
 	test_set_name(vulkan, VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain, "display_swapchain");
 	test_marker_mention(vulkan, "Created display swapchain", VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain);
