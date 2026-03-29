@@ -1,0 +1,16 @@
+{
+	"name": "vulkan_graphics_multi_draw",
+	"description": "Graphics pipeline test for VK_EXT_multi_draw",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.1", "1.2", "1.3" ]
+		},
+		"multi_draw_mode": {
+			"description": "Select which VK_EXT_multi_draw path to exercise",
+			"type": "selection",
+			"options": [ "alternate", "draw", "indexed" ]
+		}
+	}
+}
