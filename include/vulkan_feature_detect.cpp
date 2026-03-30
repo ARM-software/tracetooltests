@@ -50,6 +50,62 @@ inline bool is_colorspace_ext(VkColorSpaceKHR s)
 	        || s == VK_COLOR_SPACE_HDR10_HLG_EXT || s == VK_COLOR_SPACE_HDR10_ST2084_EXT || s == VK_COLOR_SPACE_PASS_THROUGH_EXT);
 }
 
+static bool array_has_nonzero(const uint32_t* values, uint32_t count)
+{
+	if (count == 0) return false;
+	assert(values != nullptr);
+	for (uint32_t i = 0; i < count; i++) if (values[i] != 0) return true;
+	return false;
+}
+
+static bool array_has_nonzero(const int32_t* values, uint32_t count)
+{
+	if (count == 0) return false;
+	assert(values != nullptr);
+	for (uint32_t i = 0; i < count; i++) if (values[i] != 0) return true;
+	return false;
+}
+
+static bool render_pass_uses_multiview(const VkRenderPassCreateInfo* info)
+{
+	const VkRenderPassMultiviewCreateInfo* multiview = (const VkRenderPassMultiviewCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO);
+	if (!multiview) return false;
+
+	assert(multiview->subpassCount == 0 || multiview->subpassCount == info->subpassCount);
+	assert(multiview->dependencyCount == 0 || multiview->dependencyCount == info->dependencyCount);
+	assert(info->dependencyCount == 0 || info->pDependencies != nullptr);
+
+	if (array_has_nonzero(multiview->pViewMasks, multiview->subpassCount)) return true;
+	if (array_has_nonzero(multiview->pCorrelationMasks, multiview->correlationMaskCount)) return true;
+	if (array_has_nonzero(multiview->pViewOffsets, multiview->dependencyCount)) return true;
+
+	for (uint32_t i = 0; i < multiview->dependencyCount; i++)
+	{
+		if (info->pDependencies[i].dependencyFlags & VK_DEPENDENCY_VIEW_LOCAL_BIT) return true;
+	}
+
+	return false;
+}
+
+static bool render_pass_uses_multiview(const VkRenderPassCreateInfo2* info)
+{
+	assert(info->subpassCount == 0 || info->pSubpasses != nullptr);
+	assert(info->dependencyCount == 0 || info->pDependencies != nullptr);
+
+	for (uint32_t i = 0; i < info->subpassCount; i++)
+	{
+		if (info->pSubpasses[i].viewMask != 0) return true;
+	}
+
+	for (uint32_t i = 0; i < info->dependencyCount; i++)
+	{
+		if (info->pDependencies[i].dependencyFlags & VK_DEPENDENCY_VIEW_LOCAL_BIT) return true;
+		if (info->pDependencies[i].viewOffset != 0) return true;
+	}
+
+	return array_has_nonzero(info->pCorrelatedViewMasks, info->correlatedViewMaskCount);
+}
+
 static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 {
 	uint16_t opcode;
@@ -81,6 +137,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityUniformAndStorageBuffer16BitAccess: instance->core11.uniformAndStorageBuffer16BitAccess = true; break;
 			case SpvCapabilityStoragePushConstant16: instance->core11.storagePushConstant16 = true; break;
 			case SpvCapabilityStorageInputOutput16: instance->core11.storageInputOutput16 = true; break;
+			case SpvCapabilityMultiView: instance->has_VK_KHR_multiview = true; break;
 			case SpvCapabilityVariablePointersStorageBuffer: instance->core11.variablePointersStorageBuffer = true; break;
 			case SpvCapabilityVariablePointers: instance->core11.variablePointers = true; break;
 			case SpvCapabilityDrawParameters: instance->core11.shaderDrawParameters = true; break;
@@ -195,6 +252,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	#define CHECK_PNEXT(_name, _stype) if (exts.count(_name) == 0) if (prune_extension(info, _stype)) found.insert(_name);
 	CHECK_PNEXT("VK_KHR_shader_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
 	CHECK_PNEXT("VK_EXT_shader_image_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
+	CHECK_PNEXT("VK_KHR_multiview", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
 	#undef CHECK_PNEXT
 	return found;
 }
@@ -212,6 +270,8 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
+	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
+	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	return removed;
 }
@@ -419,6 +479,27 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT* pdsiai64f = (VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
 	if (pdsiai64f && (pdsiai64f->shaderImageInt64Atomics || pdsiai64f->sparseImageInt64Atomics)) instance->has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT = true;
 
+	const VkPhysicalDeviceMultiviewFeatures* pdmf = (VkPhysicalDeviceMultiviewFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
+	if (pdmf && (pdmf->multiview || pdmf->multiviewGeometryShader || pdmf->multiviewTessellationShader)) instance->has_VK_KHR_multiview = true;
+
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
+{
+	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
+{
+	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
+{
+	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
 	return VK_SUCCESS;
 }
 
@@ -519,6 +600,30 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 {
 	if (info->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) instance->core10.imageCubeArray = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkMapMemory2(VkDevice device, const VkMemoryMapInfo* pMemoryMapInfo, void** ppData)
+{
+	instance->has_VK_KHR_map_memory2 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkMapMemory2KHR(VkDevice device, const VkMemoryMapInfo* pMemoryMapInfo, void** ppData)
+{
+	instance->has_VK_KHR_map_memory2 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkUnmapMemory2(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo)
+{
+	instance->has_VK_KHR_map_memory2 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkUnmapMemory2KHR(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo)
+{
+	instance->has_VK_KHR_map_memory2 = true;
 	return VK_SUCCESS;
 }
 

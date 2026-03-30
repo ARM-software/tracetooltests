@@ -85,6 +85,109 @@ int main()
 	f->adjust_VkDeviceCreateInfo(&dci, exts);
 	assert(dci.pNext == nullptr);
 
+	exts.insert("VK_KHR_map_memory2");
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_map_memory2 == false);
+	removed = f->adjust_device_extensions(exts);
+	assert(removed.size() == 1);
+	assert(exts.size() == 0);
+
+	exts.insert("VK_KHR_map_memory2");
+	VkMemoryMapInfo map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO, nullptr, 0, VK_NULL_HANDLE, 0, 0 };
+	void* data = nullptr;
+	check_vkMapMemory2KHR(VK_NULL_HANDLE, &map_info, &data);
+	assert(f->has_VK_KHR_map_memory2 == true);
+	removed = f->adjust_device_extensions(exts);
+	assert(removed.size() == 0);
+	assert(exts.size() == 1);
+
+	f->has_VK_KHR_map_memory2.store(false);
+	VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr, 0, VK_NULL_HANDLE };
+	check_vkUnmapMemory2(VK_NULL_HANDLE, &unmap_info);
+	assert(f->has_VK_KHR_map_memory2 == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	std::unordered_set<std::string> multiview_exts;
+	multiview_exts.insert("VK_KHR_multiview");
+	assert(multiview_exts.size() == 1);
+	removed = f->adjust_device_extensions(multiview_exts);
+	assert(removed.size() == 1);
+	assert(multiview_exts.size() == 0);
+
+	multiview_exts.insert("VK_KHR_multiview");
+	const char* multiview_extname = "VK_KHR_multiview";
+	const char* multiview_names[] = { multiview_extname };
+	VkPhysicalDeviceMultiviewFeatures multiview_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, nullptr, VK_TRUE, VK_FALSE, VK_FALSE };
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &multiview_features };
+	dci.ppEnabledExtensionNames = multiview_names;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_multiview == true);
+	removed = f->adjust_device_extensions(multiview_exts);
+	assert(removed.size() == 0);
+	assert(multiview_exts.size() == 1);
+
+	f->has_VK_KHR_multiview.store(false);
+	removed = f->adjust_device_extensions(multiview_exts);
+	assert(removed.size() == 1);
+	assert(multiview_exts.size() == 0);
+	f->adjust_VkDeviceCreateInfo(&dci, multiview_exts);
+	assert(dci.pNext == nullptr);
+
+	VkSubpassDependency dependency = {};
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	int32_t view_offset = 0;
+	uint32_t view_mask = 0;
+	uint32_t correlation_mask = 0;
+	VkRenderPassMultiviewCreateInfo multiview_info = { VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO, nullptr, 1, &view_mask, 1, &view_offset, 1, &correlation_mask };
+	VkRenderPassCreateInfo rpci = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, &multiview_info, 0, 0, nullptr, 1, &subpass, 1, &dependency };
+	check_vkCreateRenderPass(VK_NULL_HANDLE, &rpci, nullptr, nullptr);
+	assert(f->has_VK_KHR_multiview == false);
+	dependency.dependencyFlags = VK_DEPENDENCY_VIEW_LOCAL_BIT;
+	check_vkCreateRenderPass(VK_NULL_HANDLE, &rpci, nullptr, nullptr);
+	assert(f->has_VK_KHR_multiview == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	VkSubpassDescription2 subpass2 = { VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2, nullptr, 0, VK_PIPELINE_BIND_POINT_GRAPHICS, 0, 0, nullptr, 0, nullptr, nullptr, nullptr, 0, nullptr };
+	VkSubpassDependency2 dependency2 = { VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2, nullptr, 0, 0, 0, 0, 0, 0, 0, 0 };
+	VkRenderPassCreateInfo2 rpci2 = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2, nullptr, 0, 0, nullptr, 1, &subpass2, 1, &dependency2, 0, nullptr };
+	check_vkCreateRenderPass2KHR(VK_NULL_HANDLE, &rpci2, nullptr, nullptr);
+	assert(f->has_VK_KHR_multiview == false);
+	subpass2.viewMask = 1;
+	check_vkCreateRenderPass2(VK_NULL_HANDLE, &rpci2, nullptr, nullptr);
+	assert(f->has_VK_KHR_multiview == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	const uint32_t multiview_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		SpvCapabilityMultiView,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	multiview_exts.insert("VK_KHR_multiview");
+	VkShaderModuleCreateInfo multiview_smci = {};
+	multiview_smci.pCode = multiview_spirv;
+	multiview_smci.codeSize = sizeof(multiview_spirv);
+	VkResult multiview_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &multiview_smci, nullptr, nullptr);
+	assert(multiview_result == VK_SUCCESS);
+	assert(f->has_VK_KHR_multiview == true);
+	removed = f->adjust_device_extensions(multiview_exts);
+	assert(removed.size() == 0);
+	assert(multiview_exts.size() == 1);
+
 	VkShaderModuleCreateInfo smci = {};
 	smci.pCode = (uint32_t*)vulkan_compute_bda_sc_spirv;
 	smci.codeSize = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * sizeof(uint32_t);

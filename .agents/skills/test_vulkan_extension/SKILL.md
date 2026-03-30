@@ -28,3 +28,5 @@ domain_allowlist = [
 10. Run `./<test name> -v --cpu` from the build directory and fix any validation issues.
 11. Make note of any commands and structs you could not add to the test, things you find that did not make sense, and suggest the
    best improvement that could be made to make the test even better.
+12. Make sure usage detection of this extension is in `include/vulkan_feature_detect.cpp`. You can use the skill
+   $vulkan_extension_detection to add this if missing.
