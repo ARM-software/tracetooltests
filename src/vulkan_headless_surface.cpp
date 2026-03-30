@@ -62,6 +62,13 @@ int main(int argc, char** argv)
 	VkResult r = VK_SUCCESS;
 
 	MAKEINSTANCEPROCADDR(vulkan, vkCreateHeadlessSurfaceEXT);
+	MAKEINSTANCEPROCADDR(vulkan, vkDestroySurfaceKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceSurfaceSupportKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceSurfaceFormatsKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceSurfacePresentModesKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkGetSwapchainImagesKHR);
+	MAKEINSTANCEPROCADDR(vulkan, vkDestroySwapchainKHR);
 
 	VkHeadlessSurfaceCreateInfoEXT surface_info = { VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT, nullptr };
 	VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -71,22 +78,22 @@ int main(int argc, char** argv)
 	test_marker_mention(vulkan, "Created headless surface", VK_OBJECT_TYPE_SURFACE_KHR, (uint64_t)surface);
 
 	VkBool32 present_support = VK_FALSE;
-	r = vkGetPhysicalDeviceSurfaceSupportKHR(vulkan.physical, 0, surface, &present_support);
+	r = pf_vkGetPhysicalDeviceSurfaceSupportKHR(vulkan.physical, 0, surface, &present_support);
 	check(r);
 	if (!present_support)
 	{
 		printf("Queue family 0 does not support present on the headless surface.\n");
-		vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
+		pf_vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
 		test_done(vulkan);
 		return 77;
 	}
 
 	uint32_t format_count = 0;
-	r = vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan.physical, surface, &format_count, nullptr);
+	r = pf_vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan.physical, surface, &format_count, nullptr);
 	check(r);
 	assert(format_count > 0);
 	std::vector<VkSurfaceFormatKHR> formats(format_count);
-	r = vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan.physical, surface, &format_count, formats.data());
+	r = pf_vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan.physical, surface, &format_count, formats.data());
 	check(r);
 	VkSurfaceFormatKHR surface_format = formats[0];
 	if (format_count == 1 && surface_format.format == VK_FORMAT_UNDEFINED)
@@ -95,15 +102,15 @@ int main(int argc, char** argv)
 	}
 
 	uint32_t present_mode_count = 0;
-	r = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkan.physical, surface, &present_mode_count, nullptr);
+	r = pf_vkGetPhysicalDeviceSurfacePresentModesKHR(vulkan.physical, surface, &present_mode_count, nullptr);
 	check(r);
 	assert(present_mode_count > 0);
 	std::vector<VkPresentModeKHR> present_modes(present_mode_count);
-	r = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkan.physical, surface, &present_mode_count, present_modes.data());
+	r = pf_vkGetPhysicalDeviceSurfacePresentModesKHR(vulkan.physical, surface, &present_mode_count, present_modes.data());
 	check(r);
 
 	VkSurfaceCapabilitiesKHR surface_caps = {};
-	r = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkan.physical, surface, &surface_caps);
+	r = pf_vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkan.physical, surface, &surface_caps);
 	check(r);
 
 	VkExtent2D extent = surface_caps.currentExtent;
@@ -146,7 +153,7 @@ int main(int argc, char** argv)
 		{
 			printf("VK_KHR_display_swapchain is present, but the surface is not compatible with shared display swapchains.\n");
 			bench_stop_iteration(vulkan.bench);
-			vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
+			pf_vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
 			test_done(vulkan);
 			return 77;
 		}
@@ -154,24 +161,25 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		r = vkCreateSwapchainKHR(vulkan.device, &swapchain_info, nullptr, &swapchain);
+		MAKEINSTANCEPROCADDR(vulkan, vkCreateSwapchainKHR);
+		r = pf_vkCreateSwapchainKHR(vulkan.device, &swapchain_info, nullptr, &swapchain);
 		check(r);
 	}
 	test_set_name(vulkan, VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain, "headless_swapchain");
 	test_marker_mention(vulkan, "Created headless swapchain", VK_OBJECT_TYPE_SWAPCHAIN_KHR, (uint64_t)swapchain);
 
 	uint32_t swapchain_image_count = 0;
-	r = vkGetSwapchainImagesKHR(vulkan.device, swapchain, &swapchain_image_count, nullptr);
+	r = pf_vkGetSwapchainImagesKHR(vulkan.device, swapchain, &swapchain_image_count, nullptr);
 	check(r);
 	assert(swapchain_image_count > 0);
 	std::vector<VkImage> images(swapchain_image_count);
-	r = vkGetSwapchainImagesKHR(vulkan.device, swapchain, &swapchain_image_count, images.data());
+	r = pf_vkGetSwapchainImagesKHR(vulkan.device, swapchain, &swapchain_image_count, images.data());
 	check(r);
 
 	bench_stop_iteration(vulkan.bench);
 
-	vkDestroySwapchainKHR(vulkan.device, swapchain, nullptr);
-	vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
+	pf_vkDestroySwapchainKHR(vulkan.device, swapchain, nullptr);
+	pf_vkDestroySurfaceKHR(vulkan.instance, surface, nullptr);
 	test_done(vulkan);
 	return 0;
 }
