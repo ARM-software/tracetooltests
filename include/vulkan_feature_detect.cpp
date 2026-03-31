@@ -136,6 +136,32 @@ static bool array_has_nonzero(const int32_t* values, uint32_t count)
 	return false;
 }
 
+static bool is_bc_format(VkFormat format)
+{
+	switch (format)
+	{
+	case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+	case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+	case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+	case VK_FORMAT_BC2_UNORM_BLOCK:
+	case VK_FORMAT_BC2_SRGB_BLOCK:
+	case VK_FORMAT_BC3_UNORM_BLOCK:
+	case VK_FORMAT_BC3_SRGB_BLOCK:
+	case VK_FORMAT_BC4_UNORM_BLOCK:
+	case VK_FORMAT_BC4_SNORM_BLOCK:
+	case VK_FORMAT_BC5_UNORM_BLOCK:
+	case VK_FORMAT_BC5_SNORM_BLOCK:
+	case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+	case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+	case VK_FORMAT_BC7_UNORM_BLOCK:
+	case VK_FORMAT_BC7_SRGB_BLOCK:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static bool render_pass_uses_multiview(const VkRenderPassCreateInfo* info)
 {
 	const VkRenderPassMultiviewCreateInfo* multiview = (const VkRenderPassMultiviewCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO);
@@ -392,6 +418,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceFeatur
 	CHECK_FEATURE10(wideLines);
 	CHECK_FEATURE10(largePoints);
 	CHECK_FEATURE10(samplerAnisotropy);
+	CHECK_FEATURE10(textureCompressionBC);
 	CHECK_FEATURE10(fillModeNonSolid);
 	CHECK_FEATURE10(depthBounds);
 	CHECK_FEATURE10(pipelineStatisticsQuery);
@@ -668,6 +695,8 @@ VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* p
 
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
+	if (is_bc_format(info->format)) instance->core10.textureCompressionBC = true;
+
 	if (info->imageType == VK_IMAGE_TYPE_2D && info->flags & VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT)
 	{
 		if (info->samples == VK_SAMPLE_COUNT_1_BIT) instance->core10.sparseResidencyImage2D = true;
@@ -706,6 +735,7 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 {
+	if (is_bc_format(info->format)) instance->core10.textureCompressionBC = true;
 	if (info->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) instance->core10.imageCubeArray = true;
 	return VK_SUCCESS;
 }

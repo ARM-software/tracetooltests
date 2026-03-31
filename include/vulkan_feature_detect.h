@@ -47,7 +47,7 @@ struct atomicPhysicalDeviceFeatures
 	std::atomic_bool samplerAnisotropy { false };
 	std::atomic_bool textureCompressionETC2 { false }; // not handled
 	std::atomic_bool textureCompressionASTC_LDR { false }; // not handled
-	std::atomic_bool textureCompressionBC { false }; // not handled
+	std::atomic_bool textureCompressionBC { false };
 	std::atomic_bool occlusionQueryPrecise { false };
 	std::atomic_bool pipelineStatisticsQuery { false };
 	std::atomic_bool vertexPipelineStoresAndAtomics { false }; // not handled

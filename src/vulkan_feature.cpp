@@ -30,6 +30,41 @@ int main()
 	f->adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.logicOp == VK_TRUE); // not changed, still used
 
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	feat10 = {};
+	feat10.textureCompressionBC = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionBC == VK_FALSE);
+
+	VkImageCreateInfo image_info = {
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, 0,
+		VK_IMAGE_TYPE_2D, VK_FORMAT_BC1_RGBA_UNORM_BLOCK, { 4, 4, 1 },
+		1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_SAMPLED_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	feat10.textureCompressionBC = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionBC == VK_TRUE);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	VkImageSubresourceRange subresource_range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	VkImageViewCreateInfo view_info = {
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr, 0, VK_NULL_HANDLE,
+		VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_BC1_RGBA_UNORM_BLOCK, {},
+		subresource_range
+	};
+	check_vkCreateImageView(VK_NULL_HANDLE, &view_info, nullptr, nullptr);
+	feat10 = {};
+	feat10.textureCompressionBC = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionBC == VK_TRUE);
+
 	VkPhysicalDeviceVulkan12Features feat12 = {};
 	auto adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(adjusted.size() == 0);
