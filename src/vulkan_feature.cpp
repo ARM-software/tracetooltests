@@ -268,6 +268,94 @@ int main()
 	vulkan_feature_detection_reset();
 	f = vulkan_feature_detection_get();
 
+	std::unordered_set<std::string> rtm1_exts;
+	rtm1_exts.insert("VK_KHR_ray_tracing_maintenance1");
+	assert(rtm1_exts.size() == 1);
+	removed = f->adjust_device_extensions(rtm1_exts);
+	assert(removed.size() == 1);
+	assert(rtm1_exts.size() == 0);
+
+	rtm1_exts.insert("VK_KHR_ray_tracing_maintenance1");
+	const char* rtm1_extname = "VK_KHR_ray_tracing_maintenance1";
+	const char* rtm1_names[] = { rtm1_extname };
+	VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rtm1_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, nullptr, VK_TRUE, VK_FALSE
+	};
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &rtm1_features };
+	dci.ppEnabledExtensionNames = rtm1_names;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+	removed = f->adjust_device_extensions(rtm1_exts);
+	assert(removed.size() == 0);
+	assert(rtm1_exts.size() == 1);
+
+	f->has_VK_KHR_ray_tracing_maintenance1.store(false);
+	removed = f->adjust_device_extensions(rtm1_exts);
+	assert(removed.size() == 1);
+	assert(rtm1_exts.size() == 0);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, rtm1_exts);
+	assert(adjusted.size() == 1);
+	assert(adjusted.count("VK_KHR_ray_tracing_maintenance1") == 1);
+	assert(dci.pNext == nullptr);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	VkQueryPoolCreateInfo qpci = { VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr, 0, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR, 1, 0 };
+	check_vkCreateQueryPool(VK_NULL_HANDLE, &qpci, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	VkMemoryBarrier2 memory_barrier = {
+		VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr,
+		VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR,
+		VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR,
+		VK_PIPELINE_STAGE_2_NONE,
+		VK_ACCESS_2_NONE
+	};
+	VkDependencyInfo dependency_info = {
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr, 0,
+		1, &memory_barrier,
+		0, nullptr,
+		0, nullptr
+	};
+	check_vkCmdPipelineBarrier2(VK_NULL_HANDLE, &dependency_info);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	check_vkCmdTraceRaysIndirect2KHR(VK_NULL_HANDLE, 0);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	const uint32_t ray_cull_mask_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		SpvCapabilityRayCullMaskKHR,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	VkShaderModuleCreateInfo ray_cull_mask_smci = {};
+	ray_cull_mask_smci.pCode = ray_cull_mask_spirv;
+	ray_cull_mask_smci.codeSize = sizeof(ray_cull_mask_spirv);
+	VkResult ray_cull_mask_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &ray_cull_mask_smci, nullptr, nullptr);
+	assert(ray_cull_mask_result == VK_SUCCESS);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
 	const uint32_t multiview_spirv[] = {
 		SpvMagicNumber,
 		0x00010000,

@@ -51,6 +51,75 @@ inline bool is_colorspace_ext(VkColorSpaceKHR s)
 	        || s == VK_COLOR_SPACE_HDR10_HLG_EXT || s == VK_COLOR_SPACE_HDR10_ST2084_EXT || s == VK_COLOR_SPACE_PASS_THROUGH_EXT);
 }
 
+inline bool is_ray_tracing_maintenance1_query_type(VkQueryType type)
+{
+	return type == VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR ||
+	       type == VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR;
+}
+
+inline bool uses_ray_tracing_maintenance1_stage(VkPipelineStageFlags2 stages)
+{
+	return (stages & VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR) != 0;
+}
+
+inline bool uses_ray_tracing_maintenance1_access(VkAccessFlags2 access)
+{
+	return (access & VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR) != 0;
+}
+
+static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo* info)
+{
+	if (!info) return false;
+	assert(info->memoryBarrierCount == 0 || info->pMemoryBarriers != nullptr);
+	assert(info->bufferMemoryBarrierCount == 0 || info->pBufferMemoryBarriers != nullptr);
+	assert(info->imageMemoryBarrierCount == 0 || info->pImageMemoryBarriers != nullptr);
+
+	for (uint32_t i = 0; i < info->memoryBarrierCount; i++)
+	{
+		const VkMemoryBarrier2& barrier = info->pMemoryBarriers[i];
+		if (uses_ray_tracing_maintenance1_stage(barrier.srcStageMask) || uses_ray_tracing_maintenance1_stage(barrier.dstStageMask) ||
+		    uses_ray_tracing_maintenance1_access(barrier.srcAccessMask) || uses_ray_tracing_maintenance1_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; i++)
+	{
+		const VkBufferMemoryBarrier2& barrier = info->pBufferMemoryBarriers[i];
+		if (uses_ray_tracing_maintenance1_stage(barrier.srcStageMask) || uses_ray_tracing_maintenance1_stage(barrier.dstStageMask) ||
+		    uses_ray_tracing_maintenance1_access(barrier.srcAccessMask) || uses_ray_tracing_maintenance1_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	for (uint32_t i = 0; i < info->imageMemoryBarrierCount; i++)
+	{
+		const VkImageMemoryBarrier2& barrier = info->pImageMemoryBarriers[i];
+		if (uses_ray_tracing_maintenance1_stage(barrier.srcStageMask) || uses_ray_tracing_maintenance1_stage(barrier.dstStageMask) ||
+		    uses_ray_tracing_maintenance1_access(barrier.srcAccessMask) || uses_ray_tracing_maintenance1_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	return false;
+}
+
+static bool submit_info_uses_ray_tracing_maintenance1(const VkSubmitInfo2* info)
+{
+	if (!info) return false;
+	assert(info->waitSemaphoreInfoCount == 0 || info->pWaitSemaphoreInfos != nullptr);
+	assert(info->signalSemaphoreInfoCount == 0 || info->pSignalSemaphoreInfos != nullptr);
+
+	for (uint32_t i = 0; i < info->waitSemaphoreInfoCount; i++)
+	{
+		if (uses_ray_tracing_maintenance1_stage(info->pWaitSemaphoreInfos[i].stageMask)) return true;
+	}
+
+	for (uint32_t i = 0; i < info->signalSemaphoreInfoCount; i++)
+	{
+		if (uses_ray_tracing_maintenance1_stage(info->pSignalSemaphoreInfos[i].stageMask)) return true;
+	}
+
+	return false;
+}
+
 static bool array_has_nonzero(const uint32_t* values, uint32_t count)
 {
 	if (count == 0) return false;
@@ -150,6 +219,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityGroupNonUniformRotateKHR: instance->core14.shaderSubgroupRotate = true; break;
 			case SpvCapabilityExpectAssumeKHR: instance->core14.shaderExpectAssume = true; break;
 			case SpvCapabilityFloatControls2: instance->core14.shaderFloatControls2 = true; break;
+			case SpvCapabilityRayCullMaskKHR: instance->has_VK_KHR_ray_tracing_maintenance1 = true; break;
 			case SpvCapabilityStorageBuffer8BitAccess: instance->core12.storageBuffer8BitAccess = true; break;
 			case SpvCapabilityUniformAndStorageBuffer8BitAccess: instance->core12.uniformAndStorageBuffer8BitAccess = true; break;
 			case SpvCapabilityStoragePushConstant8: instance->core12.storagePushConstant8 = true; break;
@@ -266,6 +336,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_shader_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_EXT_shader_image_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_multiview"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	return found;
 }
@@ -285,6 +356,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
+	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
 	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
 	if (!has_VK_EXT_robustness2) removed.insert(exts.extract("VK_EXT_robustness2"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
@@ -497,6 +569,9 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceMultiviewFeatures* pdmf = (VkPhysicalDeviceMultiviewFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
 	if (pdmf && (pdmf->multiview || pdmf->multiviewGeometryShader || pdmf->multiviewTessellationShader)) instance->has_VK_KHR_multiview = true;
 
+	const VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR* pdrtm1f = (VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR);
+	if (pdrtm1f && (pdrtm1f->rayTracingMaintenance1 || pdrtm1f->rayTracingPipelineTraceRaysIndirect2)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+
 	// Older SDKs expose the robustness2 feature struct only through the EXT alias
 	const VkPhysicalDeviceRobustness2FeaturesEXT* pdr2f = (VkPhysicalDeviceRobustness2FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT);
 	if (pdr2f && (pdr2f->robustBufferAccess2 || pdr2f->robustImageAccess2 || pdr2f->nullDescriptor))
@@ -579,6 +654,7 @@ VkResult vkCreateSamplerYcbcrConversionKHR(VkDevice device, const VkSamplerYcbcr
 VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkQueryPool* pQueryPool)
 {
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) instance->core10.pipelineStatisticsQuery = true;
+	if (is_ray_tracing_maintenance1_query_type(pCreateInfo->queryType)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	return VK_SUCCESS;
 }
 
@@ -623,6 +699,79 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 {
 	if (info->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) instance->core10.imageCubeArray = true;
+	return VK_SUCCESS;
+}
+
+void check_vkCmdTraceRaysIndirect2KHR(VkCommandBuffer commandBuffer, VkDeviceAddress indirectDeviceAddress)
+{
+	instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdSetEvent2(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
+{
+	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdSetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
+{
+	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdResetEvent2(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
+{
+	if (uses_ray_tracing_maintenance1_stage(stageMask)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdResetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
+{
+	if (uses_ray_tracing_maintenance1_stage(stageMask)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdWaitEvents2(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent* pEvents, const VkDependencyInfo* pDependencyInfos)
+{
+	assert(eventCount == 0 || pEvents != nullptr);
+	assert(eventCount == 0 || pDependencyInfos != nullptr);
+	for (uint32_t i = 0; i < eventCount; i++) if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdWaitEvents2KHR(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent* pEvents, const VkDependencyInfo* pDependencyInfos)
+{
+	assert(eventCount == 0 || pEvents != nullptr);
+	assert(eventCount == 0 || pDependencyInfos != nullptr);
+	for (uint32_t i = 0; i < eventCount; i++) if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdPipelineBarrier2(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
+{
+	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
+{
+	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
+{
+	if (uses_ray_tracing_maintenance1_stage(stage)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+void check_vkCmdWriteTimestamp2KHR(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
+{
+	if (uses_ray_tracing_maintenance1_stage(stage)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+}
+
+VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
+{
+	assert(submitCount == 0 || pSubmits != nullptr);
+	for (uint32_t i = 0; i < submitCount; i++) if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkQueueSubmit2KHR(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
+{
+	assert(submitCount == 0 || pSubmits != nullptr);
+	for (uint32_t i = 0; i < submitCount; i++) if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	return VK_SUCCESS;
 }
 
