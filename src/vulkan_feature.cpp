@@ -2,6 +2,7 @@
 #include "vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
 
+#include <cstdint>
 #include <cmath>
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -349,7 +350,8 @@ int main()
 	VkShaderModuleCreateInfo ray_cull_mask_smci = {};
 	ray_cull_mask_smci.pCode = ray_cull_mask_spirv;
 	ray_cull_mask_smci.codeSize = sizeof(ray_cull_mask_spirv);
-	VkResult ray_cull_mask_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &ray_cull_mask_smci, nullptr, nullptr);
+	VkShaderModule ray_cull_mask_module = (VkShaderModule)uintptr_t(1);
+	VkResult ray_cull_mask_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &ray_cull_mask_smci, nullptr, &ray_cull_mask_module);
 	assert(ray_cull_mask_result == VK_SUCCESS);
 	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
 
@@ -372,17 +374,71 @@ int main()
 	VkShaderModuleCreateInfo multiview_smci = {};
 	multiview_smci.pCode = multiview_spirv;
 	multiview_smci.codeSize = sizeof(multiview_spirv);
-	VkResult multiview_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &multiview_smci, nullptr, nullptr);
+	VkShaderModule multiview_module = (VkShaderModule)uintptr_t(1);
+	VkResult multiview_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &multiview_smci, nullptr, &multiview_module);
 	assert(multiview_result == VK_SUCCESS);
 	assert(f->has_VK_KHR_multiview == true);
 	removed = f->adjust_device_extensions(multiview_exts);
 	assert(removed.size() == 0);
 	assert(multiview_exts.size() == 1);
 
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	const uint32_t plain_vertex_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	const uint32_t point_size_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450,
+		(uint32_t(4) << 16) | SpvOpDecorate,
+		1,
+		SpvDecorationBuiltIn,
+		SpvBuiltInPointSize
+	};
+	VkShaderModuleCreateInfo plain_vertex_smci = {};
+	plain_vertex_smci.pCode = plain_vertex_spirv;
+	plain_vertex_smci.codeSize = sizeof(plain_vertex_spirv);
+	VkShaderModule plain_vertex_module = (VkShaderModule)uintptr_t(2);
+	VkResult plain_vertex_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &plain_vertex_smci, nullptr, &plain_vertex_module);
+	assert(plain_vertex_result == VK_SUCCESS);
+
+	feat10 = {};
+	feat10.largePoints = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.largePoints == VK_FALSE);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+	VkShaderModuleCreateInfo point_size_smci = {};
+	point_size_smci.pCode = point_size_spirv;
+	point_size_smci.codeSize = sizeof(point_size_spirv);
+	VkShaderModule point_size_module = (VkShaderModule)uintptr_t(3);
+	VkResult point_size_result = check_vkCreateShaderModule(VK_NULL_HANDLE, &point_size_smci, nullptr, &point_size_module);
+	assert(point_size_result == VK_SUCCESS);
+	feat10 = {};
+	feat10.largePoints = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.largePoints == VK_TRUE);
+
 	VkShaderModuleCreateInfo smci = {};
 	smci.pCode = (uint32_t*)vulkan_compute_bda_sc_spirv;
 	smci.codeSize = long(ceil(vulkan_compute_bda_sc_spirv_len / 4.0)) * sizeof(uint32_t);
-	VkResult r = check_vkCreateShaderModule(VK_NULL_HANDLE, &smci, nullptr, nullptr);
+	VkShaderModule bda_module = (VkShaderModule)uintptr_t(4);
+	VkResult r = check_vkCreateShaderModule(VK_NULL_HANDLE, &smci, nullptr, &bda_module);
 	assert(r == VK_SUCCESS);
 
 	return 0;

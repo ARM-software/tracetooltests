@@ -41,7 +41,7 @@ struct atomicPhysicalDeviceFeatures
 	std::atomic_bool fillModeNonSolid { false };
 	std::atomic_bool depthBounds { false };
 	std::atomic_bool wideLines { false };
-	std::atomic_bool largePoints { false }; // not handled
+	std::atomic_bool largePoints { false };
 	std::atomic_bool alphaToOne { false };
 	std::atomic_bool multiViewport { false };
 	std::atomic_bool samplerAnisotropy { false };

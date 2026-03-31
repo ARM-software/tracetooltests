@@ -178,13 +178,13 @@ static bool render_pass_uses_multiview(const VkRenderPassCreateInfo2* info)
 
 static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 {
-	uint16_t opcode;
-	uint16_t word_count;
 	const uint32_t* insn = code + 5;
-	code_size /= 4; // bytes to words
-	do {
-		opcode = uint16_t(insn[0]);
-		word_count = uint16_t(insn[0] >> 16);
+	const uint32_t* end = code + code_size / 4;
+	while (insn < end)
+	{
+		const uint16_t opcode = uint16_t(insn[0]);
+		const uint16_t word_count = uint16_t(insn[0] >> 16);
+		assert(word_count > 0);
 		if (opcode == SpvOpCapability)
 		{
 			switch (insn[1])
@@ -211,7 +211,6 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityVariablePointersStorageBuffer: instance->core11.variablePointersStorageBuffer = true; break;
 			case SpvCapabilityVariablePointers: instance->core11.variablePointers = true; break;
 			case SpvCapabilityDrawParameters: instance->core11.shaderDrawParameters = true; break;
-			case SpvOpDemoteToHelperInvocationEXT: instance->core13.shaderDemoteToHelperInvocation = true; break;
 			case SpvCapabilityDotProductInputAllKHR: instance->core13.shaderIntegerDotProduct = true; break;
 			case SpvCapabilityDotProductInput4x8BitKHR: instance->core13.shaderIntegerDotProduct = true; break;
 			case SpvCapabilityDotProductInput4x8BitPackedKHR: instance->core13.shaderIntegerDotProduct = true; break;
@@ -244,9 +243,17 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			default: break;
 			}
 		}
+		else if (opcode == SpvOpDecorate && word_count >= 4 &&
+		         insn[2] == SpvDecorationBuiltIn && insn[3] == SpvBuiltInPointSize)
+		{
+			instance->core10.largePoints = true;
+		}
+		else if (opcode == SpvOpDemoteToHelperInvocationEXT)
+		{
+			instance->core13.shaderDemoteToHelperInvocation = true;
+		}
 		insn += word_count;
 	}
-	while (insn != code + code_size && opcode != SpvOpMemoryModel);
 }
 
 // --- Checking structures helper functions ---
@@ -383,6 +390,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceFeatur
 	CHECK_FEATURE10(depthClamp);
 	CHECK_FEATURE10(depthBiasClamp);
 	CHECK_FEATURE10(wideLines);
+	CHECK_FEATURE10(largePoints);
 	CHECK_FEATURE10(samplerAnisotropy);
 	CHECK_FEATURE10(fillModeNonSolid);
 	CHECK_FEATURE10(depthBounds);
@@ -524,7 +532,7 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 	{
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->depthBiasClamp != 0.0) instance->core10.depthBiasClamp = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->lineWidth != 1.0) instance->core10.wideLines = true;
-			for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
+		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
 		{
 			struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
 		}
