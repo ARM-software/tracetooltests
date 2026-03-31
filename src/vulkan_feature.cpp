@@ -37,7 +37,6 @@ int main()
 	feat12.drawIndirectCount = VK_TRUE;
 	adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(adjusted.size() == 1);
-	for (auto s : adjusted) printf("Adjusted %s\n", s.c_str());
 	assert(feat12.drawIndirectCount == VK_FALSE); // was adjusted
 	feat12.drawIndirectCount = VK_TRUE;
 	check_vkCmdDrawIndirectCount(0, 0, 0, 0, 0, 0, 0); // actually use feature
@@ -72,7 +71,8 @@ int main()
 	pdsai64f = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, nullptr, VK_TRUE, VK_TRUE };
 	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
 	assert(f->has_VkPhysicalDeviceShaderAtomicInt64Features == true);
-	f->adjust_VkDeviceCreateInfo(&dci, exts);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, exts);
+	assert(adjusted.size() == 0);
 	assert(dci.enabledExtensionCount == 1);
 	assert(dci.pNext != nullptr);
 	f->has_VkPhysicalDeviceShaderAtomicInt64Features.store(false);
@@ -82,7 +82,9 @@ int main()
 	std::unordered_set<std::string> removed = f->adjust_device_extensions(exts);
 	assert(removed.size() == 1);
 	assert(exts.size() == 0);
-	f->adjust_VkDeviceCreateInfo(&dci, exts);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, exts);
+	assert(adjusted.size() == 1);
+	assert(adjusted.count("VK_KHR_shader_atomic_int64") == 1);
 	assert(dci.pNext == nullptr);
 
 	exts.insert("VK_KHR_map_memory2");
@@ -105,6 +107,105 @@ int main()
 	VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr, 0, VK_NULL_HANDLE };
 	check_vkUnmapMemory2(VK_NULL_HANDLE, &unmap_info);
 	assert(f->has_VK_KHR_map_memory2 == true);
+
+	std::unordered_set<std::string> robustness2_exts;
+	robustness2_exts.insert("VK_KHR_robustness2");
+	assert(robustness2_exts.size() == 1);
+	assert(f->has_VK_KHR_robustness2 == false);
+	removed = f->adjust_device_extensions(robustness2_exts);
+	assert(removed.size() == 1);
+	assert(robustness2_exts.size() == 0);
+
+	robustness2_exts.insert("VK_KHR_robustness2");
+	const char* robustness2_extname = "VK_KHR_robustness2";
+	const char* robustness2_names[] = { robustness2_extname };
+	VkPhysicalDeviceRobustness2FeaturesEXT robustness2_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, nullptr, VK_FALSE, VK_FALSE, VK_FALSE
+	};
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &robustness2_features };
+	dci.ppEnabledExtensionNames = robustness2_names;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_robustness2 == false);
+	robustness2_features.nullDescriptor = VK_TRUE;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_robustness2 == true);
+	removed = f->adjust_device_extensions(robustness2_exts);
+	assert(removed.size() == 0);
+	assert(robustness2_exts.size() == 1);
+
+	f->has_VK_KHR_robustness2.store(false);
+	removed = f->adjust_device_extensions(robustness2_exts);
+	assert(removed.size() == 1);
+	assert(robustness2_exts.size() == 0);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, robustness2_exts);
+	assert(adjusted.size() == 1);
+	assert(adjusted.count("VK_KHR_robustness2") == 1);
+	assert(dci.pNext == nullptr);
+
+	f->has_VK_EXT_robustness2.store(false);
+	std::unordered_set<std::string> robustness2_ext_aliases;
+	robustness2_ext_aliases.insert("VK_EXT_robustness2");
+	assert(robustness2_ext_aliases.size() == 1);
+	assert(f->has_VK_EXT_robustness2 == false);
+	removed = f->adjust_device_extensions(robustness2_ext_aliases);
+	assert(removed.size() == 1);
+	assert(robustness2_ext_aliases.size() == 0);
+
+	robustness2_ext_aliases.insert("VK_EXT_robustness2");
+	const char* robustness2_ext_alias_name = "VK_EXT_robustness2";
+	const char* robustness2_ext_alias_names[] = { robustness2_ext_alias_name };
+	robustness2_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, nullptr, VK_TRUE, VK_FALSE, VK_FALSE };
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &robustness2_features };
+	dci.ppEnabledExtensionNames = robustness2_ext_alias_names;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_robustness2 == true);
+	assert(f->has_VK_KHR_robustness2 == true);
+	removed = f->adjust_device_extensions(robustness2_ext_aliases);
+	assert(removed.size() == 0);
+	assert(robustness2_ext_aliases.size() == 1);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, robustness2_ext_aliases);
+	assert(adjusted.size() == 0);
+	assert(dci.pNext != nullptr);
+
+	f->has_VK_EXT_robustness2.store(false);
+	removed = f->adjust_device_extensions(robustness2_ext_aliases);
+	assert(removed.size() == 1);
+	assert(robustness2_ext_aliases.size() == 0);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, robustness2_ext_aliases);
+	assert(adjusted.size() == 1);
+	assert(adjusted.count("VK_EXT_robustness2") == 1);
+	assert(dci.pNext == nullptr);
+
+	std::unordered_set<std::string> robustness2_both_exts;
+	robustness2_both_exts.insert("VK_KHR_robustness2");
+	robustness2_both_exts.insert("VK_EXT_robustness2");
+	const char* robustness2_both_names[] = { "VK_KHR_robustness2", "VK_EXT_robustness2" };
+	robustness2_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, nullptr, VK_FALSE, VK_TRUE, VK_FALSE };
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &robustness2_features };
+	dci.ppEnabledExtensionNames = robustness2_both_names;
+	dci.enabledExtensionCount = 2;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_robustness2 == true);
+	assert(f->has_VK_EXT_robustness2 == true);
+	removed = f->adjust_device_extensions(robustness2_both_exts);
+	assert(removed.size() == 0);
+	assert(robustness2_both_exts.size() == 2);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, robustness2_both_exts);
+	assert(adjusted.size() == 0);
+	assert(dci.pNext != nullptr);
+
+	f->has_VK_KHR_robustness2.store(false);
+	f->has_VK_EXT_robustness2.store(false);
+	removed = f->adjust_device_extensions(robustness2_both_exts);
+	assert(removed.size() == 2);
+	assert(robustness2_both_exts.size() == 0);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, robustness2_both_exts);
+	assert(adjusted.size() == 2);
+	assert(adjusted.count("VK_KHR_robustness2") == 1);
+	assert(adjusted.count("VK_EXT_robustness2") == 1);
+	assert(dci.pNext == nullptr);
 
 	vulkan_feature_detection_reset();
 	f = vulkan_feature_detection_get();
@@ -133,7 +234,9 @@ int main()
 	removed = f->adjust_device_extensions(multiview_exts);
 	assert(removed.size() == 1);
 	assert(multiview_exts.size() == 0);
-	f->adjust_VkDeviceCreateInfo(&dci, multiview_exts);
+	adjusted = f->adjust_VkDeviceCreateInfo(&dci, multiview_exts);
+	assert(adjusted.size() == 1);
+	assert(adjusted.count("VK_KHR_multiview") == 1);
 	assert(dci.pNext == nullptr);
 
 	VkSubpassDependency dependency = {};

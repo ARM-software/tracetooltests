@@ -210,11 +210,13 @@ struct feature_detection
 	std::atomic_bool has_VK_IMG_filter_cubic { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
+	std::atomic_bool has_VK_KHR_robustness2 { false };
+	std::atomic_bool has_VK_EXT_robustness2 { false };
 	std::atomic_bool has_VK_EXT_shader_viewport_index_layer { false };
 
 	// --- Remove unused feature bits from these structures ---
-	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& exts) const;
-	std::unordered_set<std::string> adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& removed) const;
+	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const;
+	std::unordered_set<std::string> adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const;
 	std::unordered_set<std::string> adjust_device_extensions(std::unordered_set<std::string>& exts) const;
 	std::unordered_set<std::string> adjust_instance_extensions(std::unordered_set<std::string>& exts) const;
 	std::unordered_set<std::string> adjust_VkPhysicalDeviceFeatures(VkPhysicalDeviceFeatures& incore10) const;

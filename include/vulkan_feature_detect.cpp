@@ -2,12 +2,27 @@
 #include <atomic>
 #include <string>
 #include <unordered_set>
+#include <vector>
 #include "spirv/unified1/spirv.h"
 #include "vulkan/vulkan.h"
 
 #include "vulkan_feature_detect.h"
 
 static feature_detection* instance = nullptr;
+
+feature_detection* vulkan_feature_detection_get()
+{
+	if (!instance) instance = new feature_detection;
+	return instance;
+}
+
+void vulkan_feature_detection_reset()
+{
+	delete instance;
+	instance = new feature_detection;
+}
+
+// --- Utility functions ---
 
 static __attribute__((pure)) inline const void* get_extension(const void* sptr, VkStructureType sType)
 {
@@ -24,20 +39,6 @@ static inline bool prune_extension(void* sptr, VkStructureType sType)
 	if (prev && ptr && ptr->sType == sType) { prev->pNext = ptr->pNext; return true; }
 	return false;
 }
-
-feature_detection* vulkan_feature_detection_get()
-{
-	if (!instance) instance = new feature_detection;
-	return instance;
-}
-
-void vulkan_feature_detection_reset()
-{
-	delete instance;
-	instance = new feature_detection;
-}
-
-// --- Utility functions ---
 
 inline bool is_colorspace_ext(VkColorSpaceKHR s)
 {
@@ -246,18 +247,30 @@ void struct_check_VkPipelineViewportStateCreateInfo(const VkPipelineViewportStat
 	}
 }
 
-std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& exts) const
+static bool enables_extension(const std::string& name, const char* const* ppEnabledExtensionNames, uint32_t enabledExtensionCount)
+{
+	for (uint32_t i = 0; i < enabledExtensionCount; i++) if (name == ppEnabledExtensionNames[i]) return true;
+	return false;
+}
+
+static void check_prune_device(const std::vector<std::string>& aliases, VkDeviceCreateInfo* info, VkStructureType sType, const std::unordered_set<std::string>& enabled_exts, std::unordered_set<std::string>& found)
+{
+	bool none_found = true;
+	for (const auto& v : aliases) { if (enabled_exts.count(v) != 0) none_found = false; }
+	if (none_found && prune_extension(info, sType)) for (const auto& v : aliases) if (enables_extension(v, info->ppEnabledExtensionNames, info->enabledExtensionCount)) found.insert(v);
+}
+
+std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const
 {
 	std::unordered_set<std::string> found;
-	#define CHECK_PNEXT(_name, _stype) if (exts.count(_name) == 0) if (prune_extension(info, _stype)) found.insert(_name);
-	CHECK_PNEXT("VK_KHR_shader_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
-	CHECK_PNEXT("VK_EXT_shader_image_atomic_int64", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT);
-	CHECK_PNEXT("VK_KHR_multiview", VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
-	#undef CHECK_PNEXT
+	check_prune_device({"VK_KHR_shader_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_EXT_shader_image_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_KHR_multiview"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	return found;
 }
 
-std::unordered_set<std::string> feature_detection::adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& removed) const
+std::unordered_set<std::string> feature_detection::adjust_VkInstanceCreateInfo(VkInstanceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const
 {
 	std::unordered_set<std::string> found;
 	return found;
@@ -272,6 +285,8 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
+	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
+	if (!has_VK_EXT_robustness2) removed.insert(exts.extract("VK_EXT_robustness2"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	return removed;
 }
@@ -481,6 +496,14 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 
 	const VkPhysicalDeviceMultiviewFeatures* pdmf = (VkPhysicalDeviceMultiviewFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
 	if (pdmf && (pdmf->multiview || pdmf->multiviewGeometryShader || pdmf->multiviewTessellationShader)) instance->has_VK_KHR_multiview = true;
+
+	// Older SDKs expose the robustness2 feature struct only through the EXT alias
+	const VkPhysicalDeviceRobustness2FeaturesEXT* pdr2f = (VkPhysicalDeviceRobustness2FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT);
+	if (pdr2f && (pdr2f->robustBufferAccess2 || pdr2f->robustImageAccess2 || pdr2f->nullDescriptor))
+	{
+		instance->has_VK_KHR_robustness2 = true;
+		instance->has_VK_EXT_robustness2 = true;
+	}
 
 	return VK_SUCCESS;
 }
