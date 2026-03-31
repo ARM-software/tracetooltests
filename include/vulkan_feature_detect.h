@@ -175,12 +175,12 @@ struct atomicPhysicalDeviceVulkan14Features
 	std::atomic_bool shaderSubgroupRotateClustered { false }; // not handled
 	std::atomic_bool shaderFloatControls2 { false };
 	std::atomic_bool shaderExpectAssume { false };
-	std::atomic_bool rectangularLines { false }; // not handled
-	std::atomic_bool bresenhamLines { false }; // not handled
-	std::atomic_bool smoothLines { false }; // not handled
-	std::atomic_bool stippledRectangularLines { false }; // not handled
-	std::atomic_bool stippledBresenhamLines { false }; // not handled
-	std::atomic_bool stippledSmoothLines { false }; // not handled
+	std::atomic_bool rectangularLines { false };
+	std::atomic_bool bresenhamLines { false };
+	std::atomic_bool smoothLines { false };
+	std::atomic_bool stippledRectangularLines { false };
+	std::atomic_bool stippledBresenhamLines { false };
+	std::atomic_bool stippledSmoothLines { false };
 	std::atomic_bool vertexAttributeInstanceRateDivisor { false }; // not handled
 	std::atomic_bool vertexAttributeInstanceRateZeroDivisor { false }; // not handled
 	std::atomic_bool indexTypeUint8 { false };
@@ -283,6 +283,11 @@ uint64_t check_vkGetBufferOpaqueCaptureAddress(VkDevice device, const VkBufferDe
 uint64_t check_vkGetBufferOpaqueCaptureAddressEXT(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 uint64_t check_vkGetBufferOpaqueCaptureAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 void check_vkCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth);
+void check_vkCmdSetLineStipple(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern);
+void check_vkCmdSetLineStippleKHR(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern);
+void check_vkCmdSetLineStippleEXT(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern);
+void check_vkCmdSetLineRasterizationModeEXT(VkCommandBuffer commandBuffer, VkLineRasterizationModeEXT lineRasterizationMode);
+void check_vkCmdSetLineStippleEnableEXT(VkCommandBuffer commandBuffer, VkBool32 stippledLineEnable);
 void check_vkCmdSetDepthBias(VkCommandBuffer commandBuffer, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);
 void check_vkCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
 void check_vkCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);

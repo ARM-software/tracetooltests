@@ -623,6 +623,90 @@ static void test_large_points_detection()
 	assert(feat10.largePoints == VK_TRUE);
 }
 
+static void test_vulkan14_line_rasterization_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	VkPhysicalDeviceVulkan14Features feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.rectangularLines = VK_TRUE;
+	feat14.bresenhamLines = VK_TRUE;
+	feat14.smoothLines = VK_TRUE;
+	feat14.stippledRectangularLines = VK_TRUE;
+	feat14.stippledBresenhamLines = VK_TRUE;
+	feat14.stippledSmoothLines = VK_TRUE;
+
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert_string_set_equals(adjusted, {
+		"rectangularLines",
+		"bresenhamLines",
+		"smoothLines",
+		"stippledRectangularLines",
+		"stippledBresenhamLines",
+		"stippledSmoothLines",
+	});
+	assert(feat14.rectangularLines == VK_FALSE);
+	assert(feat14.bresenhamLines == VK_FALSE);
+	assert(feat14.smoothLines == VK_FALSE);
+	assert(feat14.stippledRectangularLines == VK_FALSE);
+	assert(feat14.stippledBresenhamLines == VK_FALSE);
+	assert(feat14.stippledSmoothLines == VK_FALSE);
+
+	f = reset_detection();
+	VkPipelineRasterizationLineStateCreateInfo line_state = {
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO, nullptr,
+		VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH, VK_FALSE, 1, 0xffff
+	};
+	VkPipelineRasterizationStateCreateInfo raster_state = {
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, &line_state
+	};
+	struct_check_VkPipelineRasterizationStateCreateInfo(&raster_state);
+
+	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.smoothLines = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert(adjusted.empty());
+	assert(feat14.smoothLines == VK_TRUE);
+
+	f = reset_detection();
+	line_state.lineRasterizationMode = VK_LINE_RASTERIZATION_MODE_DEFAULT;
+	line_state.stippledLineEnable = VK_TRUE;
+	struct_check_VkPipelineRasterizationStateCreateInfo(&raster_state);
+
+	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.stippledRectangularLines = VK_TRUE;
+	feat14.stippledBresenhamLines = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert_string_set_equals(adjusted, { "stippledBresenhamLines" });
+	assert(feat14.stippledRectangularLines == VK_TRUE);
+	assert(feat14.stippledBresenhamLines == VK_FALSE);
+
+	f = reset_detection();
+	check_vkCmdSetLineRasterizationModeEXT(VK_NULL_HANDLE, VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT);
+	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.bresenhamLines = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert(adjusted.empty());
+	assert(feat14.bresenhamLines == VK_TRUE);
+
+	f = reset_detection();
+	check_vkCmdSetLineStipple(VK_NULL_HANDLE, 1, 0xffff);
+	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.stippledRectangularLines = VK_TRUE;
+	feat14.stippledBresenhamLines = VK_TRUE;
+	feat14.stippledSmoothLines = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert(adjusted.empty());
+
+	f = reset_detection();
+	check_vkCmdSetLineStippleEnableEXT(VK_NULL_HANDLE, VK_TRUE);
+	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
+	feat14.stippledRectangularLines = VK_TRUE;
+	feat14.stippledBresenhamLines = VK_TRUE;
+	feat14.stippledSmoothLines = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
+	assert(adjusted.empty());
+}
+
 static void test_buffer_device_address_shader_module()
 {
 	reset_detection();
@@ -650,6 +734,7 @@ int main()
 	test_vulkan11_multiview_adjustment();
 	test_vulkan11_multiview_shader_adjustment();
 	test_large_points_detection();
+	test_vulkan14_line_rasterization_adjustment();
 	test_buffer_device_address_shader_module();
 	return 0;
 }

@@ -220,6 +220,37 @@ static bool is_astc_ldr_format(VkFormat format)
 	}
 }
 
+static void mark_all_stippled_line_features_used()
+{
+	instance->core14.stippledRectangularLines = true;
+	instance->core14.stippledBresenhamLines = true;
+	instance->core14.stippledSmoothLines = true;
+}
+
+static void mark_line_rasterization_mode_usage(VkLineRasterizationMode mode, VkBool32 stippledLineEnable)
+{
+	switch (mode)
+	{
+	case VK_LINE_RASTERIZATION_MODE_DEFAULT:
+		if (stippledLineEnable == VK_TRUE) instance->core14.stippledRectangularLines = true;
+		break;
+	case VK_LINE_RASTERIZATION_MODE_RECTANGULAR:
+		instance->core14.rectangularLines = true;
+		if (stippledLineEnable == VK_TRUE) instance->core14.stippledRectangularLines = true;
+		break;
+	case VK_LINE_RASTERIZATION_MODE_BRESENHAM:
+		instance->core14.bresenhamLines = true;
+		if (stippledLineEnable == VK_TRUE) instance->core14.stippledBresenhamLines = true;
+		break;
+	case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH:
+		instance->core14.smoothLines = true;
+		if (stippledLineEnable == VK_TRUE) instance->core14.stippledSmoothLines = true;
+		break;
+	default:
+		break;
+	}
+}
+
 static bool render_pass_uses_multiview(const VkRenderPassCreateInfo* info)
 {
 	const VkRenderPassMultiviewCreateInfo* multiview = (const VkRenderPassMultiviewCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO);
@@ -393,6 +424,10 @@ void struct_check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasteri
 {
 	if (info->depthClampEnable == VK_TRUE) instance->core10.depthClamp = true;
 	if (info->polygonMode == VK_POLYGON_MODE_POINT || info->polygonMode == VK_POLYGON_MODE_LINE) instance->core10.fillModeNonSolid = true;
+
+	const VkPipelineRasterizationLineStateCreateInfo* line = (const VkPipelineRasterizationLineStateCreateInfo*)get_extension(
+		info, VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO);
+	if (line) mark_line_rasterization_mode_usage(line->lineRasterizationMode, line->stippledLineEnable);
 }
 
 void struct_check_VkPipelineDepthStencilStateCreateInfo(const VkPipelineDepthStencilStateCreateInfo* info)
@@ -604,6 +639,12 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 	CHECK_FEATURE14(shaderSubgroupRotate);
 	CHECK_FEATURE14(shaderExpectAssume);
 	CHECK_FEATURE14(shaderFloatControls2);
+	CHECK_FEATURE14(rectangularLines);
+	CHECK_FEATURE14(bresenhamLines);
+	CHECK_FEATURE14(smoothLines);
+	CHECK_FEATURE14(stippledRectangularLines);
+	CHECK_FEATURE14(stippledBresenhamLines);
+	CHECK_FEATURE14(stippledSmoothLines);
 	CHECK_FEATURE14(indexTypeUint8);
 	#undef CHECK_FEATURE14
 	return found;
@@ -977,6 +1018,31 @@ uint64_t check_vkGetBufferOpaqueCaptureAddressEXT(VkDevice device, const VkBuffe
 void check_vkCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth)
 {
 	if (lineWidth != 1.0) instance->core10.wideLines = true;
+}
+
+void check_vkCmdSetLineStipple(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern)
+{
+	mark_all_stippled_line_features_used();
+}
+
+void check_vkCmdSetLineStippleKHR(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern)
+{
+	mark_all_stippled_line_features_used();
+}
+
+void check_vkCmdSetLineStippleEXT(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern)
+{
+	mark_all_stippled_line_features_used();
+}
+
+void check_vkCmdSetLineRasterizationModeEXT(VkCommandBuffer commandBuffer, VkLineRasterizationModeEXT lineRasterizationMode)
+{
+	mark_line_rasterization_mode_usage((VkLineRasterizationMode)lineRasterizationMode, VK_FALSE);
+}
+
+void check_vkCmdSetLineStippleEnableEXT(VkCommandBuffer commandBuffer, VkBool32 stippledLineEnable)
+{
+	if (stippledLineEnable == VK_TRUE) mark_all_stippled_line_features_used();
 }
 
 void check_vkCmdSetDepthBias(VkCommandBuffer commandBuffer, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor)
