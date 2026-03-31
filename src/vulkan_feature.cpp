@@ -65,6 +65,34 @@ int main()
 	f->adjust_VkPhysicalDeviceFeatures(feat10);
 	assert(feat10.textureCompressionBC == VK_TRUE);
 
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	feat10 = {};
+	feat10.textureCompressionETC2 = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionETC2 == VK_FALSE);
+
+	image_info.format = VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	feat10.textureCompressionETC2 = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionETC2 == VK_TRUE);
+
+	vulkan_feature_detection_reset();
+	f = vulkan_feature_detection_get();
+
+	feat10 = {};
+	feat10.textureCompressionASTC_LDR = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionASTC_LDR == VK_FALSE);
+
+	view_info.format = VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+	check_vkCreateImageView(VK_NULL_HANDLE, &view_info, nullptr, nullptr);
+	feat10.textureCompressionASTC_LDR = VK_TRUE;
+	f->adjust_VkPhysicalDeviceFeatures(feat10);
+	assert(feat10.textureCompressionASTC_LDR == VK_TRUE);
+
 	VkPhysicalDeviceVulkan12Features feat12 = {};
 	auto adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
 	assert(adjusted.size() == 0);
