@@ -88,9 +88,9 @@ struct atomicPhysicalDeviceVulkan11Features
 	std::atomic_bool uniformAndStorageBuffer16BitAccess { false };
 	std::atomic_bool storagePushConstant16 { false };
 	std::atomic_bool storageInputOutput16 { false };
-	std::atomic_bool multiview { false }; // not handled
-	std::atomic_bool multiviewGeometryShader { false }; // not handled
-	std::atomic_bool multiviewTessellationShader { false }; // not handled
+	std::atomic_bool multiview { false };
+	std::atomic_bool multiviewGeometryShader { false };
+	std::atomic_bool multiviewTessellationShader { false };
 	std::atomic_bool variablePointersStorageBuffer { false };
 	std::atomic_bool variablePointers { false };
 	std::atomic_bool protectedMemory { false }; // not handled

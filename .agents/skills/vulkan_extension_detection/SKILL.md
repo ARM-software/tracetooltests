@@ -20,8 +20,9 @@ domain_allowlist = [
 4. Our usage detection code is in `include/vulkan_feature_detect.cpp` and `include/vulkan_feature_detect.h`. There is a test
    for it at `src/vulkan_feature.cpp`.
 5. Consider whether it is possible at all for us to detect whether the extension is actually being used. It has to express its
-   functionality through commands, structures and SPIRV capabilities for us to actually detect it. If we cannot detect its usage,
-   stop and inform the user.
+   functionality through commands, structures and SPIRV capabilities for us to actually detect it. We do not track state or
+   maintain internal bookkeeping and we cannot add this. If we cannot detect its usage with these limitations, stop and inform
+   the user.
 6. Add our extension to the `feature_detection` struct in the header, like this:
 ```cpp
     std::atomic_bool has_<name of extension> { false };

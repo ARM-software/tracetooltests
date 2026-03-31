@@ -291,7 +291,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityUniformAndStorageBuffer16BitAccess: instance->core11.uniformAndStorageBuffer16BitAccess = true; break;
 			case SpvCapabilityStoragePushConstant16: instance->core11.storagePushConstant16 = true; break;
 			case SpvCapabilityStorageInputOutput16: instance->core11.storageInputOutput16 = true; break;
-			case SpvCapabilityMultiView: instance->has_VK_KHR_multiview = true; break;
+			case SpvCapabilityMultiView: instance->core11.multiview = true; instance->has_VK_KHR_multiview = true; break;
 			case SpvCapabilityVariablePointersStorageBuffer: instance->core11.variablePointersStorageBuffer = true; break;
 			case SpvCapabilityVariablePointers: instance->core11.variablePointers = true; break;
 			case SpvCapabilityDrawParameters: instance->core11.shaderDrawParameters = true; break;
@@ -525,6 +525,17 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 	CHECK_FEATURE11(uniformAndStorageBuffer16BitAccess);
 	CHECK_FEATURE11(storagePushConstant16);
 	CHECK_FEATURE11(storageInputOutput16);
+	CHECK_FEATURE11(multiview);
+	if (!(core11.multiview && core10.geometryShader) && incore11.multiviewGeometryShader)
+	{
+		incore11.multiviewGeometryShader = false;
+		found.insert("multiviewGeometryShader");
+	}
+	if (!(core11.multiview && core10.tessellationShader) && incore11.multiviewTessellationShader)
+	{
+		incore11.multiviewTessellationShader = false;
+		found.insert("multiviewTessellationShader");
+	}
 	CHECK_FEATURE11(variablePointersStorageBuffer);
 	CHECK_FEATURE11(variablePointers);
 	CHECK_FEATURE11(shaderDrawParameters);
@@ -680,19 +691,31 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 
 VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
-	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
+	if (render_pass_uses_multiview(pCreateInfo))
+	{
+		instance->core11.multiview = true;
+		instance->has_VK_KHR_multiview = true;
+	}
 	return VK_SUCCESS;
 }
 
 VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
-	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
+	if (render_pass_uses_multiview(pCreateInfo))
+	{
+		instance->core11.multiview = true;
+		instance->has_VK_KHR_multiview = true;
+	}
 	return VK_SUCCESS;
 }
 
 VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
-	if (render_pass_uses_multiview(pCreateInfo)) instance->has_VK_KHR_multiview = true;
+	if (render_pass_uses_multiview(pCreateInfo))
+	{
+		instance->core11.multiview = true;
+		instance->has_VK_KHR_multiview = true;
+	}
 	return VK_SUCCESS;
 }
 
@@ -1006,6 +1029,7 @@ void check_vkResetQueryPool(VkDevice device, VkQueryPool queryPool, uint32_t fir
 void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
 {
 	instance->core13.dynamicRendering = true;
+	if (pRenderingInfo->viewMask != 0) instance->core11.multiview = true;
 }
 
 void check_vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports)

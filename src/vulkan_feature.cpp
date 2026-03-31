@@ -364,10 +364,12 @@ static void test_multiview_render_pass_detection()
 
 	check_vkCreateRenderPass(VK_NULL_HANDLE, &rpci, nullptr, nullptr);
 	assert(f->has_VK_KHR_multiview == false);
+	assert(f->core11.multiview == false);
 
 	dependency.dependencyFlags = VK_DEPENDENCY_VIEW_LOCAL_BIT;
 	check_vkCreateRenderPass(VK_NULL_HANDLE, &rpci, nullptr, nullptr);
 	assert(f->has_VK_KHR_multiview == true);
+	assert(f->core11.multiview == true);
 }
 
 static void test_multiview_render_pass2_detection()
@@ -384,10 +386,29 @@ static void test_multiview_render_pass2_detection()
 
 	check_vkCreateRenderPass2KHR(VK_NULL_HANDLE, &rpci2, nullptr, nullptr);
 	assert(f->has_VK_KHR_multiview == false);
+	assert(f->core11.multiview == false);
 
 	subpass2.viewMask = 1;
 	check_vkCreateRenderPass2(VK_NULL_HANDLE, &rpci2, nullptr, nullptr);
 	assert(f->has_VK_KHR_multiview == true);
+	assert(f->core11.multiview == true);
+}
+
+static void test_multiview_dynamic_rendering_detection()
+{
+	feature_detection* f = reset_detection();
+
+	VkRenderingInfo rendering_info = {
+		VK_STRUCTURE_TYPE_RENDERING_INFO, nullptr, 0, {}, 1, 0, 0, nullptr, nullptr, nullptr
+	};
+
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	assert(f->core13.dynamicRendering == true);
+	assert(f->core11.multiview == false);
+
+	rendering_info.viewMask = 1;
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	assert(f->core11.multiview == true);
 }
 
 static void test_ray_tracing_maintenance1_extension_adjustment()
@@ -488,8 +509,74 @@ static void test_spirv_extension_detection()
 	std::unordered_set<std::string> multiview_exts = { "VK_KHR_multiview" };
 	check_shader_module_code(multiview_spirv, sizeof(multiview_spirv), 2);
 	assert(f->has_VK_KHR_multiview == true);
+	assert(f->core11.multiview == true);
 	assert_removed_device_extensions(f, multiview_exts, {});
 	assert(multiview_exts.size() == 1);
+}
+
+static void test_vulkan11_multiview_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+	feat11.multiview = VK_TRUE;
+	feat11.multiviewGeometryShader = VK_TRUE;
+	feat11.multiviewTessellationShader = VK_TRUE;
+
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan11Features(feat11);
+	assert_string_set_equals(adjusted, { "multiview", "multiviewGeometryShader", "multiviewTessellationShader" });
+	assert(feat11.multiview == VK_FALSE);
+	assert(feat11.multiviewGeometryShader == VK_FALSE);
+	assert(feat11.multiviewTessellationShader == VK_FALSE);
+
+	f = reset_detection();
+	VkRenderingInfo rendering_info = {
+		VK_STRUCTURE_TYPE_RENDERING_INFO, nullptr, 0, {}, 1, 1, 0, nullptr, nullptr, nullptr
+	};
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+	feat11.multiview = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan11Features(feat11);
+	assert(adjusted.empty());
+	assert(feat11.multiview == VK_TRUE);
+}
+
+static void test_vulkan11_multiview_shader_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	VkPhysicalDeviceVulkan11Features feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+	feat11.multiviewGeometryShader = VK_TRUE;
+	feat11.multiviewTessellationShader = VK_TRUE;
+
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan11Features(feat11);
+	assert_string_set_equals(adjusted, { "multiviewGeometryShader", "multiviewTessellationShader" });
+	assert(feat11.multiviewGeometryShader == VK_FALSE);
+	assert(feat11.multiviewTessellationShader == VK_FALSE);
+
+	f = reset_detection();
+	VkRenderingInfo rendering_info = {
+		VK_STRUCTURE_TYPE_RENDERING_INFO, nullptr, 0, {}, 1, 1, 0, nullptr, nullptr, nullptr
+	};
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+
+	VkPipelineShaderStageCreateInfo gs = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_GEOMETRY_BIT };
+	struct_check_VkPipelineShaderStageCreateInfo(&gs);
+	feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+	feat11.multiviewGeometryShader = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan11Features(feat11);
+	assert(adjusted.empty());
+	assert(feat11.multiviewGeometryShader == VK_TRUE);
+
+	f = reset_detection();
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	VkPipelineShaderStageCreateInfo tcs = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT };
+	struct_check_VkPipelineShaderStageCreateInfo(&tcs);
+	feat11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+	feat11.multiviewTessellationShader = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan11Features(feat11);
+	assert(adjusted.empty());
+	assert(feat11.multiviewTessellationShader == VK_TRUE);
 }
 
 static void test_large_points_detection()
@@ -556,9 +643,12 @@ int main()
 	test_multiview_extension_adjustment();
 	test_multiview_render_pass_detection();
 	test_multiview_render_pass2_detection();
+	test_multiview_dynamic_rendering_detection();
 	test_ray_tracing_maintenance1_extension_adjustment();
 	test_ray_tracing_maintenance1_detection();
 	test_spirv_extension_detection();
+	test_vulkan11_multiview_adjustment();
+	test_vulkan11_multiview_shader_adjustment();
 	test_large_points_detection();
 	test_buffer_device_address_shader_module();
 	return 0;
