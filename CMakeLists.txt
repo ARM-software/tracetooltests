@@ -330,12 +330,167 @@ vulkan_window_test(surface_maintenance1)
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(memory_mprotect)
 
-add_executable(vulkan_featuretest src/vulkan_feature.cpp include/vulkan_feature_detect.h include/vulkan_feature_detect.cpp)
+add_executable(vulkan_featuretest src/vulkan_feature.cpp src/usagetracker/vulkan_feature_detect.h src/usagetracker/vulkan_feature_detect.cpp)
 target_link_libraries(vulkan_featuretest pthread)
 target_compile_options(vulkan_featuretest PRIVATE ${IT_FLAGS})
 add_test(NAME vulkan_feature_test COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_featuretest)
 set_tests_properties(vulkan_feature_test PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "${TRACETOOLTESTS_TEST_ARGUMENTS}")
 target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G925" CACHE STRING "Default Chameleon GPU profile directory")
+set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
+set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
+
+file(STRINGS "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include/vulkan/vulkan_core.h" VULKAN_HEADER_VERSION_LINE REGEX "^#define VK_HEADER_VERSION [0-9]+$")
+string(REGEX MATCH "[0-9]+$" CHAMELEON_VULKAN_HEADER_PATCH "${VULKAN_HEADER_VERSION_LINE}")
+set(CHAMELEON_ICD_API_VERSION "1.4.${CHAMELEON_VULKAN_HEADER_PATCH}")
+math(EXPR CHAMELEON_ICD_LIBRARY_ARCH_BITS "${CMAKE_SIZEOF_VOID_P} * 8")
+set(CHAMELEON_ICD_LIBRARY_ARCH "${CHAMELEON_ICD_LIBRARY_ARCH_BITS}")
+set(CHAMELEON_ICD_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/libchameleon_icd.so")
+configure_file(${PROJECT_SOURCE_DIR}/cmake/chameleon_icd.json.in ${CHAMELEON_ICD_JSON} @ONLY)
+
+set(CHAMELEON_AUTOGEN_OUTPUTS
+	${CHAMELEON_GENERATED_DIR}/vulkan_auto.cpp
+	${CHAMELEON_GENERATED_DIR}/vulkan_auto.h
+	${CHAMELEON_GENERATED_DIR}/tostring.cpp
+	${CHAMELEON_GENERATED_DIR}/tostring.h
+	${CHAMELEON_GENERATED_DIR}/vkjson.cpp
+	${CHAMELEON_GENERATED_DIR}/vkjson.h
+)
+
+add_custom_command(
+	OUTPUT ${CHAMELEON_AUTOGEN_OUTPUTS}
+	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/chameleon_gen.py
+	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/tostring.py
+	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/json.py
+	WORKING_DIRECTORY ${CHAMELEON_GENERATED_DIR}
+	DEPENDS
+		${PROJECT_SOURCE_DIR}/scripts/chameleon_gen.py
+		${PROJECT_SOURCE_DIR}/scripts/tostring.py
+		${PROJECT_SOURCE_DIR}/scripts/json.py
+		${PROJECT_SOURCE_DIR}/scripts/spec.py
+		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/vk.xml
+		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/video.xml
+	VERBATIM
+)
+
+add_custom_target(chameleon_codegen DEPENDS ${CHAMELEON_AUTOGEN_OUTPUTS})
+
+set(CHAMELEON_COMMON_SOURCES
+	src/chameleon/util.cpp
+	src/chameleon/util.h
+	src/chameleon/vulkan_defs.cpp
+	src/chameleon/vulkan_defs.h
+	src/chameleon/vulkan.cpp
+	src/chameleon/commandbuffer.cpp
+	src/chameleon/commandbuffer.h
+	${CHAMELEON_GENERATED_DIR}/vulkan_auto.cpp
+	${CHAMELEON_GENERATED_DIR}/vulkan_auto.h
+	${CHAMELEON_GENERATED_DIR}/vkjson.cpp
+	${CHAMELEON_GENERATED_DIR}/vkjson.h
+)
+
+set(CHAMELEON_FULL_SOURCES
+	${CHAMELEON_COMMON_SOURCES}
+	src/chameleon/vulkan_print.cpp
+	src/chameleon/vulkan_print.h
+	${CHAMELEON_GENERATED_DIR}/tostring.cpp
+	${CHAMELEON_GENERATED_DIR}/tostring.h
+)
+
+set(CHAMELEON_INCLUDE_DIRS
+	${CHAMELEON_GENERATED_DIR}
+	${PROJECT_SOURCE_DIR}/src/chameleon
+	${PROJECT_SOURCE_DIR}
+	${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include
+	${CHAMELEON_JSONCPP_DIR}
+)
+
+set(CHAMELEON_PLATFORM_DEFINES VK_USE_PLATFORM_XCB_KHR VK_USE_PLATFORM_XLIB_KHR VK_USE_PLATFORM_WAYLAND_KHR)
+set(CHAMELEON_COMPILE_OPTIONS
+	-Wall
+	-g
+	-std=c++20
+	-Werror
+	-Wshadow
+	-fvisibility=hidden
+	-fno-strict-aliasing
+	-Wno-unused-variable
+	-Wno-unused-but-set-variable
+)
+set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow")
+
+add_library(chameleon_icd SHARED ${CHAMELEON_FULL_SOURCES} ${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp)
+add_dependencies(chameleon_icd chameleon_codegen)
+target_compile_options(chameleon_icd PRIVATE ${CHAMELEON_COMPILE_OPTIONS})
+target_compile_definitions(chameleon_icd PRIVATE CHAMELEON_DEFAULT_GPU_PATH="${CHAMELEON_DEFAULT_GPU_PATH}" ${CHAMELEON_PLATFORM_DEFINES})
+target_include_directories(chameleon_icd PRIVATE ${CHAMELEON_INCLUDE_DIRS})
+target_link_options(chameleon_icd PRIVATE -Wl,-Bsymbolic-functions)
+set_target_properties(chameleon_icd PROPERTIES OUTPUT_NAME chameleon_icd)
+
+add_library(chameleon_icd_light SHARED ${CHAMELEON_COMMON_SOURCES} ${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp)
+add_dependencies(chameleon_icd_light chameleon_codegen)
+target_compile_options(chameleon_icd_light PRIVATE ${CHAMELEON_COMPILE_OPTIONS})
+target_compile_definitions(chameleon_icd_light PRIVATE FAST NDEBUG CHAMELEON_DEFAULT_GPU_PATH="${CHAMELEON_DEFAULT_GPU_PATH}" ${CHAMELEON_PLATFORM_DEFINES})
+target_include_directories(chameleon_icd_light PRIVATE ${CHAMELEON_INCLUDE_DIRS})
+target_link_options(chameleon_icd_light PRIVATE -Wl,-Bsymbolic-functions)
+set_target_properties(chameleon_icd_light PROPERTIES OUTPUT_NAME chameleon_icd_light)
+
+add_executable(chameleon_loader_icd_smoketest src/chameleon/loader_icd_smoketest.cpp)
+add_dependencies(chameleon_loader_icd_smoketest chameleon_icd)
+target_include_directories(chameleon_loader_icd_smoketest PRIVATE ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+target_link_libraries(chameleon_loader_icd_smoketest PRIVATE ${CMAKE_DL_LIBS})
+target_compile_options(chameleon_loader_icd_smoketest PRIVATE -Wall -g -std=c++20 -Werror)
+add_test(NAME chameleon_loader_icd_smoke COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_loader_icd_smoketest)
+set_tests_properties(chameleon_loader_icd_smoke PROPERTIES ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}" LABELS "chameleon;icd")
+
+function(chameleon_icd_test_build test_source test_name)
+	add_executable(chameleon_icd_${ARGV1} src/vulkan_${ARGV0}.cpp)
+	add_dependencies(chameleon_icd_${ARGV1} chameleon_icd)
+	target_link_libraries(chameleon_icd_${ARGV1} PRIVATE vulkan_common)
+	target_compile_definitions(chameleon_icd_${ARGV1} PUBLIC ${IT_DEFINES})
+	set_target_properties(chameleon_icd_${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
+	target_link_directories(chameleon_icd_${ARGV1} PRIVATE ${LIB_DIRS})
+	target_include_directories(chameleon_icd_${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+endfunction()
+
+function(chameleon_icd_test test_source test_name)
+	chameleon_icd_test_build(${ARGV0} ${ARGV1})
+	add_test(NAME chameleon_icd_${ARGV1} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
+	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
+	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
+		SKIP_RETURN_CODE 77
+		ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
+		LABELS "chameleon;icd")
+endfunction()
+
+function(chameleon_icd_window_test test_source test_name)
+	chameleon_icd_test_build(${ARGV0} ${ARGV1})
+	add_test(NAME chameleon_icd_${ARGV1} COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
+	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
+	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
+		SKIP_RETURN_CODE 77
+		ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
+		LABELS "chameleon;icd")
+endfunction()
+
+chameleon_icd_test(init init)
+chameleon_icd_test(general general)
+chameleon_icd_test(multiinstance multiinstance)
+chameleon_icd_window_test(window_1 window_1)
+
+add_custom_target(chameleon DEPENDS
+	chameleon_icd
+	chameleon_icd_light
+	chameleon_loader_icd_smoketest
+	chameleon_icd_init
+	chameleon_icd_general
+	chameleon_icd_multiinstance
+	chameleon_icd_window_1
+)
 
 endif()
 

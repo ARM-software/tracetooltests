@@ -309,7 +309,7 @@ def scan_type(v):
 
 def init():
 	# Autogenerate list of feature detection functions
-	with open('%s/../include/vulkan_feature_detect.h' % our_path, 'r') as f:
+	with open('%s/../src/usagetracker/vulkan_feature_detect.h' % our_path, 'r') as f:
 		for line in f:
 			m = re.search(r'check_(vk\w+)', line)
 			if m:

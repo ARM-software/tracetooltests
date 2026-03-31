@@ -1,0 +1,53 @@
+{
+    "capabilities": {
+        "device": {
+            "properties": {
+                "VkPhysicalDeviceMemoryProperties": {
+                    "memoryTypes": [
+                        {
+                            "heapIndex": 0,
+                            "propertyFlags": [
+                                "VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT"
+                            ]
+                        },
+                        {
+                            "heapIndex": 0,
+                            "propertyFlags": [
+                                "VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT",
+                                "VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT",
+                                "VK_MEMORY_PROPERTY_HOST_COHERENT_BIT"
+                            ]
+                        },
+                        {
+                            "heapIndex": 1,
+                            "propertyFlags": [
+                                "VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT",
+                                "VK_MEMORY_PROPERTY_HOST_COHERENT_BIT"
+                            ]
+                        },
+                        {
+                            "heapIndex": 1,
+                            "propertyFlags": [
+                                "VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT",
+                                "VK_MEMORY_PROPERTY_HOST_COHERENT_BIT",
+                                "VK_MEMORY_PROPERTY_HOST_CACHED_BIT"
+                            ]
+                        }
+                    ],
+                    "memoryHeaps": [
+                        {
+                            "flags": [
+                                "VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT"
+                            ],
+                            "size": 25757220864
+                        },
+                        {
+                            "flags": [],
+                            "size": 50390888448
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}

@@ -14,7 +14,7 @@ You may need to install the LunarG SDK first to get up to date headers.
 You also may need to install some dependencies. For Ubuntu:
 
 ```
-sudo apt-get install xvfb libvulkan-dev
+sudo apt-get install xvfb libvulkan-dev cmake g++ xorg-dev libglu1-mesa-dev libwayland-dev python3
 ```
 
 Then run:

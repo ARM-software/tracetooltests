@@ -1,5 +1,5 @@
 #include "vulkan_utility.h"
-#include "vulkan_feature_detect.h"
+#include "src/usagetracker/vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
 
 #include <cassert>

@@ -1,0 +1,8 @@
+{
+    "file_format_version": "1.0.1",
+    "ICD": {
+        "library_path": "@CHAMELEON_ICD_LIBRARY_PATH@",
+        "library_arch": "@CHAMELEON_ICD_LIBRARY_ARCH@",
+        "api_version": "@CHAMELEON_ICD_API_VERSION@"
+    }
+}
