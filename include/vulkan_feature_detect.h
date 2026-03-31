@@ -98,18 +98,18 @@ struct atomicPhysicalDeviceVulkan11Features
 	std::atomic_bool shaderDrawParameters { false };
 };
 
-struct atomicPhysicalDeviceVulkan12Features // most are not handled
+struct atomicPhysicalDeviceVulkan12Features
 {
 	std::atomic_bool samplerMirrorClampToEdge { false };
 	std::atomic_bool drawIndirectCount { false };
 	std::atomic_bool storageBuffer8BitAccess { false };
 	std::atomic_bool uniformAndStorageBuffer8BitAccess { false };
 	std::atomic_bool storagePushConstant8 { false };
-	std::atomic_bool shaderBufferInt64Atomics { false };
-	std::atomic_bool shaderSharedInt64Atomics { false };
+	std::atomic_bool shaderBufferInt64Atomics { false }; // not handled
+	std::atomic_bool shaderSharedInt64Atomics { false }; // not handled
 	std::atomic_bool shaderFloat16 { false };
 	std::atomic_bool shaderInt8 { false };
-	std::atomic_bool descriptorIndexing { false };
+	std::atomic_bool descriptorIndexing { false }; // not handled
 	std::atomic_bool shaderInputAttachmentArrayDynamicIndexing { false };
 	std::atomic_bool shaderUniformTexelBufferArrayDynamicIndexing { false };
 	std::atomic_bool shaderStorageTexelBufferArrayDynamicIndexing { false };
@@ -120,22 +120,22 @@ struct atomicPhysicalDeviceVulkan12Features // most are not handled
 	std::atomic_bool shaderInputAttachmentArrayNonUniformIndexing { false };
 	std::atomic_bool shaderUniformTexelBufferArrayNonUniformIndexing { false };
 	std::atomic_bool shaderStorageTexelBufferArrayNonUniformIndexing { false };
-	std::atomic_bool descriptorBindingUniformBufferUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingSampledImageUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingStorageImageUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingStorageBufferUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingUniformTexelBufferUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingStorageTexelBufferUpdateAfterBind { false };
-	std::atomic_bool descriptorBindingUpdateUnusedWhilePending { false };
-	std::atomic_bool descriptorBindingPartiallyBound { false };
-	std::atomic_bool descriptorBindingVariableDescriptorCount { false };
+	std::atomic_bool descriptorBindingUniformBufferUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingSampledImageUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingStorageImageUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingStorageBufferUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingUniformTexelBufferUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingStorageTexelBufferUpdateAfterBind { false }; // not handled
+	std::atomic_bool descriptorBindingUpdateUnusedWhilePending { false }; // not handled
+	std::atomic_bool descriptorBindingPartiallyBound { false }; // not handled
+	std::atomic_bool descriptorBindingVariableDescriptorCount { false }; // not handled
 	std::atomic_bool runtimeDescriptorArray { false };
-	std::atomic_bool samplerFilterMinmax { false };
-	std::atomic_bool scalarBlockLayout { false };
-	std::atomic_bool imagelessFramebuffer { false };
-	std::atomic_bool uniformBufferStandardLayout { false };
-	std::atomic_bool shaderSubgroupExtendedTypes { false };
-	std::atomic_bool separateDepthStencilLayouts { false };
+	std::atomic_bool samplerFilterMinmax { false }; // not handled
+	std::atomic_bool scalarBlockLayout { false }; // not handled
+	std::atomic_bool imagelessFramebuffer { false }; // not handled
+	std::atomic_bool uniformBufferStandardLayout { false }; // not handled
+	std::atomic_bool shaderSubgroupExtendedTypes { false }; // not handled
+	std::atomic_bool separateDepthStencilLayouts { false }; // not handled
 	std::atomic_bool hostQueryReset { false };
 	std::atomic_bool timelineSemaphore { false };
 	std::atomic_bool bufferDeviceAddress { false };
@@ -143,54 +143,54 @@ struct atomicPhysicalDeviceVulkan12Features // most are not handled
 	std::atomic_bool bufferDeviceAddressMultiDevice { false };
 	std::atomic_bool vulkanMemoryModel { false };
 	std::atomic_bool vulkanMemoryModelDeviceScope { false };
-	std::atomic_bool vulkanMemoryModelAvailabilityVisibilityChains { false };
+	std::atomic_bool vulkanMemoryModelAvailabilityVisibilityChains { false }; // not handled
 	std::atomic_bool shaderOutputViewportIndex { false };
 	std::atomic_bool shaderOutputLayer { false };
-	std::atomic_bool subgroupBroadcastDynamicId { false };
+	std::atomic_bool subgroupBroadcastDynamicId { false }; // not handled
 };
 
-struct atomicPhysicalDeviceVulkan13Features // most are not handled
+struct atomicPhysicalDeviceVulkan13Features
 {
-	std::atomic_bool robustImageAccess { false };
-	std::atomic_bool inlineUniformBlock { false };
-	std::atomic_bool descriptorBindingInlineUniformBlockUpdateAfterBind { false };
-	std::atomic_bool pipelineCreationCacheControl { false };
-	std::atomic_bool privateData { false };
+	std::atomic_bool robustImageAccess { false }; // not handled
+	std::atomic_bool inlineUniformBlock { false }; // not handled
+	std::atomic_bool descriptorBindingInlineUniformBlockUpdateAfterBind { false }; // not handled
+	std::atomic_bool pipelineCreationCacheControl { false }; // not handled
+	std::atomic_bool privateData { false }; // not handled
 	std::atomic_bool shaderDemoteToHelperInvocation { false };
-	std::atomic_bool shaderTerminateInvocation { false };
+	std::atomic_bool shaderTerminateInvocation { false }; // not handled
 	std::atomic_bool subgroupSizeControl { false };
-	std::atomic_bool computeFullSubgroups { false };
-	std::atomic_bool synchronization2 { false };
-	std::atomic_bool textureCompressionASTC_HDR { false };
-	std::atomic_bool shaderZeroInitializeWorkgroupMemory { false };
+	std::atomic_bool computeFullSubgroups { false }; // not handled
+	std::atomic_bool synchronization2 { false }; // not handled
+	std::atomic_bool textureCompressionASTC_HDR { false }; // not handled
+	std::atomic_bool shaderZeroInitializeWorkgroupMemory { false }; // not handled
 	std::atomic_bool dynamicRendering { false };
 	std::atomic_bool shaderIntegerDotProduct { false };
-	std::atomic_bool maintenance4 { false };
+	std::atomic_bool maintenance4 { false }; // not handled
 };
 
-struct atomicPhysicalDeviceVulkan14Features // most are not handled
+struct atomicPhysicalDeviceVulkan14Features
 {
-	std::atomic_bool globalPriorityQuery { false };
+	std::atomic_bool globalPriorityQuery { false }; // not handled
 	std::atomic_bool shaderSubgroupRotate { false };
-	std::atomic_bool shaderSubgroupRotateClustered { false };
+	std::atomic_bool shaderSubgroupRotateClustered { false }; // not handled
 	std::atomic_bool shaderFloatControls2 { false };
 	std::atomic_bool shaderExpectAssume { false };
-	std::atomic_bool rectangularLines { false };
-	std::atomic_bool bresenhamLines { false };
-	std::atomic_bool smoothLines { false };
-	std::atomic_bool stippledRectangularLines { false };
-	std::atomic_bool stippledBresenhamLines { false };
-	std::atomic_bool stippledSmoothLines { false };
-	std::atomic_bool vertexAttributeInstanceRateDivisor { false };
-	std::atomic_bool vertexAttributeInstanceRateZeroDivisor { false };
+	std::atomic_bool rectangularLines { false }; // not handled
+	std::atomic_bool bresenhamLines { false }; // not handled
+	std::atomic_bool smoothLines { false }; // not handled
+	std::atomic_bool stippledRectangularLines { false }; // not handled
+	std::atomic_bool stippledBresenhamLines { false }; // not handled
+	std::atomic_bool stippledSmoothLines { false }; // not handled
+	std::atomic_bool vertexAttributeInstanceRateDivisor { false }; // not handled
+	std::atomic_bool vertexAttributeInstanceRateZeroDivisor { false }; // not handled
 	std::atomic_bool indexTypeUint8 { false };
-	std::atomic_bool dynamicRenderingLocalRead { false };
-	std::atomic_bool maintenance5 { false };
-	std::atomic_bool maintenance6 { false };
-	std::atomic_bool pipelineProtectedAccess { false };
-	std::atomic_bool pipelineRobustness { false };
-	std::atomic_bool hostImageCopy { false };
-	std::atomic_bool pushDescriptor { false };
+	std::atomic_bool dynamicRenderingLocalRead { false }; // not handled
+	std::atomic_bool maintenance5 { false }; // not handled
+	std::atomic_bool maintenance6 { false }; // not handled
+	std::atomic_bool pipelineProtectedAccess { false }; // not handled
+	std::atomic_bool pipelineRobustness { false }; // not handled
+	std::atomic_bool hostImageCopy { false }; // not handled
+	std::atomic_bool pushDescriptor { false }; // not handled
 };
 
 struct feature_detection
