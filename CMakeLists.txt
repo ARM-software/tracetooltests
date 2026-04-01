@@ -338,6 +338,11 @@ set_tests_properties(vulkan_feature_test PROPERTIES SKIP_RETURN_CODE 77 ENVIRONM
 target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+if(CMAKE_NM)
+	set(CHAMELEON_NM_EXECUTABLE "${CMAKE_NM}")
+else()
+	find_program(CHAMELEON_NM_EXECUTABLE NAMES nm llvm-nm REQUIRED)
+endif()
 
 set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G925" CACHE STRING "Default Chameleon GPU profile directory")
 set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
@@ -428,7 +433,7 @@ add_dependencies(chameleon_icd chameleon_codegen)
 target_compile_options(chameleon_icd PRIVATE ${CHAMELEON_COMPILE_OPTIONS})
 target_compile_definitions(chameleon_icd PRIVATE CHAMELEON_DEFAULT_GPU_PATH="${CHAMELEON_DEFAULT_GPU_PATH}" ${CHAMELEON_PLATFORM_DEFINES})
 target_include_directories(chameleon_icd PRIVATE ${CHAMELEON_INCLUDE_DIRS})
-target_link_options(chameleon_icd PRIVATE -Wl,-Bsymbolic-functions)
+target_link_options(chameleon_icd PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
 set_target_properties(chameleon_icd PROPERTIES OUTPUT_NAME chameleon_icd)
 
 add_library(chameleon_icd_light SHARED ${CHAMELEON_COMMON_SOURCES} ${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp)
@@ -436,7 +441,7 @@ add_dependencies(chameleon_icd_light chameleon_codegen)
 target_compile_options(chameleon_icd_light PRIVATE ${CHAMELEON_COMPILE_OPTIONS})
 target_compile_definitions(chameleon_icd_light PRIVATE FAST NDEBUG CHAMELEON_DEFAULT_GPU_PATH="${CHAMELEON_DEFAULT_GPU_PATH}" ${CHAMELEON_PLATFORM_DEFINES})
 target_include_directories(chameleon_icd_light PRIVATE ${CHAMELEON_INCLUDE_DIRS})
-target_link_options(chameleon_icd_light PRIVATE -Wl,-Bsymbolic-functions)
+target_link_options(chameleon_icd_light PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
 set_target_properties(chameleon_icd_light PROPERTIES OUTPUT_NAME chameleon_icd_light)
 
 add_executable(chameleon_loader_icd_smoketest src/chameleon/loader_icd_smoketest.cpp)
@@ -490,6 +495,14 @@ add_custom_target(chameleon DEPENDS
 	chameleon_icd_general
 	chameleon_icd_multiinstance
 	chameleon_icd_window_1
+)
+
+add_custom_target(chameleon_validate ALL
+	COMMAND ${CMAKE_COMMAND} -DNM_EXECUTABLE=${CHAMELEON_NM_EXECUTABLE} -DINPUT_LIB=$<TARGET_FILE:chameleon_icd> -P ${PROJECT_SOURCE_DIR}/cmake/validate_chameleon_symbols.cmake
+	COMMAND ${CMAKE_COMMAND} -DNM_EXECUTABLE=${CHAMELEON_NM_EXECUTABLE} -DINPUT_LIB=$<TARGET_FILE:chameleon_icd_light> -P ${PROJECT_SOURCE_DIR}/cmake/validate_chameleon_symbols.cmake
+	DEPENDS chameleon_icd chameleon_icd_light
+	USES_TERMINAL
+	VERBATIM
 )
 
 endif()

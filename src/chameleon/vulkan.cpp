@@ -7955,6 +7955,44 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultInfoEXT(
 	return VK_SUCCESS;
 }
 
+// VK_KHR_device_fault
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultReportsKHR(
+    VkDevice                                    device,
+    uint64_t                                    timeout,
+    uint32_t*                                   pFaultCounts,
+    VkDeviceFaultInfoKHR*                       pFaultInfo)
+{
+	ENTRY(vkGetDeviceFaultReportsKHR);
+	cVkDevice* cdevice = device_cast(device);
+	(void)timeout;
+	TBD_UNSUPPORTED;
+	if (pFaultCounts)
+	{
+		*pFaultCounts = 0;
+	}
+	if (pFaultInfo)
+	{
+		memset(pFaultInfo, 0, sizeof(*pFaultInfo));
+		pFaultInfo->sType = VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_KHR;
+	}
+	return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultDebugInfoKHR(
+    VkDevice                                    device,
+    VkDeviceFaultDebugInfoKHR*                  pDebugInfo)
+{
+	ENTRY(vkGetDeviceFaultDebugInfoKHR);
+	cVkDevice* cdevice = device_cast(device);
+	TBD_UNSUPPORTED;
+	if (pDebugInfo)
+	{
+		pDebugInfo->vendorBinarySize = 0;
+	}
+	return VK_SUCCESS;
+}
+
 // VK_EXT_image_compression_control
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout2EXT(
@@ -9040,6 +9078,24 @@ static void commonGetImageSubresourceLayout2(VkDevice device, VkImage image, con
 	pLayout->subresourceLayout.depthPitch = 1;
 }
 
+static cVkBuffer* find_buffer_by_device_address(cVkDevice* cdevice, VkDeviceAddress address)
+{
+	for (cVkBuffer& buffer : cdevice->buffers)
+	{
+		if (!buffer.memory || !buffer.memory->ptr)
+		{
+			continue;
+		}
+		VkDeviceAddress base = reinterpret_cast<VkDeviceAddress>(buffer.memory->ptr + buffer.memoryOffset);
+		VkDeviceAddress end = base + buffer.size;
+		if (address >= base && address < end)
+		{
+			return &buffer;
+		}
+	}
+	return nullptr;
+}
+
 static void commonGetDeviceImageSubresourceLayout(VkDevice device, const VkDeviceImageSubresourceInfo* pInfo, VkSubresourceLayout2* pLayout)
 {
 	cVkDevice* cdevice = device_cast(device);
@@ -9065,6 +9121,270 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindIndexBuffer2KHR(
 {
 	ENTRY(vkCmdBindIndexBuffer2KHR);
 	commonCmdBindIndexBuffer2(commandBuffer, buffer, offset, size, indexType);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBindIndexBuffer3KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkBindIndexBuffer3InfoKHR*            pInfo)
+{
+	ENTRY(vkCmdBindIndexBuffer3KHR);
+	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
+	(void)ccommandBuffer;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBindVertexBuffers3KHR(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstBinding,
+    uint32_t                                    bindingCount,
+    const VkBindVertexBuffer3InfoKHR*           pBindingInfos)
+{
+	ENTRY(vkCmdBindVertexBuffers3KHR);
+	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
+	(void)firstBinding;
+	(void)bindingCount;
+	(void)pBindingInfos;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndirect2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirect2InfoKHR*               pInfo)
+{
+	ENTRY(vkCmdDrawIndirect2KHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawIndirect2KHR, commandBuffer, MetricUnit(1, pInfo ? pInfo->drawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndexedIndirect2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirect2InfoKHR*               pInfo)
+{
+	ENTRY(vkCmdDrawIndexedIndirect2KHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawIndexedIndirect2KHR, commandBuffer, MetricUnit(1, pInfo ? pInfo->drawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDispatchIndirect2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDispatchIndirect2InfoKHR*           pInfo)
+{
+	ENTRY(vkCmdDispatchIndirect2KHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDispatchIndirect2KHR, commandBuffer, MetricUnit(1));
+	(void)pInfo;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdCopyMemoryKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkCopyDeviceMemoryInfoKHR*            pCopyMemoryInfo)
+{
+	ENTRY(vkCmdCopyMemoryKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyMemoryKHR, commandBuffer, MetricUnit(1, pCopyMemoryInfo ? pCopyMemoryInfo->regionCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdCopyMemoryToImageKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkCopyDeviceMemoryImageInfoKHR*       pCopyMemoryInfo)
+{
+	ENTRY(vkCmdCopyMemoryToImageKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyMemoryToImageKHR, commandBuffer, MetricUnit(1, pCopyMemoryInfo ? pCopyMemoryInfo->regionCount : 0));
+	if (pCopyMemoryInfo)
+	{
+		p->commands.back().bindings.push_back(image_cast(pCopyMemoryInfo->image));
+	}
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdCopyImageToMemoryKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkCopyDeviceMemoryImageInfoKHR*       pCopyMemoryInfo)
+{
+	ENTRY(vkCmdCopyImageToMemoryKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyImageToMemoryKHR, commandBuffer, MetricUnit(1, pCopyMemoryInfo ? pCopyMemoryInfo->regionCount : 0));
+	if (pCopyMemoryInfo)
+	{
+		p->commands.back().bindings.push_back(image_cast(pCopyMemoryInfo->image));
+	}
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdUpdateMemoryKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDeviceAddressRangeKHR*              pDstRange,
+    VkAddressCommandFlagsKHR                    dstFlags,
+    VkDeviceSize                                dataSize,
+    const void*                                 pData)
+{
+	ENTRY(vkCmdUpdateMemoryKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdUpdateMemoryKHR, commandBuffer, MetricUnit(1));
+	(void)pDstRange;
+	(void)dstFlags;
+	(void)dataSize;
+	(void)pData;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdFillMemoryKHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDeviceAddressRangeKHR*              pDstRange,
+    VkAddressCommandFlagsKHR                    dstFlags,
+    uint32_t                                    data)
+{
+	ENTRY(vkCmdFillMemoryKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdFillMemoryKHR, commandBuffer, MetricUnit(1));
+	(void)pDstRange;
+	(void)dstFlags;
+	(void)data;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdCopyQueryPoolResultsToMemoryKHR(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery,
+    uint32_t                                    queryCount,
+    const VkStridedDeviceAddressRangeKHR*       pDstRange,
+    VkAddressCommandFlagsKHR                    dstFlags,
+    VkQueryResultFlags                          queryResultFlags)
+{
+	ENTRY(vkCmdCopyQueryPoolResultsToMemoryKHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyQueryPoolResultsToMemoryKHR, commandBuffer, MetricUnit(1, queryCount));
+	p->commands.back().bindings.push_back(querypool_cast(queryPool));
+	(void)firstQuery;
+	(void)pDstRange;
+	(void)dstFlags;
+	(void)queryResultFlags;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndirectCount2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirectCount2InfoKHR*          pInfo)
+{
+	ENTRY(vkCmdDrawIndirectCount2KHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawIndirectCount2KHR, commandBuffer, MetricUnit(1, pInfo ? pInfo->maxDrawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndexedIndirectCount2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirectCount2InfoKHR*          pInfo)
+{
+	ENTRY(vkCmdDrawIndexedIndirectCount2KHR);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawIndexedIndirectCount2KHR, commandBuffer, MetricUnit(1, pInfo ? pInfo->maxDrawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBeginConditionalRendering2EXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkConditionalRenderingBeginInfo2EXT*  pConditionalRenderingBegin)
+{
+	ENTRY(vkCmdBeginConditionalRendering2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBeginConditionalRendering2EXT, commandBuffer, MetricUnit(1));
+	(void)pConditionalRenderingBegin;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBindTransformFeedbackBuffers2EXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstBinding,
+    uint32_t                                    bindingCount,
+    const VkBindTransformFeedbackBuffer2InfoEXT* pBindingInfos)
+{
+	ENTRY(vkCmdBindTransformFeedbackBuffers2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBindTransformFeedbackBuffers2EXT, commandBuffer, MetricUnit(1, bindingCount));
+	(void)firstBinding;
+	(void)pBindingInfos;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBeginTransformFeedback2EXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstCounterRange,
+    uint32_t                                    counterRangeCount,
+    const VkBindTransformFeedbackBuffer2InfoEXT* pCounterInfos)
+{
+	ENTRY(vkCmdBeginTransformFeedback2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBeginTransformFeedback2EXT, commandBuffer, MetricUnit(1, counterRangeCount));
+	(void)firstCounterRange;
+	(void)pCounterInfos;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdEndTransformFeedback2EXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstCounterRange,
+    uint32_t                                    counterRangeCount,
+    const VkBindTransformFeedbackBuffer2InfoEXT* pCounterInfos)
+{
+	ENTRY(vkCmdEndTransformFeedback2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdEndTransformFeedback2EXT, commandBuffer, MetricUnit(1, counterRangeCount));
+	(void)firstCounterRange;
+	(void)pCounterInfos;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndirectByteCount2EXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    instanceCount,
+    uint32_t                                    firstInstance,
+    const VkBindTransformFeedbackBuffer2InfoEXT* pCounterInfo,
+    uint32_t                                    counterOffset,
+    uint32_t                                    vertexStride)
+{
+	ENTRY(vkCmdDrawIndirectByteCount2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawIndirectByteCount2EXT, commandBuffer, MetricUnit(1));
+	(void)instanceCount;
+	(void)firstInstance;
+	(void)pCounterInfo;
+	(void)counterOffset;
+	(void)vertexStride;
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawMeshTasksIndirect2EXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirect2InfoKHR*               pInfo)
+{
+	ENTRY(vkCmdDrawMeshTasksIndirect2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawMeshTasksIndirect2EXT, commandBuffer, MetricUnit(1, pInfo ? pInfo->drawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawMeshTasksIndirectCount2EXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDrawIndirectCount2InfoKHR*          pInfo)
+{
+	ENTRY(vkCmdDrawMeshTasksIndirectCount2EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdDrawMeshTasksIndirectCount2EXT, commandBuffer, MetricUnit(1, pInfo ? pInfo->maxDrawCount : 0));
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateAccelerationStructure2KHR(
+    VkDevice                                    device,
+    const VkAccelerationStructureCreateInfo2KHR* pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkAccelerationStructureKHR*                 pAccelerationStructure)
+{
+	ENTRY(vkCreateAccelerationStructure2KHR);
+	CLOG("device=%p, pCreateInfo=%p, pAllocator=%p, pAccelerationStructure=%p", device, pCreateInfo, pAllocator, pAccelerationStructure);
+
+	cVkDevice* cdevice = device_cast(device);
+	cVkAccelerationStructureKHR& acc = owner_create<cVkAccelerationStructureKHR, VkAccelerationStructureKHR>(cdevice->accelerationStructures, pAccelerationStructure, pAllocator);
+	acc.flags = pCreateInfo->createFlags;
+	acc.type = pCreateInfo->type;
+	acc.memorySize = pCreateInfo->addressRange.size;
+	cVkBuffer* backing = find_buffer_by_device_address(cdevice, pCreateInfo->addressRange.address);
+	if (backing)
+	{
+		acc.buffer = backing;
+		VkDeviceAddress base = reinterpret_cast<VkDeviceAddress>(backing->memory->ptr + backing->memoryOffset);
+		acc.memoryOffset = pCreateInfo->addressRange.address - base;
+	}
+	TBD_UNSUPPORTED;
+	return VK_SUCCESS;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetRenderingAreaGranularityKHR(
