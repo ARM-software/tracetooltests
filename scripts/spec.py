@@ -125,6 +125,8 @@ misordered_counts = {
 other_counts = {
 	'VkHostAddressRangeEXT' : [ 'size' ],
 	'VkHostAddressRangeConstEXT' : [ 'size' ],
+	'VkDeviceFaultDebugInfoKHR' : [ 'vendorBinarySize' ],
+	'VkDeviceFaultShaderAbortMessageInfoKHR' : [ 'messageDataSize' ],
 	'VkPipelineShaderStageModuleIdentifierCreateInfoEXT' : [ 'identifierSize' ],
 	'VkPushConstantsInfoKHR' : [ 'size' ],
 	'VkPushConstantsInfo' : [ 'size' ],
@@ -554,8 +556,12 @@ class base_parameter(object):
 		# Fixes for XML length bugs
 		if funcname == 'VkDeviceCreateInfo' and self.name == 'ppEnabledLayerNames':
 			self.length = 'enabledLayerCount,null-terminated'
+		if funcname == 'VkDeviceFaultDebugInfoKHR' and self.name == 'pVendorBinaryData':
+			self.length = 'vendorBinarySize'
 		if funcname == 'VkDeviceFaultShaderAbortMessageInfoKHR' and self.name == 'pMessageData':
 			self.length = 'messageDataSize'
+		if funcname == 'vkGetDeviceFaultReportsKHR' and self.name == 'pFaultInfo':
+			self.length = '*pFaultCounts'
 		if funcname == 'VkRenderPassPerformanceCountersByRegionBeginInfoARM' and self.name == 'pCounterAddresses':
 			self.length = 'counterAddressCount'
 		if funcname == 'VkRenderPassPerformanceCountersByRegionBeginInfoARM' and self.name == 'pCounterIndices':
