@@ -550,6 +550,17 @@ class base_parameter(object):
 		self.fixedsize = False
 		if altlen:
 			self.length = altlen
+
+		# Fixes for XML length bugs
+		if funcname == 'VkDeviceCreateInfo' and self.name == 'ppEnabledLayerNames':
+			self.length = 'enabledLayerCount,null-terminated'
+		if funcname == 'VkDeviceFaultShaderAbortMessageInfoKHR' and self.name == 'pMessageData':
+			self.length = 'messageDataSize'
+		if funcname == 'VkRenderPassPerformanceCountersByRegionBeginInfoARM' and self.name == 'pCounterAddresses':
+			self.length = 'counterAddressCount'
+		if funcname == 'VkRenderPassPerformanceCountersByRegionBeginInfoARM' and self.name == 'pCounterIndices':
+			self.length = 'counterIndexCount'
+
 		if self.length:
 			self.length = self.length.replace(',1', '')
 		if self.length and '::' in self.length:
