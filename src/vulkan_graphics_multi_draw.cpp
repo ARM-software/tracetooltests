@@ -36,7 +36,15 @@ enum class multi_draw_mode_t
 	indexed,
 };
 
+enum class multi_draw_stride_mode_t
+{
+	packed,
+	aligned16,
+	aligned32,
+};
+
 static multi_draw_mode_t multi_draw_mode = multi_draw_mode_t::alternate;
+static multi_draw_stride_mode_t multi_draw_stride_mode = multi_draw_stride_mode_t::packed;
 static PFN_vkCmdDrawMultiEXT pf_vkCmdDrawMultiEXT = nullptr;
 static PFN_vkCmdDrawMultiIndexedEXT pf_vkCmdDrawMultiIndexedEXT = nullptr;
 
@@ -61,10 +69,32 @@ static const char* multi_draw_mode_name(multi_draw_mode_t mode)
 	return "invalid";
 }
 
+static multi_draw_stride_mode_t parse_multi_draw_stride_mode(const char* value)
+{
+	if (strcmp(value, "packed") == 0) return multi_draw_stride_mode_t::packed;
+	if (strcmp(value, "aligned16") == 0) return multi_draw_stride_mode_t::aligned16;
+	if (strcmp(value, "aligned32") == 0) return multi_draw_stride_mode_t::aligned32;
+	fprintf(stderr, "Unsupported multi draw stride mode: %s\n", value);
+	exit(EXIT_FAILURE);
+}
+
+static const char* multi_draw_stride_mode_name(multi_draw_stride_mode_t mode)
+{
+	switch (mode)
+	{
+		case multi_draw_stride_mode_t::packed: return "packed";
+		case multi_draw_stride_mode_t::aligned16: return "aligned16";
+		case multi_draw_stride_mode_t::aligned32: return "aligned32";
+	}
+	assert(false);
+	return "invalid";
+}
+
 static void show_usage()
 {
 	printf("-i/--image-output      Save an image of the output to disk\n");
 	printf("-m/--multi-draw-mode M Use one of: alternate, draw, indexed\n");
+	printf("-s/--stride-mode S     Use one of: packed, aligned16, aligned32\n");
 	usage();
 }
 
@@ -78,6 +108,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-m", "--multi-draw-mode"))
 	{
 		multi_draw_mode = parse_multi_draw_mode(get_string_arg(argv, ++i, argc));
+		return true;
+	}
+	if (match(argv[i], "-s", "--stride-mode"))
+	{
+		multi_draw_stride_mode = parse_multi_draw_stride_mode(get_string_arg(argv, ++i, argc));
 		return true;
 	}
 	return parseCmdopt(i, argc, argv, reqs);
@@ -136,6 +171,54 @@ const static std::array<VkMultiDrawIndexedInfoEXT, 2> indexed_draws = {{
 	{6, 6, 0}
 }};
 
+template <typename T, size_t Stride>
+struct StridedDrawInfo
+{
+	static_assert((Stride % 4) == 0);
+	static_assert(Stride >= sizeof(T));
+
+	T info;
+	std::array<uint8_t, Stride - sizeof(T)> padding{};
+};
+
+using strided_vertex_draw_info_16_t = StridedDrawInfo<VkMultiDrawInfoEXT, 16>;
+using strided_vertex_draw_info_32_t = StridedDrawInfo<VkMultiDrawInfoEXT, 32>;
+using strided_indexed_draw_info_16_t = StridedDrawInfo<VkMultiDrawIndexedInfoEXT, 16>;
+using strided_indexed_draw_info_32_t = StridedDrawInfo<VkMultiDrawIndexedInfoEXT, 32>;
+
+static_assert(sizeof(strided_vertex_draw_info_16_t) == 16);
+static_assert(sizeof(strided_vertex_draw_info_32_t) == 32);
+static_assert(sizeof(strided_indexed_draw_info_16_t) == 16);
+static_assert(sizeof(strided_indexed_draw_info_32_t) == 32);
+
+const static std::array<strided_vertex_draw_info_16_t, 2> vertex_draws_aligned16 = {{
+	{{0, 6}, {}},
+	{{6, 6}, {}}
+}};
+
+const static std::array<strided_vertex_draw_info_32_t, 2> vertex_draws_aligned32 = {{
+	{{0, 6}, {}},
+	{{6, 6}, {}}
+}};
+
+const static std::array<strided_indexed_draw_info_16_t, 2> indexed_draws_aligned16 = {{
+	{{0, 6, 0}, {}},
+	{{6, 6, 0}, {}}
+}};
+
+const static std::array<strided_indexed_draw_info_32_t, 2> indexed_draws_aligned32 = {{
+	{{0, 6, 0}, {}},
+	{{6, 6, 0}, {}}
+}};
+
+template <typename T>
+struct multi_draw_batch_t
+{
+	uint32_t drawCount = 0;
+	const T* data = nullptr;
+	uint32_t stride = 0;
+};
+
 typedef struct Transform {
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
@@ -185,6 +268,9 @@ static std::unique_ptr<benchmarkContext> p_benchmark = nullptr;
 static void render(const vulkan_setup_t& vulkan);
 static void save_texture_debug(const vulkan_setup_t& vulkan, Image& image, uint32_t width, uint32_t height);
 static void record_multi_draws(const vulkan_setup_t& vulkan, VkCommandBuffer command_buffer, bool indexed_first);
+template <typename T> static uint32_t resolve_multi_draw_stride();
+static multi_draw_batch_t<VkMultiDrawInfoEXT> get_vertex_draw_batch();
+static multi_draw_batch_t<VkMultiDrawIndexedInfoEXT> get_indexed_draw_batch();
 
 int main(int argc, char** argv)
 {
@@ -215,8 +301,11 @@ int main(int argc, char** argv)
 	vkGetPhysicalDeviceProperties2(vulkan.physical, &props2);
 
 	printf("VK_EXT_multi_draw mode: %s\n", multi_draw_mode_name(multi_draw_mode));
+	printf("VK_EXT_multi_draw stride mode: %s\n", multi_draw_stride_mode_name(multi_draw_stride_mode));
 	printf("VK_EXT_multi_draw feature multiDraw = %s\n", queried_features.multiDraw ? "true" : "false");
 	printf("VK_EXT_multi_draw maxMultiDrawCount = %u\n", multi_draw_properties.maxMultiDrawCount);
+	printf("VK_EXT_multi_draw vertex stride = %u\n", resolve_multi_draw_stride<VkMultiDrawInfoEXT>());
+	printf("VK_EXT_multi_draw indexed stride = %u\n", resolve_multi_draw_stride<VkMultiDrawIndexedInfoEXT>());
 
 	if (!queried_features.multiDraw || multi_draw_properties.maxMultiDrawCount < vertex_draws.size())
 	{
@@ -443,19 +532,76 @@ static void save_texture_debug(const vulkan_setup_t& vulkan, Image& image, uint3
 	test_save_image(vulkan, "texture_upload.png", staging->getMemory(), 0, width, height, image.m_format);
 }
 
+template <typename T>
+static uint32_t resolve_multi_draw_stride()
+{
+	switch (multi_draw_stride_mode)
+	{
+		case multi_draw_stride_mode_t::packed: return sizeof(T);
+		case multi_draw_stride_mode_t::aligned16: return 16;
+		case multi_draw_stride_mode_t::aligned32: return 32;
+	}
+
+	assert(false);
+	return 0;
+}
+
+static multi_draw_batch_t<VkMultiDrawInfoEXT> get_vertex_draw_batch()
+{
+	const uint32_t stride = resolve_multi_draw_stride<VkMultiDrawInfoEXT>();
+	assert((stride % 4) == 0);
+	assert(stride >= sizeof(VkMultiDrawInfoEXT));
+
+	switch (multi_draw_stride_mode)
+	{
+		case multi_draw_stride_mode_t::packed:
+			return { static_cast<uint32_t>(vertex_draws.size()), vertex_draws.data(), stride };
+		case multi_draw_stride_mode_t::aligned16:
+			return { static_cast<uint32_t>(vertex_draws_aligned16.size()), &vertex_draws_aligned16[0].info, stride };
+		case multi_draw_stride_mode_t::aligned32:
+			return { static_cast<uint32_t>(vertex_draws_aligned32.size()), &vertex_draws_aligned32[0].info, stride };
+	}
+
+	assert(false);
+	return {};
+}
+
+static multi_draw_batch_t<VkMultiDrawIndexedInfoEXT> get_indexed_draw_batch()
+{
+	const uint32_t stride = resolve_multi_draw_stride<VkMultiDrawIndexedInfoEXT>();
+	assert((stride % 4) == 0);
+	assert(stride >= sizeof(VkMultiDrawIndexedInfoEXT));
+
+	switch (multi_draw_stride_mode)
+	{
+		case multi_draw_stride_mode_t::packed:
+			return { static_cast<uint32_t>(indexed_draws.size()), indexed_draws.data(), stride };
+		case multi_draw_stride_mode_t::aligned16:
+			return { static_cast<uint32_t>(indexed_draws_aligned16.size()), &indexed_draws_aligned16[0].info, stride };
+		case multi_draw_stride_mode_t::aligned32:
+			return { static_cast<uint32_t>(indexed_draws_aligned32.size()), &indexed_draws_aligned32[0].info, stride };
+	}
+
+	assert(false);
+	return {};
+}
+
 static void record_multi_draws(const vulkan_setup_t& vulkan, VkCommandBuffer command_buffer, bool indexed_first)
 {
+	const auto vertex_batch = get_vertex_draw_batch();
+	const auto indexed_batch = get_indexed_draw_batch();
+
 	auto record_draw = [&](bool indexed) {
 		if (indexed)
 		{
 			test_marker_mention(vulkan, "Issuing vkCmdDrawMultiIndexedEXT", VK_OBJECT_TYPE_BUFFER,
 			                    (uint64_t)p_benchmark->m_indexBuffer->getHandle());
 			pf_vkCmdDrawMultiIndexedEXT(command_buffer,
-			                           static_cast<uint32_t>(indexed_draws.size()),
-			                           indexed_draws.data(),
+			                           indexed_batch.drawCount,
+			                           indexed_batch.data,
 			                           1,
 			                           0,
-			                           sizeof(indexed_draws[0]),
+			                           indexed_batch.stride,
 			                           nullptr);
 			return;
 		}
@@ -463,11 +609,11 @@ static void record_multi_draws(const vulkan_setup_t& vulkan, VkCommandBuffer com
 		test_marker_mention(vulkan, "Issuing vkCmdDrawMultiEXT", VK_OBJECT_TYPE_BUFFER,
 		                    (uint64_t)p_benchmark->m_vertexBuffer->getHandle());
 		pf_vkCmdDrawMultiEXT(command_buffer,
-		                    static_cast<uint32_t>(vertex_draws.size()),
-		                    vertex_draws.data(),
+		                    vertex_batch.drawCount,
+		                    vertex_batch.data,
 		                    1,
 		                    0,
-		                    sizeof(vertex_draws[0]));
+		                    vertex_batch.stride);
 	};
 
 	if (multi_draw_mode == multi_draw_mode_t::draw)
