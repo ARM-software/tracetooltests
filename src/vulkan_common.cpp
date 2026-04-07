@@ -667,8 +667,17 @@ acceleration_structures::functions acceleration_structures::query_acceleration_s
 		functions.vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdTraceRaysKHR"));
 		assert(functions.vkCmdTraceRaysKHR);
 
+		functions.vkCmdTraceRaysIndirectKHR = reinterpret_cast<PFN_vkCmdTraceRaysIndirectKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdTraceRaysIndirectKHR"));
+		assert(functions.vkCmdTraceRaysIndirectKHR);
+
 		functions.vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetRayTracingShaderGroupHandlesKHR"));
 		assert(functions.vkGetRayTracingShaderGroupHandlesKHR);
+
+		functions.vkGetRayTracingShaderGroupStackSizeKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupStackSizeKHR>(vkGetDeviceProcAddr(vulkan.device, "vkGetRayTracingShaderGroupStackSizeKHR"));
+		assert(functions.vkGetRayTracingShaderGroupStackSizeKHR);
+
+		functions.vkCmdSetRayTracingPipelineStackSizeKHR = reinterpret_cast<PFN_vkCmdSetRayTracingPipelineStackSizeKHR>(vkGetDeviceProcAddr(vulkan.device, "vkCmdSetRayTracingPipelineStackSizeKHR"));
+		assert(functions.vkCmdSetRayTracingPipelineStackSizeKHR);
 
 		if (vulkan.device_extensions.count(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME) != 0)
 		{

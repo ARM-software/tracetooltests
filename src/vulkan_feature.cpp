@@ -441,6 +441,36 @@ static void test_ray_tracing_maintenance1_extension_adjustment()
 	assert_adjusted_device_create_info(f, dci, rtm1_exts, { "VK_KHR_ray_tracing_maintenance1" }, false);
 }
 
+static void test_ray_tracing_pipeline_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> rtp_exts = { "VK_KHR_ray_tracing_pipeline" };
+	assert(rtp_exts.size() == 1);
+	assert_removed_device_extensions(f, rtp_exts, { "VK_KHR_ray_tracing_pipeline" });
+	assert(rtp_exts.empty());
+
+	rtp_exts.insert("VK_KHR_ray_tracing_pipeline");
+	const char* rtp_extname = "VK_KHR_ray_tracing_pipeline";
+	const char* rtp_names[] = { rtp_extname };
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtp_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE, VK_FALSE, VK_FALSE, VK_TRUE, VK_FALSE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &rtp_features };
+	dci.ppEnabledExtensionNames = rtp_names;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+	assert_removed_device_extensions(f, rtp_exts, {});
+	assert(rtp_exts.size() == 1);
+
+	f->has_VK_KHR_ray_tracing_pipeline.store(false);
+	assert_removed_device_extensions(f, rtp_exts, { "VK_KHR_ray_tracing_pipeline" });
+	assert(rtp_exts.empty());
+	assert_adjusted_device_create_info(f, dci, rtp_exts, { "VK_KHR_ray_tracing_pipeline" }, false);
+}
+
 static void test_ray_tracing_maintenance1_detection()
 {
 	feature_detection* f = reset_detection();
@@ -471,6 +501,26 @@ static void test_ray_tracing_maintenance1_detection()
 
 	check_vkCmdTraceRaysIndirect2KHR(VK_NULL_HANDLE, 0);
 	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+}
+
+static void test_ray_tracing_pipeline_detection()
+{
+	feature_detection* f = reset_detection();
+
+	VkRayTracingPipelineCreateInfoKHR pipeline_info = { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR, nullptr };
+	check_vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	VkStridedDeviceAddressRegionKHR region{};
+	check_vkCmdTraceRaysIndirectKHR(VK_NULL_HANDLE, &region, &region, &region, &region, 0);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	check_vkCmdSetRayTracingPipelineStackSizeKHR(VK_NULL_HANDLE, 128);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
 }
 
 static void test_spirv_extension_detection()
@@ -728,7 +778,9 @@ int main()
 	test_multiview_render_pass_detection();
 	test_multiview_render_pass2_detection();
 	test_multiview_dynamic_rendering_detection();
+	test_ray_tracing_pipeline_extension_adjustment();
 	test_ray_tracing_maintenance1_extension_adjustment();
+	test_ray_tracing_pipeline_detection();
 	test_ray_tracing_maintenance1_detection();
 	test_spirv_extension_detection();
 	test_vulkan11_multiview_adjustment();
