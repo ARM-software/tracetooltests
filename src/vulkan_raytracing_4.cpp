@@ -374,8 +374,10 @@ static uint32_t calculate_pipeline_stack_size(const vulkan_setup_t& vulkan, Reso
 		vulkan.device, resources.pipeline, 1, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
 	const VkDeviceSize hit_stack = resources.context.functions.vkGetRayTracingShaderGroupStackSizeKHR(
 		vulkan.device, resources.pipeline, 2, VK_SHADER_GROUP_SHADER_CLOSEST_HIT_KHR);
-	const VkDeviceSize total_stack = raygen_stack + miss_stack + hit_stack;
-	assert(total_stack > 0 && total_stack <= UINT32_MAX);
+	// This pipeline has one raygen shader, recursion depth 1, no any-hit,
+	// no intersection, and no callable shaders.
+	const VkDeviceSize total_stack = raygen_stack + std::max(miss_stack, hit_stack);
+	assert(total_stack <= UINT32_MAX);
 	return static_cast<uint32_t>(total_stack);
 }
 
