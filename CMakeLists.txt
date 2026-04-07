@@ -219,6 +219,7 @@ vulkan_test(raytracing_1)
 vulkan_test(raytracing_2)
 vulkan_test(raytracing_3)
 vulkan_test(raytracing_4)
+vulkan_test(raytracing_5)
 vulkan_test(rayquery)
 
 vulkan_test(copying_2)
