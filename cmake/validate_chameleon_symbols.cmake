@@ -40,5 +40,3 @@ if(unresolved_vulkan_symbols)
 		"Generated dispatch exposed commands that Chameleon does not implement."
 	)
 endif()
-
-message(STATUS "Validated ${INPUT_LIB}: no unresolved Vulkan entry points")
