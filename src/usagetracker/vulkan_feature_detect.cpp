@@ -377,7 +377,8 @@ void struct_check_VkPipelineShaderStageCreateInfo(const VkPipelineShaderStageCre
 {
 	if (info->stage == VK_SHADER_STAGE_GEOMETRY_BIT) instance->core10.geometryShader = true;
 	else if (info->stage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT || info->stage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT) instance->core10.tessellationShader = true;
-		if (info->flags & VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT) instance->core13.subgroupSizeControl = true;
+
+	if (info->flags & VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT) instance->core13.subgroupSizeControl = true;
 	if (get_extension(info, VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO)) instance->core13.subgroupSizeControl = true;
 }
 

@@ -44,7 +44,7 @@ typedef struct VkMarkedOffsetsARM
 	const void* pNext;
 	uint32_t count; // the number of entries in pMarkingTypes, pDescriptorType and pOffsets
 	const VkMarkingTypeARM* pMarkingTypes; // the overall type of marking
-	const VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking, if any
+	const VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking
 	const VkDeviceSize* pOffsets; // offsets into memory to items we want to mark
 } VkMarkedOffsetsARM;
 

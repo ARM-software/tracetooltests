@@ -297,7 +297,29 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 	memcpy(mapped + raygen_offset, handle_storage.data() + handle_size * 0, handle_size);
 	memcpy(mapped + miss_offset, handle_storage.data() + handle_size * 1, handle_size);
 	memcpy(mapped + hit_offset, handle_storage.data() + handle_size * 2, handle_size);
-	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, resources.sbt_buffer.memory, 0, sbt_size, true);
+
+	VkMarkedOffsetsARM* markings_ptr = nullptr;
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	VkMarkingTypeARM marking_types[3] = {
+		VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM,
+		VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM,
+		VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM,
+	};
+	VkMarkingSubTypeARM sub_types[3] = {};
+	VkDeviceSize marked_offsets[3] = { raygen_offset, miss_offset, hit_offset };
+	if (vulkan.has_trace_helpers)
+	{
+		markings.count = 3;
+		markings.pMarkingTypes = marking_types;
+		markings.pSubTypes = sub_types;
+		markings.pOffsets = marked_offsets;
+		markings_ptr = &markings;
+	}
+
+	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates)
+	{
+		testFlushMemory(vulkan, resources.sbt_buffer.memory, 0, sbt_size, true, markings_ptr);
+	}
 	vkUnmapMemory(vulkan.device, resources.sbt_buffer.memory);
 
 	const VkDeviceAddress sbt_address = acceleration_structures::get_buffer_device_address(vulkan, resources.sbt_buffer.handle);
