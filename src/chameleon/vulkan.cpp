@@ -7367,6 +7367,14 @@ VKAPI_ATTR void VKAPI_CALL vkCmdSetPrimitiveRestartEnableEXT(
 	TBD_UNSUPPORTED;
 }
 
+VKAPI_ATTR void VKAPI_CALL vkCmdSetPrimitiveRestartIndexEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    primitiveRestartIndex)
+{
+	ENTRY(vkCmdSetPrimitiveRestartIndexEXT);
+	TBD_UNSUPPORTED;
+}
+
 // VK_EXT_acquire_drm_display
 
 VKAPI_ATTR VkResult VKAPI_CALL vkAcquireDrmDisplayEXT(
@@ -8872,6 +8880,40 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceQueueFamilyDataGraphProcessingEngi
 	ENTRY(vkGetPhysicalDeviceQueueFamilyDataGraphProcessingEnginePropertiesARM);
 	cVkPhysicalDevice* cphysicalDevice = physicaldevice_cast(physicalDevice);
 	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceQueueFamilyDataGraphEngineOperationPropertiesARM(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex,
+    const VkQueueFamilyDataGraphPropertiesARM*  pQueueFamilyDataGraphProperties,
+    VkBaseOutStructure*                         pProperties)
+{
+	ENTRY(vkGetPhysicalDeviceQueueFamilyDataGraphEngineOperationPropertiesARM);
+	cVkPhysicalDevice* cphysicalDevice = physicaldevice_cast(physicalDevice);
+	TBD_UNSUPPORTED;
+	return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdSetDispatchParametersARM(
+    VkCommandBuffer                             commandBuffer,
+    const VkDispatchParametersARM*              pDispatchParameters)
+{
+	ENTRY(vkCmdSetDispatchParametersARM);
+	TBD_UNSUPPORTED;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceQueueFamilyDataGraphOpticalFlowImageFormatsARM(
+    VkPhysicalDevice                                     physicalDevice,
+    uint32_t                                             queueFamilyIndex,
+    const VkQueueFamilyDataGraphPropertiesARM*           pQueueFamilyDataGraphProperties,
+    const VkDataGraphOpticalFlowImageFormatInfoARM*      pOpticalFlowImageFormatInfo,
+    uint32_t*                                            pFormatCount,
+    VkDataGraphOpticalFlowImageFormatPropertiesARM*      pImageFormatProperties)
+{
+	ENTRY(vkGetPhysicalDeviceQueueFamilyDataGraphOpticalFlowImageFormatsARM);
+	cVkPhysicalDevice* cphysicalDevice = physicaldevice_cast(physicalDevice);
+	TBD_UNSUPPORTED;
+	return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDataGraphPipelinesARM(
