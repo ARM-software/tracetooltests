@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <cstddef>
 #include <cmath>
 #include <vector>
 #include <string>
@@ -139,7 +140,7 @@ namespace acceleration_structures
 		VkDeviceOrHostAddressConstKHR address{};
 	};
 
-	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties);
+	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties, VkMarkedOffsetsARM* markings = nullptr);
 	VkDeviceAddress get_buffer_device_address(const vulkan_setup_t& vulkan, VkBuffer buffer);
 
 	VkPipelineShaderStageCreateInfo prepare_shader_stage_create_info(const vulkan_setup_t & vulkan, const uint8_t * spirv, uint32_t spirv_length, VkShaderStageFlagBits shader_stage);
@@ -168,6 +169,12 @@ void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuff
 void testCmdCopyBuffer(const vulkan_setup_t& vulkan, VkCommandBuffer cmdbuf, const std::vector<VkBuffer>& origin, const std::vector<VkBuffer>& target, VkDeviceSize size);
 void testFreeMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory);
 void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size = VK_WHOLE_SIZE, bool extra = false, VkMarkedOffsetsARM* markings = nullptr);
+void testFlushMemoryDeviceAddresses(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, VkDeviceAddressTypeARM device_address_type, bool extra = true);
+void testFlushMemoryShaderGroupHandles(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, bool extra = true);
+void testFlushMemoryDescriptors(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkDescriptorType>& descriptor_types, bool extra = true);
 
 /// Adds a dummy queue submit with a pipeline barrier that references the passed buffers in order to make tools not ignore them.
 void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vector<VkBuffer>& buffers);

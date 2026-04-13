@@ -320,7 +320,7 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 	memcpy(mapped + raygen_offset, handle_storage.data() + handle_size * 0, handle_size);
 	memcpy(mapped + miss_offset, handle_storage.data() + handle_size * 1, handle_size);
 	memcpy(mapped + hit_offset, handle_storage.data() + handle_size * 2, handle_size);
-	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, resources.sbt_buffer.memory, 0, sbt_size, true);
+	testFlushMemoryShaderGroupHandles(vulkan, resources.sbt_buffer.memory, 0, sbt_size, {raygen_offset, miss_offset, hit_offset});
 	vkUnmapMemory(vulkan.device, resources.sbt_buffer.memory);
 
 	const VkDeviceAddress sbt_address = acceleration_structures::get_buffer_device_address(vulkan, resources.sbt_buffer.handle);
@@ -359,12 +359,31 @@ static void create_indirect_buffer(const vulkan_setup_t& vulkan, Resources& reso
 	indirect_command.height = 1;
 	indirect_command.depth = 1;
 
+	VkMarkedOffsetsARM indirect_markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	VkMarkingTypeARM indirect_marking_types[3] = {
+		VK_MARKING_TYPE_DEVICE_ADDRESS_ARM,
+		VK_MARKING_TYPE_DEVICE_ADDRESS_ARM,
+		VK_MARKING_TYPE_DEVICE_ADDRESS_ARM,
+	};
+	VkMarkingSubTypeARM indirect_sub_types[3] = {};
+	for (VkMarkingSubTypeARM& subtype : indirect_sub_types) subtype.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM;
+	VkDeviceSize indirect_offsets[3] = {
+		offsetof(VkTraceRaysIndirectCommand2KHR, raygenShaderRecordAddress),
+		offsetof(VkTraceRaysIndirectCommand2KHR, missShaderBindingTableAddress),
+		offsetof(VkTraceRaysIndirectCommand2KHR, hitShaderBindingTableAddress),
+	};
+	indirect_markings.count = 3;
+	indirect_markings.pMarkingTypes = indirect_marking_types;
+	indirect_markings.pSubTypes = indirect_sub_types;
+	indirect_markings.pOffsets = indirect_offsets;
+
 	resources.indirect_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
 		sizeof(indirect_command),
 		&indirect_command,
 		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		vulkan.has_trace_helpers ? &indirect_markings : nullptr);
 	resources.indirect_address = acceleration_structures::get_buffer_device_address(vulkan, resources.indirect_buffer.handle);
 	assert((resources.indirect_address & 0x3u) == 0 && "TraceRaysIndirect2 address must be 4-byte aligned");
 	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)resources.indirect_buffer.handle, "raytracing_3_indirect");

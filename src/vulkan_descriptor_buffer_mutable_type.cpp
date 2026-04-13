@@ -271,6 +271,14 @@ void prepare_descriptor_buffer()
 	dst = descriptor_buffer_ptr + p_benchmark->m_layoutSize + p_benchmark->m_binding0Offset;
 	pf_vkGetDescriptorEXT(p_benchmark->m_vulkanSetup.device, &getInfo, descSize, dst);
 
+	testFlushMemoryDescriptors(
+		p_benchmark->m_vulkanSetup,
+		p_benchmark->m_descBuffer->getMemory(),
+		0,
+		p_benchmark->m_descBuffer->getSize(),
+		{p_benchmark->m_binding0Offset, p_benchmark->m_binding1Offset, p_benchmark->m_layoutSize + p_benchmark->m_binding0Offset},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER});
+
 	p_benchmark->m_descBuffer->unmap();
 }
 

@@ -331,7 +331,12 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 		const uint32_t dst_offset = callable_offset + entry_size * i;
 		memcpy(mapped + dst_offset, handle_storage.data() + handle_size * (3 + i), handle_size);
 	}
-	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, resources.sbt_buffer.memory, 0, sbt_size, true);
+	testFlushMemoryShaderGroupHandles(
+		vulkan,
+		resources.sbt_buffer.memory,
+		0,
+		sbt_size,
+		{raygen_offset, miss_offset, hit_offset, callable_offset, callable_offset + entry_size, callable_offset + entry_size * 2});
 	vkUnmapMemory(vulkan.device, resources.sbt_buffer.memory);
 
 	const VkDeviceAddress sbt_address = acceleration_structures::get_buffer_device_address(vulkan, resources.sbt_buffer.handle);

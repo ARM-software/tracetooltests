@@ -697,7 +697,7 @@ acceleration_structures::functions acceleration_structures::query_acceleration_s
 	return functions;
 }
 
-acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_props)
+acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_props, VkMarkedOffsetsARM* markings)
 {
 	VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	create_info.usage = usage;
@@ -728,7 +728,10 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 		void *mapped;
 		check(vkMapMemory(vulkan.device, buffer.memory, 0, size, 0, &mapped));
 		memcpy(mapped, data, size);
-		if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, buffer.memory, 0, size, true);
+		if ((markings && vulkan.has_trace_helpers) || vulkan.has_explicit_host_updates)
+		{
+			testFlushMemory(vulkan, buffer.memory, 0, size, true, vulkan.has_trace_helpers ? markings : nullptr);
+		}
 		vkUnmapMemory(vulkan.device, buffer.memory);
 	}
 	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
@@ -1120,6 +1123,66 @@ void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDevi
 	if (extra) { assert(vulkan.has_explicit_host_updates || vulkan.has_trace_helpers); frf.pNext = range.pNext; range.pNext = &frf; }
 	VkResult result = vkFlushMappedMemoryRanges(vulkan.device, 1, &range);
 	check(result);
+}
+
+void testFlushMemoryDeviceAddresses(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, VkDeviceAddressTypeARM device_address_type, bool extra)
+{
+	assert(!marked_offsets.empty());
+	VkMarkedOffsetsARM* markings_ptr = nullptr;
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	std::vector<VkMarkingTypeARM> marking_types(marked_offsets.size(), VK_MARKING_TYPE_DEVICE_ADDRESS_ARM);
+	std::vector<VkMarkingSubTypeARM> sub_types(marked_offsets.size());
+	for (VkMarkingSubTypeARM& subtype : sub_types) subtype.deviceAddressType = device_address_type;
+	if (vulkan.has_trace_helpers)
+	{
+		markings.count = static_cast<uint32_t>(marked_offsets.size());
+		markings.pMarkingTypes = marking_types.data();
+		markings.pSubTypes = sub_types.data();
+		markings.pOffsets = marked_offsets.data();
+		markings_ptr = &markings;
+	}
+	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, offset, size, extra, markings_ptr);
+}
+
+void testFlushMemoryShaderGroupHandles(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, bool extra)
+{
+	assert(!marked_offsets.empty());
+	VkMarkedOffsetsARM* markings_ptr = nullptr;
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	std::vector<VkMarkingTypeARM> marking_types(marked_offsets.size(), VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM);
+	std::vector<VkMarkingSubTypeARM> sub_types(marked_offsets.size());
+	if (vulkan.has_trace_helpers)
+	{
+		markings.count = static_cast<uint32_t>(marked_offsets.size());
+		markings.pMarkingTypes = marking_types.data();
+		markings.pSubTypes = sub_types.data();
+		markings.pOffsets = marked_offsets.data();
+		markings_ptr = &markings;
+	}
+	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, offset, size, extra, markings_ptr);
+}
+
+void testFlushMemoryDescriptors(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
+		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkDescriptorType>& descriptor_types, bool extra)
+{
+	assert(!marked_offsets.empty());
+	assert(marked_offsets.size() == descriptor_types.size());
+	VkMarkedOffsetsARM* markings_ptr = nullptr;
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	std::vector<VkMarkingTypeARM> marking_types(marked_offsets.size(), VK_MARKING_TYPE_DESCRIPTOR_ARM);
+	std::vector<VkMarkingSubTypeARM> sub_types(marked_offsets.size());
+	for (size_t i = 0; i < descriptor_types.size(); i++) sub_types[i].descriptorType = descriptor_types[i];
+	if (vulkan.has_trace_helpers)
+	{
+		markings.count = static_cast<uint32_t>(marked_offsets.size());
+		markings.pMarkingTypes = marking_types.data();
+		markings.pSubTypes = sub_types.data();
+		markings.pOffsets = marked_offsets.data();
+		markings_ptr = &markings;
+	}
+	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates) testFlushMemory(vulkan, memory, offset, size, extra, markings_ptr);
 }
 
 void testCopyBuffer(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer target, VkBuffer origin, VkDeviceSize size)

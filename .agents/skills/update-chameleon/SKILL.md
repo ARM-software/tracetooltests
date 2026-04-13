@@ -1,6 +1,6 @@
 ---
 name: update-chameleon
-description: Use this skill when asked to update chameleon to the latest Khronos specs
+description: Use this skill to update chameleon to the latest Khronos specs
 metadata:
   short-description: Use whenever we update our Khronos headers submodule to also update Chameleon to match
 ---

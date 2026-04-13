@@ -352,12 +352,26 @@ void build_top_level_acceleration_structures(const vulkan_setup_t & vulkan, Reso
 
 	for (uint32_t build_command_index = 0; build_command_index < tl_as_build_count; ++build_command_index)
 	{
+		std::vector<VkDeviceSize> marked_offsets(bl_as_build_count);
+		for (uint32_t as_index = 0; as_index < bl_as_build_count; ++as_index)
+		{
+			marked_offsets[as_index] = as_index * sizeof(VkAccelerationStructureInstanceKHR) + offsetof(VkAccelerationStructureInstanceKHR, accelerationStructureReference);
+		}
+		std::vector<VkMarkingTypeARM> marking_types(bl_as_build_count, VK_MARKING_TYPE_DEVICE_ADDRESS_ARM);
+		std::vector<VkMarkingSubTypeARM> sub_types(bl_as_build_count);
+		for (VkMarkingSubTypeARM& subtype : sub_types) subtype.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM;
+		VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+		markings.count = bl_as_build_count;
+		markings.pMarkingTypes = marking_types.data();
+		markings.pSubTypes = sub_types.data();
+		markings.pOffsets = marked_offsets.data();
 		as_instance_buffers[build_command_index] = acceleration_structures::prepare_buffer(
 			vulkan,
 			sizeof(VkAccelerationStructureInstanceKHR) * bl_as_build_count,
 			as_instances.data(),
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vulkan.has_trace_helpers ? &markings : nullptr
 		);
 		as_instance_buffers[build_command_index].address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, as_instance_buffers[build_command_index].handle);
 

@@ -238,13 +238,23 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	instance.instanceShaderBindingTableRecordOffset = 0;
 	instance.flags = 0;
 	instance.accelerationStructureReference = resources.blas.address.deviceAddress;
+	VkMarkingTypeARM instance_marking_type = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+	VkMarkingSubTypeARM instance_sub_type{};
+	instance_sub_type.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM;
+	VkDeviceSize instance_marked_offset = offsetof(VkAccelerationStructureInstanceKHR, accelerationStructureReference);
+	VkMarkedOffsetsARM instance_markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	instance_markings.count = 1;
+	instance_markings.pMarkingTypes = &instance_marking_type;
+	instance_markings.pSubTypes = &instance_sub_type;
+	instance_markings.pOffsets = &instance_marked_offset;
 
 	resources.instance_buffer = acceleration_structures::prepare_buffer(
 			vulkan,
 			sizeof(VkAccelerationStructureInstanceKHR),
 			&instance,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vulkan.has_trace_helpers ? &instance_markings : nullptr
 		);
 
 	resources.instance_buffer.address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.instance_buffer.handle);
@@ -378,7 +388,7 @@ void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & res
 	void * mapped = nullptr;
 	vkMapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, 0, handle_size, 0, &mapped);
 	memcpy(mapped, shader_handle_storage.data(), handle_size);
-	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, resources.ray_gen_shader_binding_table.memory, 0, handle_size, true);
+	testFlushMemoryShaderGroupHandles(vulkan, resources.ray_gen_shader_binding_table.memory, 0, handle_size, {0});
 	vkUnmapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory);
 }
 

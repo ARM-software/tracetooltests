@@ -229,13 +229,23 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	instance.instanceShaderBindingTableRecordOffset = 0;
 	instance.flags = 0;
 	instance.accelerationStructureReference = resources.blas.address.deviceAddress;
+	VkMarkingTypeARM marking_type = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+	VkMarkingSubTypeARM sub_type{};
+	sub_type.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM;
+	VkDeviceSize marked_offset = offsetof(VkAccelerationStructureInstanceKHR, accelerationStructureReference);
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	markings.count = 1;
+	markings.pMarkingTypes = &marking_type;
+	markings.pSubTypes = &sub_type;
+	markings.pOffsets = &marked_offset;
 
 	resources.instance_buffer = acceleration_structures::prepare_buffer(
 			vulkan,
 			sizeof(VkAccelerationStructureInstanceKHR),
 			&instance,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			vulkan.has_trace_helpers ? &markings : nullptr
 		);
 
 	resources.instance_buffer.address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, resources.instance_buffer.handle);
