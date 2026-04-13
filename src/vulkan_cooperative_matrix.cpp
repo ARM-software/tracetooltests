@@ -337,7 +337,8 @@ int main(int argc, char** argv)
 	{
 		printf("Writing out checksum\n");
 		uint32_t crc = 0;
-		r = vk.vkAssertBuffer(vk.device, buffer, 0, VK_WHOLE_SIZE, &crc, "Results buffer");
+		const VkUpdateBufferInfoARM result_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, buffer, 0, VK_WHOLE_SIZE, nullptr};
+		r = vk.vkAssertBuffer(vk.device, &result_info, &crc, "Results buffer");
 		check(r);
 	}
 

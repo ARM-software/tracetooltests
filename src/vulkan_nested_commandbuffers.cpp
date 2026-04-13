@@ -193,12 +193,14 @@ int main(int argc, char** argv)
 	{
 		test_marker(vulkan, "Injecting buffer assertions");
 		uint32_t mid_crc = 0;
-		result = vulkan.vkAssertBuffer(vulkan.device, mid.buffer, 0, VK_WHOLE_SIZE, &mid_crc, "nested mid buffer");
+		const VkUpdateBufferInfoARM mid_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, mid.buffer, 0, VK_WHOLE_SIZE, nullptr};
+		result = vulkan.vkAssertBuffer(vulkan.device, &mid_info, &mid_crc, "nested mid buffer");
 		check(result);
 		assert(mid_crc == expected_crc);
 		(void)mid_crc;
 		uint32_t dst_crc = 0;
-		result = vulkan.vkAssertBuffer(vulkan.device, dst.buffer, 0, VK_WHOLE_SIZE, &dst_crc, "nested dst buffer");
+		const VkUpdateBufferInfoARM dst_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, dst.buffer, 0, VK_WHOLE_SIZE, nullptr};
+		result = vulkan.vkAssertBuffer(vulkan.device, &dst_info, &dst_crc, "nested dst buffer");
 		check(result);
 		assert(dst_crc == expected_crc);
 		(void)dst_crc;

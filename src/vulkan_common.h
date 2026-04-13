@@ -90,7 +90,9 @@ struct vulkan_setup_t
 
 	// trace helpers extension
 	PFN_vkAssertBufferARM vkAssertBuffer = nullptr;
+	PFN_vkAssertMemoryARM vkAssertMemory = nullptr;
 	PFN_vkCmdUpdateBuffer2ARM vkCmdUpdateBuffer2 = nullptr;
+	PFN_vkCmdUpdateMemory2ARM vkCmdUpdateMemory2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
 
 	uint32_t apiVersion = VK_API_VERSION_1_1;

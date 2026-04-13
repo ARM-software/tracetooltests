@@ -168,7 +168,8 @@ int main(int argc, char** argv)
 		if (vulkan.vkAssertBuffer)
 		{
 			uint32_t crc = 0;
-			ret = vulkan.vkAssertBuffer(vulkan.device, output_buffer.getHandle(), 0, VK_WHOLE_SIZE, &crc, "output buffer");
+			const VkUpdateBufferInfoARM output_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, output_buffer.getHandle(), 0, VK_WHOLE_SIZE, nullptr};
+			ret = vulkan.vkAssertBuffer(vulkan.device, &output_info, &crc, "output buffer");
 			assert(ret == VK_SUCCESS);
 		}
 	}

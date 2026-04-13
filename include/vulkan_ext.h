@@ -11,6 +11,7 @@
 // Hope these random constants remain unused
 #define VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM (VkStructureType)1000998001
 #define VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM (VkStructureType)1000998000
+#define VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM (VkStructureType)1000998002
 
 typedef enum VkMarkingTypeARM {
 	VK_MARKING_TYPE_DEVICE_ADDRESS_ARM = 0, // marks a device address in memory
@@ -29,15 +30,17 @@ typedef union VkMarkingSubTypeARM
 {
 	VkDescriptorType descriptorType;
 	VkDeviceAddressTypeARM deviceAddressType;
-	uint64_t reserved; // to pad to largest possible type, shall be zero if shader group descriptor marking type
+	VkShaderGroupShaderKHR shaderGroupType;
+	uint64_t reserved; // to pad to largest possible type
 } VkMarkingSubTypeARM;
 
 // Mark where in memory device addresses, shader group handles, descriptors or descriptor metainformation are
 // stored, as they may need to be remapped for trace replay.
 // Passed to the VkPipelineShaderStageCreateInfo of vkCreate*Pipelines for specialization constants,
-// vkCmdPushConstants2KHR for push constants, vkCmdUpdateBuffer2ARM for commandbuffer buffer updates,
-// or vkFlushMappedMemoryRanges for mapped memory buffer updates. When used with vkCmdPushConstants2KHR,
-// offsets given here are relative to the start of its dstOffset.
+// vkCmdPushConstants2KHR for push constants, vkCmdUpdateBuffer2ARM or vkCmdUpdateMemory2ARM for commandbuffer updates,
+// or vkFlushMappedMemoryRanges for mapped memory updates. When used with vkCmdPushConstants2KHR,
+// offsets given here are relative to the start of its dstOffset, and when used with vkCmdUpdateMemory2ARM they are
+// relative to the start of pDstRange->address.
 typedef struct VkMarkedOffsetsARM
 {
 	VkStructureType sType; // must be VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM
@@ -47,8 +50,6 @@ typedef struct VkMarkedOffsetsARM
 	const VkMarkingSubTypeARM* pSubTypes; // the subtype of the marking
 	const VkDeviceSize* pOffsets; // offsets into memory to items we want to mark
 } VkMarkedOffsetsARM;
-
-typedef VkFlags VkUpdateBufferInfoFlags;
 
 typedef struct VkUpdateBufferInfoARM
 {
@@ -60,13 +61,32 @@ typedef struct VkUpdateBufferInfoARM
 	const void* pData; // must be null if dataSize is zero
 } VkUpdateBufferInfoARM;
 
+typedef struct VkUpdateMemoryInfoARM
+{
+	VkStructureType sType; // must be VK_STRUCTURE_TYPE_UPDATE_MEMORY_INFO_ARM
+	const void* pNext;
+	const VkDeviceAddressRangeKHR* pDstRange;
+	VkAddressCommandFlagsKHR dstFlags;
+	VkDeviceSize dataSize; // size of data payload in pData
+	const void* pData; // must be null if dataSize is zero
+} VkUpdateMemoryInfoARM;
+
 // Adding a version 2 of vkCmdUpdateBuffer that tools can upgrade to since the original lacks a pNext chain, and we may want to add
-// a remap struct. The 'flags' member of pInfo must be zero.
+// a remap struct.
 typedef void (VKAPI_PTR *PFN_vkCmdUpdateBuffer2ARM)(VkCommandBuffer commandBuffer, const VkUpdateBufferInfoARM* pInfo);
 
+// Adding a version 2 of vkCmdUpdateMemoryKHR that tools can upgrade to which has a pNext chain.
+typedef void (VKAPI_PTR *PFN_vkCmdUpdateMemory2ARM)(VkCommandBuffer commandBuffer, const VkUpdateMemoryInfoARM* pInfo);
+
 // Request validation of buffer contents by an Adler32 checksum. The command will return the checksum, and when stored in an API trace,
-// the trace replayer may verify that the buffer contents are correct according to the stored checksum. 'size' may be VK_WHOLE_SIZE.
-typedef VkResult (VKAPI_PTR *PFN_vkAssertBufferARM)(VkDevice device, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t* checksum, const char* comment);
+// the trace replayer may verify that the buffer contents are correct according to the stored checksum. 'dataSize' may be VK_WHOLE_SIZE.
+// If `pData` is not null, it must contain the correct output for the asserted data with the same size. This can be useful if the asserted
+// buffer is device-generated. If it has a `VkMarkedOffsetsARM` in its `pNext` chain, this provides information on where marked content
+// is placed, which may need to be reverted to capture values by tools in order to correctly checksum the memory region.
+typedef VkResult (VKAPI_PTR *PFN_vkAssertBufferARM)(VkDevice device, const VkUpdateBufferInfoARM* pInfo, uint32_t* checksum, const char* comment);
+
+// As above, just for memory ranges instead of buffers.
+typedef VkResult (VKAPI_PTR *PFN_vkAssertMemoryARM)(VkDevice device, const VkUpdateMemoryInfoARM* pInfo, uint32_t* checksum, const char* comment);
 
 // -- VK_ARM_explicit_host_updates
 //

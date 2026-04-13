@@ -846,8 +846,9 @@ static void verify_output(const vulkan_setup_t& vulkan, const Resources& resourc
 	if (vulkan.vkAssertBuffer)
 	{
 		uint32_t checksum = 0;
+		const VkUpdateBufferInfoARM readback_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, resources.readback_buffer.handle, 0, VK_WHOLE_SIZE, nullptr};
 		VkResult result = vulkan.vkAssertBuffer(
-			vulkan.device, resources.readback_buffer.handle, 0, VK_WHOLE_SIZE, &checksum, "anki scene2 color readback");
+			vulkan.device, &readback_info, &checksum, "anki scene2 color readback");
 		check(result);
 		printf("anki_scene2 checksum: 0x%08x\n", checksum);
 	}

@@ -106,13 +106,15 @@ int main(int argc, char** argv)
 	{
 		uint32_t crc_child_1 = 0;
 		uint32_t crc_child_2 = 0;
-		result = vulkan.vkAssertBuffer(vulkan.device, child_1, 0, VK_WHOLE_SIZE, &crc_child_1, "child_1 buffer");
+		const VkUpdateBufferInfoARM child_1_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, child_1, 0, VK_WHOLE_SIZE, nullptr};
+		result = vulkan.vkAssertBuffer(vulkan.device, &child_1_info, &crc_child_1, "child_1 buffer");
 		assert(result == VK_SUCCESS);
 		assert(crc_child_1 != orig_crc_child_1);
 		assert(crc_child_1 == latest_crc_child_1);
 		(void)crc_child_1;
 		(void)result;
-		result = vulkan.vkAssertBuffer(vulkan.device, child_2, 0, VK_WHOLE_SIZE, &crc_child_2, "child_2 buffer");
+		const VkUpdateBufferInfoARM child_2_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, child_2, 0, VK_WHOLE_SIZE, nullptr};
+		result = vulkan.vkAssertBuffer(vulkan.device, &child_2_info, &crc_child_2, "child_2 buffer");
 		assert(result == VK_SUCCESS);
 		assert(crc_child_2 == orig_crc_child_2);
 		(void)crc_child_2;

@@ -608,10 +608,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (vulkan.has_trace_helpers)
 	{
 		vulkan.vkCmdUpdateBuffer2 = reinterpret_cast<PFN_vkCmdUpdateBuffer2ARM>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateBuffer2ARM"));
+		vulkan.vkCmdUpdateMemory2 = reinterpret_cast<PFN_vkCmdUpdateMemory2ARM>(vkGetDeviceProcAddr(vulkan.device, "vkCmdUpdateMemory2ARM"));
 	}
 	if (vulkan.has_trace_helpers && p__sanity > 0)
 	{
 		vulkan.vkAssertBuffer = (PFN_vkAssertBufferARM)vkGetDeviceProcAddr(vulkan.device, "vkAssertBufferARM");
+		vulkan.vkAssertMemory = (PFN_vkAssertMemoryARM)vkGetDeviceProcAddr(vulkan.device, "vkAssertMemoryARM");
 	}
 
 	if (req_maintenance_6)
