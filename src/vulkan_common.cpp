@@ -8,6 +8,7 @@
 
 static VkPhysicalDeviceMemoryProperties memory_properties = {};
 static int no_explicit = 0;
+static int no_trace_helpers = 0;
 
 static VkBool32 messenger_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
@@ -98,7 +99,8 @@ static void print_usage(const vulkan_req_t& reqs)
 	if (reqs.minApiVersion <= VK_API_VERSION_1_2 && reqs.maxApiVersion >= VK_API_VERSION_1_2) printf("\t2 - Vulkan 1.2\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_3 && reqs.maxApiVersion >= VK_API_VERSION_1_3) printf("\t3 - Vulkan 1.3\n");
 	if (reqs.minApiVersion <= VK_API_VERSION_1_4 && reqs.maxApiVersion >= VK_API_VERSION_1_4) printf("\t4 - Vulkan 1.4\n");
-	printf("-neu/--no-explicit     Do not use the explicit host updates extension (default %d)\n", no_explicit);
+	printf("-ne/--no-explicit      Do not use the explicit host updates extension\n");
+	printf("-nt/--no-trace-helpers Do not use the trace helpers extension\n");
 	if (reqs.usage) reqs.usage();
 	exit(1);
 }
@@ -232,9 +234,13 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		{
 			vulkan.garbage_pointers = true;
 		}
-		else if (match(argv[i], "-neu", "--no-explicit"))
+		else if (match(argv[i], "-ne", "--no-explicit"))
 		{
 			no_explicit = 1;
+		}
+		else if (match(argv[i], "-nt", "--no-trace-helpers"))
+		{
+			no_trace_helpers = 1;
 		}
 		else if (match(argv[i], "-V", "--vulkan-variant")) // overrides version req from test itself
 		{
@@ -520,7 +526,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	for (const VkExtensionProperties& s : supported_device_extensions)
 	{
 		// The following two are fake extensions used for testing, see README.md for documentation
-		if (strcmp(s.extensionName, VK_ARM_TRACE_HELPERS_EXTENSION_NAME) == 0)
+		if (strcmp(s.extensionName, VK_ARM_TRACE_HELPERS_EXTENSION_NAME) == 0 && no_trace_helpers == 0)
 		{
 			enabledExtensions.push_back(s.extensionName);
 			vulkan.has_trace_helpers = true;
