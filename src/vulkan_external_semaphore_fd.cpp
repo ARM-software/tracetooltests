@@ -145,7 +145,8 @@ int main(int argc, char** argv)
 	signal_timeline(vulkan, exported_semaphore, 1);
 	result = vkWaitForFences(vulkan.device, 1, &first_wait_fence, VK_TRUE, UINT64_MAX);
 	check(result);
-	assert(get_timeline_value(vulkan, imported_semaphore) == 1);
+	uint64_t r64 = get_timeline_value(vulkan, imported_semaphore);
+	assert(r64 == 1);
 
 	test_marker(vulkan, "second imported wait must continue to track the shared payload");
 	VkFence second_wait_fence = create_fence(vulkan, "second-wait-fence");
@@ -157,7 +158,8 @@ int main(int argc, char** argv)
 	signal_timeline(vulkan, imported_semaphore, 2);
 	result = vkWaitForFences(vulkan.device, 1, &second_wait_fence, VK_TRUE, UINT64_MAX);
 	check(result);
-	assert(get_timeline_value(vulkan, exported_semaphore) == 2);
+	r64 = get_timeline_value(vulkan, exported_semaphore);
+	assert(r64 == 2);
 
 	vkDestroyFence(vulkan.device, first_wait_fence, nullptr);
 	vkDestroyFence(vulkan.device, second_wait_fence, nullptr);
