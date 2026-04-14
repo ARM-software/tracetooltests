@@ -675,19 +675,7 @@ static void draw_and_readback(const vulkan_setup_t& vulkan, Resources& resources
 	check(vkResetCommandBuffer(command_buffer, 0));
 	check(vkBeginCommandBuffer(command_buffer, &begin_info));
 
-	if (vulkan.vkCmdUpdateBuffer2)
-	{
-		VkUpdateBufferInfoARM update_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr};
-		update_info.dstBuffer = resources.frame_config_buffer.handle;
-		update_info.dstOffset = 0;
-		update_info.dataSize = sizeof(FrameConfig);
-		update_info.pData = &frame_config;
-		vulkan.vkCmdUpdateBuffer2(command_buffer, &update_info);
-	}
-	else
-	{
-		vkCmdUpdateBuffer(command_buffer, resources.frame_config_buffer.handle, 0, sizeof(FrameConfig), &frame_config);
-	}
+	vkCmdUpdateBuffer(command_buffer, resources.frame_config_buffer.handle, 0, sizeof(FrameConfig), &frame_config);
 
 	VkBufferMemoryBarrier frame_barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr};
 	frame_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -828,7 +816,8 @@ static void draw_and_readback(const vulkan_setup_t& vulkan, Resources& resources
 static void verify_output(const vulkan_setup_t& vulkan, const Resources& resources)
 {
 	void* mapped = nullptr;
-	check(vkMapMemory(vulkan.device, resources.readback_buffer.memory, 0, VK_WHOLE_SIZE, 0, &mapped));
+	VkResult result = vkMapMemory(vulkan.device, resources.readback_buffer.memory, 0, VK_WHOLE_SIZE, 0, &mapped);
+	check(result);
 
 	const uint8_t* bytes = static_cast<const uint8_t*>(mapped);
 	bool found_non_clear = false;
@@ -842,16 +831,6 @@ static void verify_output(const vulkan_setup_t& vulkan, const Resources& resourc
 	}
 	assert(found_non_clear && "Expected the ray query pass to modify at least one pixel");
 	vkUnmapMemory(vulkan.device, resources.readback_buffer.memory);
-
-	if (vulkan.vkAssertBuffer)
-	{
-		uint32_t checksum = 0;
-		const VkUpdateBufferInfoARM readback_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, resources.readback_buffer.handle, 0, VK_WHOLE_SIZE, nullptr};
-		VkResult result = vulkan.vkAssertBuffer(
-			vulkan.device, &readback_info, &checksum, "anki scene2 color readback");
-		check(result);
-		printf("anki_scene2 checksum: 0x%08x\n", checksum);
-	}
 }
 
 static void cleanup(const vulkan_setup_t& vulkan, Resources& resources)

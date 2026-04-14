@@ -722,6 +722,7 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	}
 
 	check(vkAllocateMemory(vulkan.device, &memory_allocate_info, nullptr, &buffer.memory));
+	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
 
 	if (data)
 	{
@@ -734,7 +735,6 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 		}
 		vkUnmapMemory(vulkan.device, buffer.memory);
 	}
-	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
 	return buffer;
 }
 
