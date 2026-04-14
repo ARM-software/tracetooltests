@@ -29,7 +29,7 @@ int get_env_int(const char* name, int fallback)
 }
 
 uint_fast32_t p__loops = get_env_int("TOOLSTEST_TIMES", 10);
-uint_fast8_t p__sanity = get_env_int("TOOLSTEST_SANITY", 0);
+uint_fast8_t p__sanity = get_env_int("TOOLSTEST_SANITY", 1);
 uint_fast8_t p__debug_level = get_env_int("TOOLSTEST_DEBUG", 0);
 uint_fast8_t p__validation = get_env_int("TOOLSTEST_VALIDATION", 0);
 int_fast8_t p__device = get_env_int("TOOLSTEST_DEVICE", -1);
