@@ -268,6 +268,7 @@ vulkan_test(compute_shader_object)
 vulkan_test(compute_shader_module_identifier)
 
 vulkan_test(compute_descriptor_buffer)
+vulkan_test(descriptor_heap_1)
 vulkan_test(descriptor_buffer_mutable_type)
 
 vulkan_test(compute_aliasing)

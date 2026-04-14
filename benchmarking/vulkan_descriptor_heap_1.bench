@@ -1,0 +1,1 @@
+{ "name": "vulkan_descriptor_heap_1", "description": "Minimal test for VK_EXT_descriptor_heap" }
