@@ -26,6 +26,47 @@ struct PushConstants
 	uint32_t value;
 };
 
+static void push_address_constants(const vulkan_setup_t& vulkan, VkCommandBuffer cmd, VkPipelineLayout layout, const PushConstants& push_constants)
+{
+	if (!vulkan.has_trace_helpers)
+	{
+		vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(push_constants), &push_constants);
+		return;
+	}
+
+	const VkDeviceSize marked_offset = 0;
+	const VkMarkingTypeARM marking_type = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
+	VkMarkingSubTypeARM subtype = {};
+	subtype.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM;
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	markings.count = 1;
+	markings.pOffsets = &marked_offset;
+	markings.pMarkingTypes = &marking_type;
+	markings.pSubTypes = &subtype;
+
+	if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+	{
+		VkPushConstantsInfo push_info{VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO, &markings};
+		push_info.layout = layout;
+		push_info.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		push_info.offset = 0;
+		push_info.size = sizeof(push_constants);
+		push_info.pValues = &push_constants;
+		vkCmdPushConstants2(cmd, &push_info);
+	}
+	else
+	{
+		assert(vulkan.vkCmdPushConstants2);
+		VkPushConstantsInfoKHR push_info{VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, &markings};
+		push_info.layout = layout;
+		push_info.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+		push_info.offset = 0;
+		push_info.size = sizeof(push_constants);
+		push_info.pValues = &push_constants;
+		vulkan.vkCmdPushConstants2(cmd, &push_info);
+	}
+}
+
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
@@ -33,6 +74,7 @@ int main(int argc, char** argv)
 	reqs.minApiVersion = VK_API_VERSION_1_2;
 	reqs.bufferDeviceAddress = true;
 	reqs.reqfeat12.bufferDeviceAddress = VK_TRUE;
+	reqs.device_extensions.push_back("VK_KHR_maintenance6");
 
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_address_remap_test_1", reqs);
 	int ret = 0;
@@ -126,7 +168,7 @@ int main(int argc, char** argv)
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->getHandle());
 	VkDescriptorSet set_handle = descriptor_set->getHandle();
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout->getHandle(), 0, 1, &set_handle, 0, nullptr);
-	vkCmdPushConstants(cmd, pipeline_layout->getHandle(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants), &push_constants);
+	push_address_constants(vulkan, cmd, pipeline_layout->getHandle(), push_constants);
 	const uint32_t group_count = (kOffsetCount + kWorkgroupSize - 1) / kWorkgroupSize;
 	vkCmdDispatch(cmd, group_count, 1, 1);
 	command_buffer->bufferMemoryBarrier(output_buffer, 0, output_buffer.getSize(),
