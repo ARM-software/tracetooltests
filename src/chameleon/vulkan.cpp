@@ -63,6 +63,7 @@ static const std::vector<VkExtensionProperties> additional_device_extensions =
 {
 	VkExtensionProperties { "VK_ARM_tensors", 1 },
 	VkExtensionProperties { "VK_ARM_data_graph", 1 },
+	VkExtensionProperties { "VK_EXT_descriptor_heap", 1 },
 };
 
 #ifndef FAST
@@ -388,6 +389,32 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 	readVulkanFeatures(deviceRoot["features"], gpu.features);
 	assert(gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2) != gpu.features.end());
 
+	if (gpu.extensions.count(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME) != 0)
+	{
+		VkPhysicalDeviceDescriptorHeapFeaturesEXT* feature = nullptr;
+		auto feature_it = gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT);
+		if (feature_it == gpu.features.end())
+		{
+			feature = reinterpret_cast<VkPhysicalDeviceDescriptorHeapFeaturesEXT*>(malloc(sizeof(VkPhysicalDeviceDescriptorHeapFeaturesEXT)));
+			assert(feature);
+			gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT] = { feature, sizeof(VkPhysicalDeviceDescriptorHeapFeaturesEXT) };
+		}
+		else
+		{
+			feature = reinterpret_cast<VkPhysicalDeviceDescriptorHeapFeaturesEXT*>(feature_it->second.first);
+		}
+		*feature = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT,
+			nullptr,
+			VK_TRUE,
+			VK_FALSE
+		};
+		if (deviceRoot["features"].isMember("VkPhysicalDeviceDescriptorHeapFeaturesEXT"))
+		{
+			readVkPhysicalDeviceDescriptorHeapFeaturesEXT(deviceRoot["features"]["VkPhysicalDeviceDescriptorHeapFeaturesEXT"], *feature);
+		}
+	}
+
 	// Force support for this, since it is really useful for learning
 	reinterpret_cast<VkPhysicalDeviceFeatures*>(gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2].first)->pipelineStatisticsQuery = true;
 
@@ -454,6 +481,50 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 			reinterpret_cast<VkPhysicalDeviceVulkan12Properties*>(malloc(property_size));
 		readVkPhysicalDeviceVulkan12Properties(root, *property);
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES] = { property, property_size };
+	}
+
+	if (gpu.extensions.count(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME) != 0)
+	{
+		const size_t property_size = sizeof(VkPhysicalDeviceDescriptorHeapPropertiesEXT);
+		VkPhysicalDeviceDescriptorHeapPropertiesEXT* property = nullptr;
+		auto property_it = gpu.extendedProperties.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT);
+		if (property_it == gpu.extendedProperties.end())
+		{
+			property = reinterpret_cast<VkPhysicalDeviceDescriptorHeapPropertiesEXT*>(malloc(property_size));
+			assert(property);
+			gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT] = { property, property_size };
+		}
+		else
+		{
+			property = reinterpret_cast<VkPhysicalDeviceDescriptorHeapPropertiesEXT*>(property_it->second.first);
+		}
+		*property = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT,
+			nullptr,
+			32,        // samplerHeapAlignment
+			32,        // resourceHeapAlignment
+			1 << 20,   // maxSamplerHeapSize
+			1 << 20,   // maxResourceHeapSize
+			0,         // minSamplerHeapReservedRange
+			0,         // minSamplerHeapReservedRangeWithEmbedded
+			0,         // minResourceHeapReservedRange
+			32,        // samplerDescriptorSize
+			32,        // imageDescriptorSize
+			32,        // bufferDescriptorSize
+			32,        // samplerDescriptorAlignment
+			32,        // imageDescriptorAlignment
+			32,        // bufferDescriptorAlignment
+			256,       // maxPushDataSize
+			0,         // imageCaptureReplayOpaqueDataSize
+			0,         // maxDescriptorHeapEmbeddedSamplers
+			0,         // samplerYcbcrConversionCount
+			VK_FALSE,  // sparseDescriptorHeaps
+			VK_FALSE   // protectedDescriptorHeaps
+		};
+		if (propertiesRoot.isMember("VkPhysicalDeviceDescriptorHeapPropertiesEXT"))
+		{
+			readVkPhysicalDeviceDescriptorHeapPropertiesEXT(propertiesRoot["VkPhysicalDeviceDescriptorHeapPropertiesEXT"], *property);
+		}
 	}
 
 	if (propertiesRoot.isMember("VkPhysicalDeviceAccelerationStructurePropertiesKHR"))
@@ -10035,7 +10106,32 @@ VKAPI_ATTR VkDeviceSize VKAPI_CALL vkGetPhysicalDeviceDescriptorSizeEXT(
 	ENTRY(vkGetPhysicalDeviceDescriptorSizeEXT);
 	CLOG("physicalDevice=%p, descriptorType=%u", physicalDevice, descriptorType);
 	cVkPhysicalDevice* cphysicalDevice = physicaldevice_cast(physicalDevice);
-	return sizeof(uint64_t);
+	auto property_it = cphysicalDevice->extendedProperties.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT);
+	if (property_it == cphysicalDevice->extendedProperties.end())
+	{
+		return sizeof(uint64_t);
+	}
+	const VkPhysicalDeviceDescriptorHeapPropertiesEXT* props =
+		reinterpret_cast<const VkPhysicalDeviceDescriptorHeapPropertiesEXT*>(property_it->second.first);
+	switch (descriptorType)
+	{
+	case VK_DESCRIPTOR_TYPE_SAMPLER:
+		return props->samplerDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+	case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+	case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+	case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+		return props->imageDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+	case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+	case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+	case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+	case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+	case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+		return props->bufferDescriptorSize;
+	default:
+		return props->bufferDescriptorSize;
+	}
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkWriteSamplerDescriptorsEXT(
@@ -10047,6 +10143,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkWriteSamplerDescriptorsEXT(
 	ENTRY(vkWriteSamplerDescriptorsEXT);
 	CLOG("device=%p, samplerCount=%u, pSamplers=%p, pDescriptors=%p", device, samplerCount, pSamplers, pDescriptors);
 	cVkDevice* cdevice = device_cast(device);
+	assert(pSamplers || samplerCount == 0);
+	assert(pDescriptors || samplerCount == 0);
+	for (uint32_t i = 0; i < samplerCount; i++)
+	{
+		assert(pDescriptors[i].address || pDescriptors[i].size == 0);
+		if (pDescriptors[i].address && pDescriptors[i].size)
+		{
+			memset(pDescriptors[i].address, 0x5a, pDescriptors[i].size);
+		}
+	}
 	return VK_SUCCESS;
 }
 
@@ -10059,6 +10165,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkWriteResourceDescriptorsEXT(
 	ENTRY(vkWriteResourceDescriptorsEXT);
 	CLOG("device=%p, resourceCount=%u, pResources=%p, pDescriptors=%p", device, resourceCount, pResources, pDescriptors);
 	cVkDevice* cdevice = device_cast(device);
+	assert(pResources || resourceCount == 0);
+	assert(pDescriptors || resourceCount == 0);
+	for (uint32_t i = 0; i < resourceCount; i++)
+	{
+		assert(pDescriptors[i].address || pDescriptors[i].size == 0);
+		if (pDescriptors[i].address && pDescriptors[i].size)
+		{
+			memset(pDescriptors[i].address, 0xa5, pDescriptors[i].size);
+		}
+	}
 	return VK_SUCCESS;
 }
 
@@ -10068,8 +10184,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindSamplerHeapEXT(
 {
 	ENTRY(vkCmdBindSamplerHeapEXT);
 	CMDLOG("commandBuffer=%p, pBindInfo=%p", commandBuffer, pBindInfo);
-	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
-	TBD_UNSUPPORTED;
+	assert(pBindInfo);
+	assert(pBindInfo->sType == VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBindSamplerHeapEXT, commandBuffer, MetricUnit(1));
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindResourceHeapEXT(
@@ -10078,8 +10195,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindResourceHeapEXT(
 {
 	ENTRY(vkCmdBindResourceHeapEXT);
 	CMDLOG("commandBuffer=%p, pBindInfo=%p", commandBuffer, pBindInfo);
-	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
-	TBD_UNSUPPORTED;
+	assert(pBindInfo);
+	assert(pBindInfo->sType == VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBindResourceHeapEXT, commandBuffer, MetricUnit(1));
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdPushDataEXT(
@@ -10088,8 +10206,10 @@ VKAPI_ATTR void VKAPI_CALL vkCmdPushDataEXT(
 {
 	ENTRY(vkCmdPushDataEXT);
 	CMDLOG("commandBuffer=%p, pPushDataInfo=%p", commandBuffer, pPushDataInfo);
-	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
-	TBD_UNSUPPORTED;
+	assert(pPushDataInfo);
+	assert(pPushDataInfo->sType == VK_STRUCTURE_TYPE_PUSH_DATA_INFO_EXT);
+	assert(pPushDataInfo->data.address || pPushDataInfo->data.size == 0);
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdPushDataEXT, commandBuffer, MetricUnit(1));
 }
 
 // VK_EXT_descriptor_buffer_density_map + VK_EXT_descriptor_buffer
