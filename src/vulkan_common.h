@@ -173,7 +173,7 @@ void testFlushMemory(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDevi
 void testFlushMemoryDeviceAddresses(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
 		const std::vector<VkDeviceSize>& marked_offsets, VkDeviceAddressTypeARM device_address_type, bool extra = true);
 void testFlushMemoryShaderGroupHandles(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
-		const std::vector<VkDeviceSize>& marked_offsets, bool extra = true);
+		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkShaderGroupShaderKHR>& shader_group_types, bool extra = true);
 void testFlushMemoryDescriptors(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
 		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkDescriptorType>& descriptor_types, bool extra = true);
 

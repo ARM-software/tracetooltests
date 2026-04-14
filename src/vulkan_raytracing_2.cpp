@@ -336,7 +336,15 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 		resources.sbt_buffer.memory,
 		0,
 		sbt_size,
-		{raygen_offset, miss_offset, hit_offset, callable_offset, callable_offset + entry_size, callable_offset + entry_size * 2});
+		{raygen_offset, miss_offset, hit_offset, callable_offset, callable_offset + entry_size, callable_offset + entry_size * 2},
+		{
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_CLOSEST_HIT_KHR,
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+		});
 	vkUnmapMemory(vulkan.device, resources.sbt_buffer.memory);
 
 	const VkDeviceAddress sbt_address = acceleration_structures::get_buffer_device_address(vulkan, resources.sbt_buffer.handle);

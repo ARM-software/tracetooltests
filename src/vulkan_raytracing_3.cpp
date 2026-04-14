@@ -320,7 +320,17 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 	memcpy(mapped + raygen_offset, handle_storage.data() + handle_size * 0, handle_size);
 	memcpy(mapped + miss_offset, handle_storage.data() + handle_size * 1, handle_size);
 	memcpy(mapped + hit_offset, handle_storage.data() + handle_size * 2, handle_size);
-	testFlushMemoryShaderGroupHandles(vulkan, resources.sbt_buffer.memory, 0, sbt_size, {raygen_offset, miss_offset, hit_offset});
+	testFlushMemoryShaderGroupHandles(
+		vulkan,
+		resources.sbt_buffer.memory,
+		0,
+		sbt_size,
+		{raygen_offset, miss_offset, hit_offset},
+		{
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_GENERAL_KHR,
+			VK_SHADER_GROUP_SHADER_CLOSEST_HIT_KHR,
+		});
 	vkUnmapMemory(vulkan.device, resources.sbt_buffer.memory);
 
 	const VkDeviceAddress sbt_address = acceleration_structures::get_buffer_device_address(vulkan, resources.sbt_buffer.handle);

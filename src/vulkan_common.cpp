@@ -1195,13 +1195,15 @@ void testFlushMemoryDeviceAddresses(const vulkan_setup_t& vulkan, VkDeviceMemory
 }
 
 void testFlushMemoryShaderGroupHandles(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
-		const std::vector<VkDeviceSize>& marked_offsets, bool extra)
+		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkShaderGroupShaderKHR>& shader_group_types, bool extra)
 {
 	assert(!marked_offsets.empty());
+	assert(marked_offsets.size() == shader_group_types.size());
 	VkMarkedOffsetsARM* markings_ptr = nullptr;
 	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
 	std::vector<VkMarkingTypeARM> marking_types(marked_offsets.size(), VK_MARKING_TYPE_SHADER_GROUP_HANDLE_ARM);
 	std::vector<VkMarkingSubTypeARM> sub_types(marked_offsets.size());
+	for (size_t i = 0; i < shader_group_types.size(); i++) sub_types[i].shaderGroupType = shader_group_types[i];
 	if (vulkan.has_trace_helpers)
 	{
 		markings.count = static_cast<uint32_t>(marked_offsets.size());

@@ -630,7 +630,13 @@ void prepare_shader_binding_table(const vulkan_setup_t & vulkan, Resources & res
 	void * mapped = nullptr;
 	vkMapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory, 0, handle_size, 0, &mapped);
 	memcpy(mapped, shader_handle_storage.data(), handle_size);
-	testFlushMemoryShaderGroupHandles(vulkan, resources.ray_gen_shader_binding_table.memory, 0, handle_size, {0});
+	testFlushMemoryShaderGroupHandles(
+		vulkan,
+		resources.ray_gen_shader_binding_table.memory,
+		0,
+		handle_size,
+		{0},
+		{VK_SHADER_GROUP_SHADER_GENERAL_KHR});
 	vkUnmapMemory(vulkan.device, resources.ray_gen_shader_binding_table.memory);
 }
 
