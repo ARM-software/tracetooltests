@@ -162,7 +162,35 @@ int main(int argc, char** argv)
 	result = vkBeginCommandBuffer(secondary_parent, &secondary_begin);
 	check(result);
 	vkCmdExecuteCommands(secondary_parent, 1, &secondary_child);
+
+	VkBufferMemoryBarrier mid_barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr };
+	mid_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	mid_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	mid_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	mid_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	mid_barrier.buffer = mid.buffer;
+	mid_barrier.offset = 0;
+	mid_barrier.size = VK_WHOLE_SIZE;
+	vkCmdPipelineBarrier(secondary_parent,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0, 0, nullptr, 1, &mid_barrier, 0, nullptr);
+
 	vkCmdCopyBuffer(secondary_parent, mid.buffer, dst.buffer, 1, &copy_region);
+
+	VkBufferMemoryBarrier dst_barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr };
+	dst_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	dst_barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+	dst_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	dst_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	dst_barrier.buffer = dst.buffer;
+	dst_barrier.offset = 0;
+	dst_barrier.size = VK_WHOLE_SIZE;
+	vkCmdPipelineBarrier(secondary_parent,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_HOST_BIT,
+		0, 0, nullptr, 1, &dst_barrier, 0, nullptr);
+
 	result = vkEndCommandBuffer(secondary_parent);
 	check(result);
 
