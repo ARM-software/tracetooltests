@@ -83,6 +83,15 @@ static int apiversion2variant(uint32_t apiversion)
 	return -1;
 }
 
+static bool has_blocked_driver(const vulkan_req_t& reqs, VkDriverId driver_id)
+{
+	for (VkDriverId blocked_driver : reqs.blocked_drivers)
+	{
+		if (blocked_driver == driver_id) return true;
+	}
+	return false;
+}
+
 static void print_usage(const vulkan_req_t& reqs)
 {
 	printf("Usage:\n");
@@ -475,15 +484,63 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		if (reqs.samplerAnisotropy) assert(vulkan.hasfeat2.features.samplerAnisotropy);
 	}
 
+	std::vector<const char*> enabledExtensions;
+	uint32_t propertyCount = 0;
+	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, nullptr);
+	assert(result == VK_SUCCESS);
+	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);
+	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
+	assert(result == VK_SUCCESS);
+
+	bool has_driver_properties = false;
+	if (!reqs.blocked_drivers.empty())
+	{
+		has_driver_properties = device_properties.apiVersion >= VK_API_VERSION_1_2;
+		for (const VkExtensionProperties& extension : supported_device_extensions)
+		{
+			if (strcmp(extension.extensionName, VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME) == 0)
+			{
+				has_driver_properties = true;
+				break;
+			}
+		}
+
+		if (!has_driver_properties)
+		{
+			printf("Driver ID blocking requested for %s, but the selected Vulkan driver does not expose driver properties.\n", testname.c_str());
+			exit(77);
+		}
+	}
+
 	if (VK_VERSION_MAJOR(reqs.apiVersion) >= 1 && VK_VERSION_MINOR(reqs.apiVersion) >= 1)
 	{
 		VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, nullptr };
+		VkPhysicalDeviceDriverProperties driver_properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, nullptr };
 		vulkan.device_ray_tracing_pipeline_properties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, nullptr};
 		properties.pNext = &vulkan.device_ray_tracing_pipeline_properties;
+		if (has_driver_properties)
+		{
+			driver_properties.pNext = properties.pNext;
+			properties.pNext = &driver_properties;
+		}
 		vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
 		vulkan.device_properties = properties.properties;
+		if (has_driver_properties && has_blocked_driver(reqs, driver_properties.driverID))
+		{
+			printf("Skipping %s on blocked Vulkan driver ID %d (%s: %s)\n",
+			       testname.c_str(), driver_properties.driverID, driver_properties.driverName, driver_properties.driverInfo);
+			exit(77);
+		}
 	}
-	else vkGetPhysicalDeviceProperties(vulkan.physical, &vulkan.device_properties); // 1.0 version
+	else
+	{
+		vkGetPhysicalDeviceProperties(vulkan.physical, &vulkan.device_properties); // 1.0 version
+		if (!reqs.blocked_drivers.empty())
+		{
+			printf("Driver ID blocking requested for %s, but this test is running in Vulkan 1.0 mode.\n", testname.c_str());
+			exit(77);
+		}
+	}
 
 	uint32_t layer_count = 0;
 	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -512,14 +569,6 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
 		deviceInfo.pNext = reqs.extension_features;
 	}
-
-	std::vector<const char*> enabledExtensions;
-	uint32_t propertyCount = 0;
-	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, nullptr);
-	assert(result == VK_SUCCESS);
-	std::vector<VkExtensionProperties> supported_device_extensions(propertyCount);
-	result = vkEnumerateDeviceExtensionProperties(vulkan.physical, nullptr, &propertyCount, supported_device_extensions.data());
-	assert(result == VK_SUCCESS);
 
 	VkPhysicalDeviceExplicitHostUpdatesFeaturesARM explicit_updates_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXPLICIT_HOST_UPDATES_FEATURES_ARM, nullptr };
 

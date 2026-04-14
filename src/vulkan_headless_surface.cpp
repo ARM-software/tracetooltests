@@ -57,7 +57,9 @@ int main(int argc, char** argv)
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.instance_extensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
+	reqs.instance_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	reqs.blocked_drivers.push_back(VK_DRIVER_ID_NVIDIA_PROPRIETARY);
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_headless_surface", reqs);
 	VkResult r = VK_SUCCESS;
 

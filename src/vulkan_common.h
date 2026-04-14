@@ -63,6 +63,7 @@ struct vulkan_req_t // Vulkan context requirements
 	uint32_t queues = 1;
 	std::vector<std::string> instance_extensions;
 	std::vector<std::string> device_extensions;
+	std::vector<VkDriverId> blocked_drivers; // if we know a driver is broken for a particular test
 	bool samplerAnisotropy = false;
 	bool bufferDeviceAddress = false;
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
