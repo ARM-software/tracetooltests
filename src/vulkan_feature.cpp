@@ -864,7 +864,15 @@ static void test_ray_tracing_maintenance1_detection()
 {
 	feature_detection* f = reset_detection();
 
-	VkQueryPoolCreateInfo qpci = { VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr, 0, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR, 1, 0 };
+	VkQueryPoolCreateInfo qpci = {
+		VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr, 0, VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR, 1, 0
+	};
+	check_vkCreateQueryPool(VK_NULL_HANDLE, &qpci, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	f = reset_detection();
+
+	qpci.queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR;
 	check_vkCreateQueryPool(VK_NULL_HANDLE, &qpci, nullptr, nullptr);
 	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
 
@@ -889,6 +897,18 @@ static void test_ray_tracing_maintenance1_detection()
 	f = reset_detection();
 
 	check_vkCmdTraceRaysIndirect2KHR(VK_NULL_HANDLE, 0);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+
+	f = reset_detection();
+
+	VkIndirectCommandsLayoutTokenEXT token = { VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_TOKEN_EXT, nullptr };
+	token.type = VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
+	token.offset = 0;
+	VkIndirectCommandsLayoutCreateInfoEXT layout_info = { VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_EXT, nullptr };
+	layout_info.indirectStride = sizeof(VkTraceRaysIndirectCommand2KHR);
+	layout_info.tokenCount = 1;
+	layout_info.pTokens = &token;
+	check_vkCreateIndirectCommandsLayoutEXT(VK_NULL_HANDLE, &layout_info, nullptr, nullptr);
 	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
 }
 

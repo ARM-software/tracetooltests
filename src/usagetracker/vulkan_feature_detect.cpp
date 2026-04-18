@@ -67,6 +67,11 @@ inline bool uses_ray_tracing_maintenance1_access(VkAccessFlags2 access)
 	return (access & VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR) != 0;
 }
 
+inline bool is_ray_tracing_maintenance1_token_type(VkIndirectCommandsTokenTypeEXT type)
+{
+	return type == VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
+}
+
 static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo* info)
 {
 	if (!info) return false;
@@ -96,6 +101,19 @@ static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo
 		if (uses_ray_tracing_maintenance1_stage(barrier.srcStageMask) || uses_ray_tracing_maintenance1_stage(barrier.dstStageMask) ||
 		    uses_ray_tracing_maintenance1_access(barrier.srcAccessMask) || uses_ray_tracing_maintenance1_access(barrier.dstAccessMask))
 			return true;
+	}
+
+	return false;
+}
+
+static bool indirect_commands_layout_uses_ray_tracing_maintenance1(const VkIndirectCommandsLayoutCreateInfoEXT* info)
+{
+	if (!info) return false;
+	assert(info->tokenCount == 0 || info->pTokens != nullptr);
+
+	for (uint32_t i = 0; i < info->tokenCount; i++)
+	{
+		if (is_ray_tracing_maintenance1_token_type(info->pTokens[i].type)) return true;
 	}
 
 	return false;
@@ -904,6 +922,13 @@ VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* p
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) instance->core10.pipelineStatisticsQuery = true;
 	if (is_ray_tracing_maintenance1_query_type(pCreateInfo->queryType)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT) instance->has_VK_EXT_transform_feedback = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndirectCommandsLayoutCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                                 VkIndirectCommandsLayoutEXT* pIndirectCommandsLayout)
+{
+	if (indirect_commands_layout_uses_ray_tracing_maintenance1(pCreateInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	return VK_SUCCESS;
 }
 
