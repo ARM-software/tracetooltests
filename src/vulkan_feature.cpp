@@ -769,18 +769,35 @@ static void test_maintenance1_extension_adjustment()
 
 	std::unordered_set<std::string> maintenance1_exts = { "VK_KHR_maintenance1" };
 	assert(maintenance1_exts.size() == 1);
-	assert_removed_device_extensions(f, maintenance1_exts, { "VK_KHR_maintenance1" });
-	assert(maintenance1_exts.empty());
-
-	maintenance1_exts.insert("VK_KHR_maintenance1");
-	check_vkTrimCommandPoolKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0);
-	assert(f->has_VK_KHR_maintenance1 == true);
 	assert_removed_device_extensions(f, maintenance1_exts, {});
 	assert(maintenance1_exts.size() == 1);
 
-	f->has_VK_KHR_maintenance1.store(false);
+	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr };
+	VkInstanceCreateInfo ici = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, nullptr };
+	ici.pApplicationInfo = &app_info;
+
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	assert(f->requested_instance_api_version.load() == VK_API_VERSION_1_0);
+	assert_removed_device_extensions(f, maintenance1_exts, {});
+	assert(maintenance1_exts.size() == 1);
+
+	f = reset_detection();
+	maintenance1_exts = { "VK_KHR_maintenance1" };
+	app_info.apiVersion = VK_API_VERSION_1_1;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	assert(f->requested_instance_api_version.load() == VK_API_VERSION_1_1);
 	assert_removed_device_extensions(f, maintenance1_exts, { "VK_KHR_maintenance1" });
 	assert(maintenance1_exts.empty());
+
+	f = reset_detection();
+	maintenance1_exts = { "VK_KHR_maintenance1" };
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	app_info.apiVersion = VK_API_VERSION_1_0;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	assert(f->requested_instance_api_version.load() == VK_API_VERSION_1_0);
+	assert_removed_device_extensions(f, maintenance1_exts, {});
+	assert(maintenance1_exts.size() == 1);
 }
 
 static void test_ray_tracing_maintenance1_extension_adjustment()

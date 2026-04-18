@@ -201,6 +201,7 @@ struct feature_detection
 	struct atomicPhysicalDeviceVulkan12Features core12;
 	struct atomicPhysicalDeviceVulkan13Features core13;
 	struct atomicPhysicalDeviceVulkan14Features core14;
+	std::atomic_uint requested_instance_api_version { VK_API_VERSION_1_0 };
 
 	// Extensions
 	std::atomic_bool has_VK_EXT_swapchain_colorspace { false };
@@ -247,6 +248,7 @@ void vulkan_feature_detection_reset();
 
 // These check_* functions have identical function definition as their Vulkan equivalent.
 
+VkResult check_vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkInstance* pInstance);
 VkResult check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule);
 VkResult check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore);
 VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines);

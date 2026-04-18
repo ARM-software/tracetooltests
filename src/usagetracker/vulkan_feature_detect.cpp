@@ -493,7 +493,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
 	if (!has_VK_KHR_copy_commands2) removed.insert(exts.extract("VK_KHR_copy_commands2"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
-	if (!has_VK_KHR_maintenance1) removed.insert(exts.extract("VK_KHR_maintenance1"));
+	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
@@ -669,6 +669,13 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 }
 
 // --- Checking functions. Call these for all these Vulkan commands after they are successfully called, before returning. ---
+
+VkResult check_vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkInstance* pInstance)
+{
+	assert(pCreateInfo && pCreateInfo->sType == VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
+	if (pCreateInfo && pCreateInfo->pApplicationInfo && pCreateInfo->pApplicationInfo->apiVersion != 0) instance->requested_instance_api_version = pCreateInfo->pApplicationInfo->apiVersion;
+	return VK_SUCCESS;
+}
 
 VkResult check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule)
 {
