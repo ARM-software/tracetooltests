@@ -212,6 +212,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_bind_memory2 { false };
 	std::atomic_bool has_VK_KHR_copy_commands2 { false };
 	std::atomic_bool has_VK_KHR_get_memory_requirements2 { false };
+	std::atomic_bool has_VK_KHR_maintenance1 { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_pipeline { false };
@@ -329,6 +330,7 @@ VkResult check_vkMapMemory2(VkDevice device, const VkMemoryMapInfo* pMemoryMapIn
 VkResult check_vkMapMemory2KHR(VkDevice device, const VkMemoryMapInfo* pMemoryMapInfo, void** ppData);
 VkResult check_vkUnmapMemory2(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo);
 VkResult check_vkUnmapMemory2KHR(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo);
+void check_vkTrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags);
 VkDeviceAddress check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 VkDeviceAddress check_vkGetBufferDeviceAddressEXT(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 VkDeviceAddress check_vkGetBufferDeviceAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);

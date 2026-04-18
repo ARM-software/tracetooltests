@@ -763,6 +763,26 @@ static void test_multiview_dynamic_rendering_detection()
 	assert(f->core11.multiview == true);
 }
 
+static void test_maintenance1_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> maintenance1_exts = { "VK_KHR_maintenance1" };
+	assert(maintenance1_exts.size() == 1);
+	assert_removed_device_extensions(f, maintenance1_exts, { "VK_KHR_maintenance1" });
+	assert(maintenance1_exts.empty());
+
+	maintenance1_exts.insert("VK_KHR_maintenance1");
+	check_vkTrimCommandPoolKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0);
+	assert(f->has_VK_KHR_maintenance1 == true);
+	assert_removed_device_extensions(f, maintenance1_exts, {});
+	assert(maintenance1_exts.size() == 1);
+
+	f->has_VK_KHR_maintenance1.store(false);
+	assert_removed_device_extensions(f, maintenance1_exts, { "VK_KHR_maintenance1" });
+	assert(maintenance1_exts.empty());
+}
+
 static void test_ray_tracing_maintenance1_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -853,6 +873,40 @@ static void test_ray_tracing_maintenance1_detection()
 
 	check_vkCmdTraceRaysIndirect2KHR(VK_NULL_HANDLE, 0);
 	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
+}
+
+static void test_maintenance1_detection()
+{
+	feature_detection* f = reset_detection();
+
+	VkImageCreateInfo image_info = {
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr, 0,
+		VK_IMAGE_TYPE_3D, VK_FORMAT_R8G8B8A8_UNORM, { 4, 4, 4 },
+		1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_maintenance1 == false);
+
+	f = reset_detection();
+	image_info.flags = VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT_KHR;
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_maintenance1 == true);
+
+	f = reset_detection();
+	VkViewport viewport = { 0.0f, 0.0f, 64.0f, 64.0f, 0.0f, 1.0f };
+	check_vkCmdSetViewport(VK_NULL_HANDLE, 0, 1, &viewport);
+	assert(f->has_VK_KHR_maintenance1 == false);
+
+	f = reset_detection();
+	viewport.height = -64.0f;
+	check_vkCmdSetViewport(VK_NULL_HANDLE, 0, 1, &viewport);
+	assert(f->has_VK_KHR_maintenance1 == true);
+
+	f = reset_detection();
+	check_vkTrimCommandPoolKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0);
+	assert(f->has_VK_KHR_maintenance1 == true);
 }
 
 static void test_ray_tracing_pipeline_detection()
@@ -1144,8 +1198,10 @@ int main()
 	test_multiview_render_pass_detection();
 	test_multiview_render_pass2_detection();
 	test_multiview_dynamic_rendering_detection();
+	test_maintenance1_extension_adjustment();
 	test_ray_tracing_pipeline_extension_adjustment();
 	test_ray_tracing_maintenance1_extension_adjustment();
+	test_maintenance1_detection();
 	test_ray_tracing_pipeline_detection();
 	test_ray_tracing_maintenance1_detection();
 	test_spirv_extension_detection();

@@ -493,6 +493,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
 	if (!has_VK_KHR_copy_commands2) removed.insert(exts.extract("VK_KHR_copy_commands2"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
+	if (!has_VK_KHR_maintenance1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
@@ -917,6 +918,7 @@ VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, con
 
 	if (info->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) instance->core10.sparseBinding = true;
 	if (info->flags & VK_IMAGE_CREATE_SPARSE_ALIASED_BIT) instance->core10.sparseResidencyAliased = true;
+	if (info->imageType == VK_IMAGE_TYPE_3D && (info->flags & VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT)) instance->has_VK_KHR_maintenance1 = true;
 	if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) && info->samples != VK_SAMPLE_COUNT_1_BIT) instance->core10.shaderStorageImageMultisample = true;
 	return VK_SUCCESS;
 }
@@ -1198,6 +1200,11 @@ VkResult check_vkUnmapMemory2KHR(VkDevice device, const VkMemoryUnmapInfo* pMemo
 	return VK_SUCCESS;
 }
 
+void check_vkTrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags)
+{
+	instance->has_VK_KHR_maintenance1 = true;
+}
+
 // Note that this is place where the Vulkan standard gets really awful. pInheritanceInfo is allowed to be a garbage invalid pointer
 // if commandBuffer is a primary rather than secondary command buffer, and we have no way of knowing which by simply inspecting command
 // inputs. So we have to special case this one and require an extra parameter.
@@ -1333,9 +1340,14 @@ void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingI
 
 void check_vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports)
 {
+	assert(viewportCount == 0 || pViewports != nullptr);
 	if (firstViewport != 0 || viewportCount != 1)
 	{
 		instance->core10.multiViewport = true;
+	}
+	for (uint32_t i = 0; i < viewportCount; i++)
+	{
+		if (pViewports[i].height < 0.0f) instance->has_VK_KHR_maintenance1 = true;
 	}
 }
 
