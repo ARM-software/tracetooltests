@@ -2,6 +2,13 @@
 
 #define NUM_BUFFERS 48
 
+static void assert_memory_requirements_equal(const VkMemoryRequirements& lhs, const VkMemoryRequirements& rhs)
+{
+	assert(lhs.memoryTypeBits == rhs.memoryTypeBits);
+	assert(lhs.size == rhs.size);
+	assert(lhs.alignment == rhs.alignment);
+}
+
 // Written for Vulkan 1.1
 int main(int argc, char** argv)
 {
@@ -61,18 +68,14 @@ int main(int argc, char** argv)
 	VkBufferMemoryRequirementsInfo2KHR reqinfokhr = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2_KHR, nullptr, buffer[0] };
 	VkMemoryRequirements2KHR reqkhr = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
 	pf_vkGetBufferMemoryRequirements2KHR(vulkan.device, &reqinfokhr, &reqkhr);
-	assert(reqkhr.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
-	assert(reqkhr.memoryRequirements.size == req.size);
-	assert(reqkhr.memoryRequirements.alignment == req.alignment);
+	assert_memory_requirements_equal(reqkhr.memoryRequirements, req);
 
 	MAKEDEVICEPROCADDR(vulkan, vkGetDeviceBufferMemoryRequirementsKHR);
 	VkDeviceBufferMemoryRequirementsKHR reqinfokhrmaint4 = { VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS_KHR, nullptr };
 	reqinfokhrmaint4.pCreateInfo = &bufferCreateInfo;
 	VkMemoryRequirements2KHR reqkhrmaint4 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
 	pf_vkGetDeviceBufferMemoryRequirementsKHR(vulkan.device, &reqinfokhrmaint4, &reqkhrmaint4);
-	assert(reqkhrmaint4.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
-	assert(reqkhrmaint4.memoryRequirements.size == req.size);
-	assert(reqkhrmaint4.memoryRequirements.alignment == req.alignment);
+	assert_memory_requirements_equal(reqkhrmaint4.memoryRequirements, req);
 
 	if (reqs.apiVersion >= VK_API_VERSION_1_3)
 	{
@@ -80,10 +83,41 @@ int main(int argc, char** argv)
 		reqinfo13.pCreateInfo = &bufferCreateInfo;
 		VkMemoryRequirements2 req13 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
 		vkGetDeviceBufferMemoryRequirements(vulkan.device, &reqinfo13, &req13);
-		assert(req13.memoryRequirements.memoryTypeBits == req.memoryTypeBits);
-		assert(req13.memoryRequirements.size == req.size);
-		assert(req13.memoryRequirements.alignment == req.alignment);
+		assert_memory_requirements_equal(req13.memoryRequirements, req);
 	}
+
+	VkImage image = VK_NULL_HANDLE;
+	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
+	image_create_info.imageType = VK_IMAGE_TYPE_2D;
+	image_create_info.format = VK_FORMAT_R8G8B8A8_UNORM;
+	image_create_info.extent = { 64, 64, 1 };
+	image_create_info.mipLevels = 1;
+	image_create_info.arrayLayers = 1;
+	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	result = vkCreateImage(vulkan.device, &image_create_info, nullptr, &image);
+	check(result);
+	test_set_name(vulkan, VK_OBJECT_TYPE_IMAGE, (uint64_t)image, "Regular image");
+
+	VkMemoryRequirements image_requirements = {};
+	vkGetImageMemoryRequirements(vulkan.device, image, &image_requirements);
+	VkImageMemoryRequirementsInfo2 image_requirements_info = {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2, nullptr, image
+	};
+	VkMemoryRequirements2 image_requirements2 = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
+	vkGetImageMemoryRequirements2(vulkan.device, &image_requirements_info, &image_requirements2);
+	assert_memory_requirements_equal(image_requirements2.memoryRequirements, image_requirements);
+
+	MAKEDEVICEPROCADDR(vulkan, vkGetImageMemoryRequirements2KHR);
+	VkImageMemoryRequirementsInfo2KHR image_requirements_info_khr = {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR, nullptr, image
+	};
+	VkMemoryRequirements2KHR image_requirements2_khr = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
+	pf_vkGetImageMemoryRequirements2KHR(vulkan.device, &image_requirements_info_khr, &image_requirements2_khr);
+	assert_memory_requirements_equal(image_requirements2_khr.memoryRequirements, image_requirements);
 
 	const uint32_t memoryTypeIndex = get_device_memory_type(reqkhr.memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr };
@@ -158,6 +192,7 @@ int main(int argc, char** argv)
 	// Cleanup...
 	vkDestroyDescriptorPool(vulkan.device, pool, nullptr);
 	vkDestroyDescriptorSetLayout(vulkan.device, dslayout, nullptr);
+	vkDestroyImage(vulkan.device, image, nullptr);
 	for (unsigned i = 0; i < NUM_BUFFERS; i++)
 	{
 		vkDestroyBuffer(vulkan.device, buffer[i], nullptr);

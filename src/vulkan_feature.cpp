@@ -234,6 +234,48 @@ static void test_map_memory2_extension_adjustment()
 	assert(f->has_VK_KHR_map_memory2 == true);
 }
 
+static void test_get_memory_requirements2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_get_memory_requirements2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_get_memory_requirements2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_get_memory_requirements2" });
+	assert(exts.empty());
+
+	VkBufferMemoryRequirementsInfo2 buffer_info = {
+		VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2, nullptr, VK_NULL_HANDLE
+	};
+	VkImageMemoryRequirementsInfo2 image_info = {
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2, nullptr, VK_NULL_HANDLE
+	};
+	VkImageSparseMemoryRequirementsInfo2 sparse_info = {
+		VK_STRUCTURE_TYPE_IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO_2, nullptr, VK_NULL_HANDLE
+	};
+	VkMemoryRequirements2 memory_requirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
+	uint32_t sparse_requirement_count = 0;
+
+	check_vkGetBufferMemoryRequirements2(VK_NULL_HANDLE, &buffer_info, &memory_requirements);
+	check_vkGetImageMemoryRequirements2(VK_NULL_HANDLE, &image_info, &memory_requirements);
+	check_vkGetImageSparseMemoryRequirements2(VK_NULL_HANDLE, &sparse_info, &sparse_requirement_count, nullptr);
+	assert(f->has_VK_KHR_get_memory_requirements2 == false);
+
+	check_vkGetBufferMemoryRequirements2KHR(VK_NULL_HANDLE, &buffer_info, &memory_requirements);
+	assert(f->has_VK_KHR_get_memory_requirements2 == true);
+	exts.insert("VK_KHR_get_memory_requirements2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f->has_VK_KHR_get_memory_requirements2.store(false);
+	check_vkGetImageMemoryRequirements2KHR(VK_NULL_HANDLE, &image_info, &memory_requirements);
+	assert(f->has_VK_KHR_get_memory_requirements2 == true);
+
+	f->has_VK_KHR_get_memory_requirements2.store(false);
+	check_vkGetImageSparseMemoryRequirements2KHR(VK_NULL_HANDLE, &sparse_info, &sparse_requirement_count, nullptr);
+	assert(f->has_VK_KHR_get_memory_requirements2 == true);
+}
+
 static void test_robustness2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -772,6 +814,7 @@ int main()
 	test_vulkan12_adjustment();
 	test_extension_chain_helpers();
 	test_shader_atomic_int64_extension_adjustment();
+	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
 	test_robustness2_extension_adjustment();
 	test_multiview_extension_adjustment();
