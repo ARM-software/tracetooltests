@@ -143,6 +143,29 @@ static bool uses_pre13_dynamic_rendering()
 	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
 }
 
+static bool has_enabled_tensor_features(const VkPhysicalDeviceTensorFeaturesARM* features)
+{
+	if (!features) return false;
+	return features->tensorNonPacked || features->shaderTensorAccess ||
+	       features->shaderStorageTensorArrayDynamicIndexing ||
+	       features->shaderStorageTensorArrayNonUniformIndexing ||
+	       features->descriptorBindingStorageTensorUpdateAfterBind ||
+	       features->tensors;
+}
+
+static bool dependency_info_uses_tensors(const VkDependencyInfo* info)
+{
+	if (!info) return false;
+	const VkTensorDependencyInfoARM* tensor_info =
+		(const VkTensorDependencyInfoARM*)get_extension(info, VK_STRUCTURE_TYPE_TENSOR_DEPENDENCY_INFO_ARM);
+	return tensor_info && tensor_info->tensorMemoryBarrierCount > 0;
+}
+
+static bool submit_pnext_uses_tensors(const void* pNext)
+{
+	return get_extension(pNext, VK_STRUCTURE_TYPE_FRAME_BOUNDARY_TENSORS_ARM) != nullptr;
+}
+
 static bool array_has_nonzero(const uint32_t* values, uint32_t count)
 {
 	if (count == 0) return false;
@@ -357,6 +380,9 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityExpectAssumeKHR: instance->core14.shaderExpectAssume = true; break;
 			case SpvCapabilityFloatControls2: instance->core14.shaderFloatControls2 = true; break;
 			case SpvCapabilityRayCullMaskKHR: instance->has_VK_KHR_ray_tracing_maintenance1 = true; break;
+			case SpvCapabilityTensorsARM: instance->has_VK_ARM_tensors = true; break;
+			case SpvCapabilityStorageTensorArrayDynamicIndexingARM: instance->has_VK_ARM_tensors = true; break;
+			case SpvCapabilityStorageTensorArrayNonUniformIndexingARM: instance->has_VK_ARM_tensors = true; break;
 			case SpvCapabilityStorageBuffer8BitAccess: instance->core12.storageBuffer8BitAccess = true; break;
 			case SpvCapabilityUniformAndStorageBuffer8BitAccess: instance->core12.uniformAndStorageBuffer8BitAccess = true; break;
 			case SpvCapabilityStoragePushConstant8: instance->core12.storagePushConstant8 = true; break;
@@ -498,6 +524,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
+	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, enabled_exts, found);
 	return found;
 }
 
@@ -521,6 +549,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
+	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
 	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
@@ -774,6 +803,15 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 		(const VkPhysicalDeviceDynamicRenderingFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
 	if (pddrf && pddrf->dynamicRendering && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 
+	const VkPhysicalDeviceTensorFeaturesARM* pdtf =
+		(const VkPhysicalDeviceTensorFeaturesARM*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM);
+	if (has_enabled_tensor_features(pdtf)) instance->has_VK_ARM_tensors = true;
+
+	const VkPhysicalDeviceDescriptorBufferTensorFeaturesARM* pddbtf =
+		(const VkPhysicalDeviceDescriptorBufferTensorFeaturesARM*)get_extension(
+			pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM);
+	if (pddbtf && pddbtf->descriptorBufferTensorDescriptors) instance->has_VK_ARM_tensors = true;
+
 	const VkPhysicalDeviceRayTracingPipelineFeaturesKHR* pdrtpf = (VkPhysicalDeviceRayTracingPipelineFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR);
 	if (pdrtpf && (pdrtpf->rayTracingPipeline || pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplay ||
 	               pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplayMixed || pdrtpf->rayTracingPipelineTraceRaysIndirect ||
@@ -833,28 +871,42 @@ VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateI
 void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
 {
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
 {
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
+}
+
+void check_vkGetPhysicalDeviceFormatProperties2(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
+{
+	if (get_extension(pFormatProperties, VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pFormatProperties, VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 VkResult check_vkGetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2* pImageFormatInfo,
@@ -946,6 +998,12 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 	return VK_SUCCESS;
 }
 
+VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory)
+{
+	if (get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_TENSOR_ARM)) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
 	if (is_etc2_format(info->format)) instance->core10.textureCompressionETC2 = true;
@@ -1002,6 +1060,26 @@ VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* i
 	return VK_SUCCESS;
 }
 
+VkResult check_vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence)
+{
+	assert(submitCount == 0 || pSubmits != nullptr);
+	for (uint32_t i = 0; i < submitCount; i++) if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkQueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence)
+{
+	assert(bindInfoCount == 0 || pBindInfo != nullptr);
+	for (uint32_t i = 0; i < bindInfoCount; i++) if (submit_pnext_uses_tensors(pBindInfo[i].pNext)) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* pPresentInfo)
+{
+	if (pPresentInfo && submit_pnext_uses_tensors(pPresentInfo->pNext)) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
 void check_vkCmdTraceRaysIndirectKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, VkDeviceAddress indirectDeviceAddress)
 {
 	instance->has_VK_KHR_ray_tracing_pipeline = true;
@@ -1020,11 +1098,13 @@ void check_vkCmdTraceRaysIndirect2KHR(VkCommandBuffer commandBuffer, VkDeviceAdd
 void check_vkCmdSetEvent2(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
 {
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdSetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
 {
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdResetEvent2(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
@@ -1041,24 +1121,34 @@ void check_vkCmdWaitEvents2(VkCommandBuffer commandBuffer, uint32_t eventCount, 
 {
 	assert(eventCount == 0 || pEvents != nullptr);
 	assert(eventCount == 0 || pDependencyInfos != nullptr);
-	for (uint32_t i = 0; i < eventCount; i++) if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	for (uint32_t i = 0; i < eventCount; i++)
+	{
+		if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		if (dependency_info_uses_tensors(&pDependencyInfos[i])) instance->has_VK_ARM_tensors = true;
+	}
 }
 
 void check_vkCmdWaitEvents2KHR(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent* pEvents, const VkDependencyInfo* pDependencyInfos)
 {
 	assert(eventCount == 0 || pEvents != nullptr);
 	assert(eventCount == 0 || pDependencyInfos != nullptr);
-	for (uint32_t i = 0; i < eventCount; i++) if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	for (uint32_t i = 0; i < eventCount; i++)
+	{
+		if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		if (dependency_info_uses_tensors(&pDependencyInfos[i])) instance->has_VK_ARM_tensors = true;
+	}
 }
 
 void check_vkCmdPipelineBarrier2(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
 {
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
 {
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
@@ -1074,14 +1164,22 @@ void check_vkCmdWriteTimestamp2KHR(VkCommandBuffer commandBuffer, VkPipelineStag
 VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
 {
 	assert(submitCount == 0 || pSubmits != nullptr);
-	for (uint32_t i = 0; i < submitCount; i++) if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	for (uint32_t i = 0; i < submitCount; i++)
+	{
+		if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
+	}
 	return VK_SUCCESS;
 }
 
 VkResult check_vkQueueSubmit2KHR(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
 {
 	assert(submitCount == 0 || pSubmits != nullptr);
-	for (uint32_t i = 0; i < submitCount; i++) if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	for (uint32_t i = 0; i < submitCount; i++)
+	{
+		if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
+	}
 	return VK_SUCCESS;
 }
 
@@ -1104,6 +1202,82 @@ VkResult check_vkBindImageMemory2(VkDevice device, uint32_t bindInfoCount, const
 VkResult check_vkBindImageMemory2KHR(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfo* pBindInfos)
 {
 	instance->has_VK_KHR_bind_memory2 = true;
+	return VK_SUCCESS;
+}
+
+void check_vkUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const VkCopyDescriptorSet* pDescriptorCopies)
+{
+	assert(descriptorWriteCount == 0 || pDescriptorWrites != nullptr);
+	for (uint32_t i = 0; i < descriptorWriteCount; i++)
+	{
+		if (pDescriptorWrites[i].descriptorType == VK_DESCRIPTOR_TYPE_TENSOR_ARM ||
+		    get_extension(&pDescriptorWrites[i], VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_TENSOR_ARM))
+		{
+			instance->has_VK_ARM_tensors = true;
+		}
+	}
+}
+
+void check_vkGetDescriptorEXT(VkDevice device, const VkDescriptorGetInfoEXT* pDescriptorInfo, size_t dataSize, void* pDescriptor)
+{
+	if (pDescriptorInfo && (pDescriptorInfo->type == VK_DESCRIPTOR_TYPE_TENSOR_ARM ||
+	                        get_extension(pDescriptorInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_GET_TENSOR_INFO_ARM)))
+	{
+		instance->has_VK_ARM_tensors = true;
+	}
+}
+
+VkResult check_vkCreateTensorARM(VkDevice device, const VkTensorCreateInfoARM* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkTensorARM* pTensor)
+{
+	if (pCreateInfo)
+	{
+		instance->has_VK_ARM_tensors = true;
+		if (get_extension(pCreateInfo, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_TENSOR_CREATE_INFO_ARM)) instance->has_VK_ARM_tensors = true;
+	}
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateTensorViewARM(VkDevice device, const VkTensorViewCreateInfoARM* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkTensorViewARM* pView)
+{
+	if (pCreateInfo) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+void check_vkGetTensorMemoryRequirementsARM(VkDevice device, const VkTensorMemoryRequirementsInfoARM* pInfo, VkMemoryRequirements2* pMemoryRequirements)
+{
+	if (pInfo) instance->has_VK_ARM_tensors = true;
+}
+
+VkResult check_vkBindTensorMemoryARM(VkDevice device, uint32_t bindInfoCount, const VkBindTensorMemoryInfoARM* pBindInfos)
+{
+	if (bindInfoCount > 0) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+void check_vkGetDeviceTensorMemoryRequirementsARM(VkDevice device, const VkDeviceTensorMemoryRequirementsARM* pInfo, VkMemoryRequirements2* pMemoryRequirements)
+{
+	if (pInfo) instance->has_VK_ARM_tensors = true;
+}
+
+void check_vkCmdCopyTensorARM(VkCommandBuffer commandBuffer, const VkCopyTensorInfoARM* pCopyTensorInfo)
+{
+	if (pCopyTensorInfo) instance->has_VK_ARM_tensors = true;
+}
+
+void check_vkGetPhysicalDeviceExternalTensorPropertiesARM(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalTensorInfoARM* pExternalTensorInfo, VkExternalTensorPropertiesARM* pExternalTensorProperties)
+{
+	if (pExternalTensorInfo) instance->has_VK_ARM_tensors = true;
+}
+
+VkResult check_vkGetTensorOpaqueCaptureDescriptorDataARM(VkDevice device, const VkTensorCaptureDescriptorDataInfoARM* pInfo, void* pData)
+{
+	if (pInfo) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkGetTensorViewOpaqueCaptureDescriptorDataARM(VkDevice device, const VkTensorViewCaptureDescriptorDataInfoARM* pInfo, void* pData)
+{
+	if (pInfo) instance->has_VK_ARM_tensors = true;
 	return VK_SUCCESS;
 }
 

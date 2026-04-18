@@ -310,7 +310,10 @@ int main(int argc, char** argv)
 	tensor_barrier.srcAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT;
 	tensor_barrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
 	tensor_barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-	VkDependencyInfo dependency_info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO, &tensor_barrier };
+	VkTensorDependencyInfoARM tensor_dependency_info = {
+		VK_STRUCTURE_TYPE_TENSOR_DEPENDENCY_INFO_ARM, nullptr, 1, &tensor_barrier
+	};
+	VkDependencyInfo dependency_info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO, &tensor_dependency_info };
 	vkCmdPipelineBarrier2(command_buffer, &dependency_info);
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, post_pipeline);

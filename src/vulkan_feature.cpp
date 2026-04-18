@@ -1108,6 +1108,254 @@ static void test_spirv_extension_detection()
 	assert(multiview_exts.size() == 1);
 }
 
+static void test_tensor_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_tensors" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_ARM_tensors == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_tensors" });
+	assert(exts.empty());
+
+	const char* extname = "VK_ARM_tensors";
+	const char* names[] = { extname };
+	VkPhysicalDeviceDescriptorBufferTensorFeaturesARM descriptor_buffer_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, nullptr, VK_FALSE
+	};
+	VkPhysicalDeviceTensorFeaturesARM tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, &descriptor_buffer_tensor_features,
+		VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &tensor_features };
+	dci.ppEnabledExtensionNames = names;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_ARM_tensors == true);
+	exts.insert("VK_ARM_tensors");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+
+	f = reset_detection();
+	exts = { "VK_ARM_tensors" };
+	descriptor_buffer_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, nullptr, VK_FALSE
+	};
+	tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, &descriptor_buffer_tensor_features,
+		VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE, VK_FALSE
+	};
+	dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &tensor_features };
+	dci.ppEnabledExtensionNames = names;
+	dci.enabledExtensionCount = 1;
+	assert_removed_device_extensions(f, exts, { "VK_ARM_tensors" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_ARM_tensors" }, false);
+
+	f = reset_detection();
+	VkPhysicalDeviceDescriptorBufferTensorFeaturesARM query_descriptor_buffer_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, nullptr, VK_FALSE
+	};
+	VkPhysicalDeviceTensorFeaturesARM query_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, &query_descriptor_buffer_tensor_features
+	};
+	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &query_tensor_features };
+	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkPhysicalDeviceDescriptorBufferTensorPropertiesARM descriptor_buffer_tensor_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM, nullptr
+	};
+	VkPhysicalDeviceTensorPropertiesARM tensor_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM, &descriptor_buffer_tensor_properties
+	};
+	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tensor_properties };
+	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorFormatPropertiesARM tensor_format_properties = {
+		VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM, nullptr
+	};
+	VkFormatProperties2 format_properties = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, &tensor_format_properties };
+	check_vkGetPhysicalDeviceFormatProperties2(VK_NULL_HANDLE, VK_FORMAT_R8_UINT, &format_properties);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkExternalMemoryTensorCreateInfoARM external_tensor_info = {
+		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_TENSOR_CREATE_INFO_ARM, nullptr, VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+	};
+	VkTensorDescriptionARM tensor_description = { VK_STRUCTURE_TYPE_TENSOR_DESCRIPTION_ARM, nullptr };
+	VkTensorCreateInfoARM tensor_create_info = { VK_STRUCTURE_TYPE_TENSOR_CREATE_INFO_ARM, &external_tensor_info };
+	tensor_create_info.pDescription = &tensor_description;
+	check_vkCreateTensorARM(VK_NULL_HANDLE, &tensor_create_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorViewCreateInfoARM tensor_view_create_info = { VK_STRUCTURE_TYPE_TENSOR_VIEW_CREATE_INFO_ARM, nullptr };
+	check_vkCreateTensorViewARM(VK_NULL_HANDLE, &tensor_view_create_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorMemoryRequirementsInfoARM tensor_memory_requirements_info = {
+		VK_STRUCTURE_TYPE_TENSOR_MEMORY_REQUIREMENTS_INFO_ARM, nullptr, VK_NULL_HANDLE
+	};
+	VkMemoryRequirements2 memory_requirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2, nullptr };
+	check_vkGetTensorMemoryRequirementsARM(VK_NULL_HANDLE, &tensor_memory_requirements_info, &memory_requirements);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkBindTensorMemoryInfoARM bind_tensor_info = {
+		VK_STRUCTURE_TYPE_BIND_TENSOR_MEMORY_INFO_ARM, nullptr, VK_NULL_HANDLE, VK_NULL_HANDLE, 0
+	};
+	VkResult result = check_vkBindTensorMemoryARM(VK_NULL_HANDLE, 1, &bind_tensor_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkDeviceTensorMemoryRequirementsARM device_tensor_memory_requirements = {
+		VK_STRUCTURE_TYPE_DEVICE_TENSOR_MEMORY_REQUIREMENTS_ARM, nullptr, &tensor_create_info
+	};
+	check_vkGetDeviceTensorMemoryRequirementsARM(VK_NULL_HANDLE, &device_tensor_memory_requirements, &memory_requirements);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorCopyARM tensor_copy_region = { VK_STRUCTURE_TYPE_TENSOR_COPY_ARM, nullptr, 0, nullptr, nullptr, nullptr };
+	VkCopyTensorInfoARM copy_tensor_info = {
+		VK_STRUCTURE_TYPE_COPY_TENSOR_INFO_ARM, nullptr, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &tensor_copy_region
+	};
+	check_vkCmdCopyTensorARM(VK_NULL_HANDLE, &copy_tensor_info);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkPhysicalDeviceExternalTensorInfoARM external_tensor_properties_info = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_TENSOR_INFO_ARM, nullptr, 0, &tensor_description,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+	};
+	VkExternalTensorPropertiesARM external_tensor_properties = {
+		VK_STRUCTURE_TYPE_EXTERNAL_TENSOR_PROPERTIES_ARM, nullptr
+	};
+	check_vkGetPhysicalDeviceExternalTensorPropertiesARM(
+		VK_NULL_HANDLE, &external_tensor_properties_info, &external_tensor_properties);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorCaptureDescriptorDataInfoARM tensor_capture_info = {
+		VK_STRUCTURE_TYPE_TENSOR_CAPTURE_DESCRIPTOR_DATA_INFO_ARM, nullptr, VK_NULL_HANDLE
+	};
+	result = check_vkGetTensorOpaqueCaptureDescriptorDataARM(VK_NULL_HANDLE, &tensor_capture_info, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorViewCaptureDescriptorDataInfoARM tensor_view_capture_info = {
+		VK_STRUCTURE_TYPE_TENSOR_VIEW_CAPTURE_DESCRIPTOR_DATA_INFO_ARM, nullptr, VK_NULL_HANDLE
+	};
+	result = check_vkGetTensorViewOpaqueCaptureDescriptorDataARM(VK_NULL_HANDLE, &tensor_view_capture_info, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkWriteDescriptorSetTensorARM write_tensor = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_TENSOR_ARM, nullptr, 0, nullptr
+	};
+	VkWriteDescriptorSet write = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, &write_tensor };
+	write.descriptorType = VK_DESCRIPTOR_TYPE_TENSOR_ARM;
+	check_vkUpdateDescriptorSets(VK_NULL_HANDLE, 1, &write, 0, nullptr);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkDescriptorGetTensorInfoARM descriptor_get_tensor_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_GET_TENSOR_INFO_ARM, nullptr, VK_NULL_HANDLE
+	};
+	VkDescriptorGetInfoEXT descriptor_get_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT, &descriptor_get_tensor_info
+	};
+	descriptor_get_info.type = VK_DESCRIPTOR_TYPE_TENSOR_ARM;
+	check_vkGetDescriptorEXT(VK_NULL_HANDLE, &descriptor_get_info, 0, nullptr);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkMemoryDedicatedAllocateInfoTensorARM dedicated_tensor_allocate = {
+		VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_TENSOR_ARM, nullptr, VK_NULL_HANDLE
+	};
+	VkMemoryAllocateInfo allocate_info = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &dedicated_tensor_allocate };
+	result = check_vkAllocateMemory(VK_NULL_HANDLE, &allocate_info, nullptr, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkTensorMemoryBarrierARM tensor_barrier = {
+		VK_STRUCTURE_TYPE_TENSOR_MEMORY_BARRIER_ARM, nullptr, 0, 0, 0, 0, 0, 0, VK_NULL_HANDLE
+	};
+	VkTensorDependencyInfoARM tensor_dependency = {
+		VK_STRUCTURE_TYPE_TENSOR_DEPENDENCY_INFO_ARM, nullptr, 1, &tensor_barrier
+	};
+	VkDependencyInfo dependency_info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO, &tensor_dependency };
+	check_vkCmdPipelineBarrier2(VK_NULL_HANDLE, &dependency_info);
+	assert(f->has_VK_ARM_tensors == true);
+
+	VkTensorARM tensors[] = { VK_NULL_HANDLE };
+	VkFrameBoundaryTensorsARM frame_boundary_tensors = {
+		VK_STRUCTURE_TYPE_FRAME_BOUNDARY_TENSORS_ARM, nullptr, 1, tensors
+	};
+	VkFrameBoundaryEXT frame_boundary = { VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, &frame_boundary_tensors };
+
+	f->has_VK_ARM_tensors.store(false);
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, &frame_boundary };
+	result = check_vkQueueSubmit(VK_NULL_HANDLE, 1, &submit_info, VK_NULL_HANDLE);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkSubmitInfo2 submit_info2 = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, &frame_boundary };
+	result = check_vkQueueSubmit2(VK_NULL_HANDLE, 1, &submit_info2, VK_NULL_HANDLE);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkBindSparseInfo bind_sparse_info = { VK_STRUCTURE_TYPE_BIND_SPARSE_INFO, &frame_boundary };
+	result = check_vkQueueBindSparse(VK_NULL_HANDLE, 1, &bind_sparse_info, VK_NULL_HANDLE);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+
+	f->has_VK_ARM_tensors.store(false);
+	VkPresentInfoKHR present_info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, &frame_boundary };
+	result = check_vkQueuePresentKHR(VK_NULL_HANDLE, &present_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_tensors == true);
+}
+
+static void test_tensor_spirv_detection()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_ARM_tensors" };
+
+	const uint32_t tensor_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		4174,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		4175,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		4176,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	check_shader_module_code(tensor_spirv, sizeof(tensor_spirv), 7);
+	assert(f->has_VK_ARM_tensors == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_vulkan11_multiview_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1344,6 +1592,8 @@ int main()
 	test_ray_tracing_pipeline_detection();
 	test_ray_tracing_maintenance1_detection();
 	test_spirv_extension_detection();
+	test_tensor_extension_adjustment();
+	test_tensor_spirv_detection();
 	test_vulkan11_multiview_adjustment();
 	test_vulkan11_multiview_shader_adjustment();
 	test_large_points_detection();

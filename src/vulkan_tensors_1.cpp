@@ -1,7 +1,25 @@
 #include "vulkan_common.h"
 #include <inttypes.h>
+#include <cstring>
 
 static bool aliasing = false;
+
+static bool supports_device_extension(VkPhysicalDevice physical, const char* extension_name)
+{
+	uint32_t property_count = 0;
+	VkResult result = vkEnumerateDeviceExtensionProperties(physical, nullptr, &property_count, nullptr);
+	check(result);
+
+	std::vector<VkExtensionProperties> properties(property_count);
+	result = vkEnumerateDeviceExtensionProperties(physical, nullptr, &property_count, properties.data());
+	check(result);
+
+	for (const VkExtensionProperties& property : properties)
+	{
+		if (strcmp(property.extensionName, extension_name) == 0) return true;
+	}
+	return false;
+}
 
 static void show_usage()
 {
@@ -48,6 +66,37 @@ int main(int argc, char** argv)
 	vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
 	std::vector<int64_t> dimensions { 64, 64 };
+
+	const bool has_descriptor_buffer = supports_device_extension(vulkan.physical, VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+	VkPhysicalDeviceDescriptorBufferTensorFeaturesARM descriptor_buffer_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, nullptr
+	};
+	VkPhysicalDeviceTensorFeaturesARM available_tensor_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM,
+		has_descriptor_buffer ? &descriptor_buffer_tensor_features : nullptr
+	};
+	VkPhysicalDeviceFeatures2 available_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &available_tensor_features
+	};
+	vkGetPhysicalDeviceFeatures2(vulkan.physical, &available_features);
+	assert(available_tensor_features.tensors == VK_TRUE);
+
+	VkPhysicalDeviceDescriptorBufferTensorPropertiesARM descriptor_buffer_tensor_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM, nullptr
+	};
+	VkPhysicalDeviceTensorPropertiesARM tensor_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM,
+		has_descriptor_buffer ? &descriptor_buffer_tensor_properties : nullptr
+	};
+	VkPhysicalDeviceProperties2 properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tensor_properties };
+	vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
+	assert(tensor_properties.maxTensorDimensionCount >= dimensions.size());
+	assert(tensor_properties.maxTensorElements > 0);
+	if (has_descriptor_buffer && descriptor_buffer_tensor_features.descriptorBufferTensorDescriptors)
+	{
+		assert(descriptor_buffer_tensor_properties.tensorDescriptorSize > 0);
+	}
+
 	VkTensorDescriptionARM td = { VK_STRUCTURE_TYPE_TENSOR_DESCRIPTION_ARM, nullptr };
 	td.tiling = VK_TENSOR_TILING_LINEAR_ARM;
 	td.format = VK_FORMAT_R8_UINT;
@@ -56,6 +105,12 @@ int main(int argc, char** argv)
 	td.pStrides = nullptr;
 	td.usage = VK_TENSOR_USAGE_TRANSFER_SRC_BIT_ARM | VK_TENSOR_USAGE_TRANSFER_DST_BIT_ARM | VK_TENSOR_USAGE_SHADER_BIT_ARM;
 	if (aliasing) td.usage |= VK_TENSOR_USAGE_IMAGE_ALIASING_BIT_ARM;
+
+	VkTensorFormatPropertiesARM tensor_format_properties = { VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM, nullptr };
+	VkFormatProperties2 format_properties = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, &tensor_format_properties };
+	vkGetPhysicalDeviceFormatProperties2(vulkan.physical, td.format, &format_properties);
+	assert(tensor_format_properties.linearTilingTensorFeatures != 0 || tensor_format_properties.optimalTilingTensorFeatures != 0);
+
 	VkTensorCreateInfoARM tci = { VK_STRUCTURE_TYPE_TENSOR_CREATE_INFO_ARM, nullptr };
 	tci.flags = 0;
 	tci.pDescription = &td;
@@ -68,8 +123,6 @@ int main(int argc, char** argv)
 	check(r);
 	r = pf_vkCreateTensorARM(vulkan.device, &tci, nullptr, &target);
 	check(r);
-
-	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_ARM, (uint64_t)tensor, "Our tensor object");
 
 	VkPhysicalDeviceExternalTensorInfoARM pdeti = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_TENSOR_INFO_ARM, nullptr };
 	pdeti.flags = 0;
@@ -148,8 +201,6 @@ int main(int argc, char** argv)
 	VkTensorViewARM tensor_view = VK_NULL_HANDLE;
 	r = pf_vkCreateTensorViewARM(vulkan.device, &tvci, nullptr, &tensor_view);
 	check(r);
-
-	test_set_name(vulkan, VK_OBJECT_TYPE_TENSOR_VIEW_ARM, (uint64_t)tensor_view, "Our tensor view object");
 
 	VkCommandPool command_pool;
 	VkCommandPoolCreateInfo command_pool_create_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
