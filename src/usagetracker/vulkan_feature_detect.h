@@ -212,6 +212,7 @@ struct feature_detection
 	std::atomic_bool has_VK_IMG_filter_cubic { false };
 	std::atomic_bool has_VK_KHR_bind_memory2 { false };
 	std::atomic_bool has_VK_KHR_copy_commands2 { false };
+	std::atomic_bool has_VK_KHR_dynamic_rendering { false };
 	std::atomic_bool has_VK_KHR_get_memory_requirements2 { false };
 	std::atomic_bool has_VK_KHR_maintenance1 { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
@@ -357,6 +358,8 @@ void check_vkCmdBindIndexBuffer2(VkCommandBuffer commandBuffer, VkBuffer buffer,
 void check_vkCmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
 void check_vkResetQueryPool(VkDevice device, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount);
 void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo);
+void check_vkCmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo);
+void check_vkCmdEndRenderingKHR(VkCommandBuffer commandBuffer);
 void check_vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports);
 void check_vkCmdSetScissor(VkCommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors);
 void check_vkCmdSetExclusiveScissorNV(VkCommandBuffer commandBuffer, uint32_t firstExclusiveScissor, uint32_t exclusiveScissorCount, const VkRect2D* pExclusiveScissors);

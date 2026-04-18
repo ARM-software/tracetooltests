@@ -138,6 +138,11 @@ static bool submit_info_uses_ray_tracing_maintenance1(const VkSubmitInfo2* info)
 	return false;
 }
 
+static bool uses_pre13_dynamic_rendering()
+{
+	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
+}
+
 static bool array_has_nonzero(const uint32_t* values, uint32_t count)
 {
 	if (count == 0) return false;
@@ -487,6 +492,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_shader_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_EXT_shader_image_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_multiview"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_KHR_dynamic_rendering"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
@@ -510,6 +516,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
 	if (!has_VK_KHR_copy_commands2) removed.insert(exts.extract("VK_KHR_copy_commands2"));
+	if (!has_VK_KHR_dynamic_rendering) removed.insert(exts.extract("VK_KHR_dynamic_rendering"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
@@ -712,6 +719,9 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 {
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
+		const VkPipelineRenderingCreateInfo* rendering_info =
+			(const VkPipelineRenderingCreateInfo*)get_extension(pCreateInfos[i].pNext, VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO);
+		if (rendering_info && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->depthBiasClamp != 0.0) instance->core10.depthBiasClamp = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->lineWidth != 1.0) instance->core10.wideLines = true;
 		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
@@ -759,6 +769,10 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 
 	const VkPhysicalDeviceMultiviewFeatures* pdmf = (VkPhysicalDeviceMultiviewFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES);
 	if (pdmf && (pdmf->multiview || pdmf->multiviewGeometryShader || pdmf->multiviewTessellationShader)) instance->has_VK_KHR_multiview = true;
+
+	const VkPhysicalDeviceDynamicRenderingFeatures* pddrf =
+		(const VkPhysicalDeviceDynamicRenderingFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
+	if (pddrf && pddrf->dynamicRendering && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 
 	const VkPhysicalDeviceRayTracingPipelineFeaturesKHR* pdrtpf = (VkPhysicalDeviceRayTracingPipelineFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR);
 	if (pdrtpf && (pdrtpf->rayTracingPipeline || pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplay ||
@@ -1244,6 +1258,14 @@ void special_vkBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommand
 {
 	if (level == VK_COMMAND_BUFFER_LEVEL_SECONDARY && pBeginInfo->pInheritanceInfo)
 	{
+		const VkCommandBufferInheritanceRenderingInfo* rendering_info =
+			(const VkCommandBufferInheritanceRenderingInfo*)get_extension(
+				pBeginInfo->pInheritanceInfo->pNext, VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO);
+		if (rendering_info)
+		{
+			instance->core13.dynamicRendering = true;
+			if (uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
+		}
 		if (pBeginInfo->pInheritanceInfo->occlusionQueryEnable != VK_FALSE || ((pBeginInfo->pInheritanceInfo->queryFlags & ~(VK_QUERY_CONTROL_PRECISE_BIT)) == 0))
 		{
 			instance->core10.inheritedQueries = true;
@@ -1367,7 +1389,19 @@ void check_vkResetQueryPool(VkDevice device, VkQueryPool queryPool, uint32_t fir
 void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
 {
 	instance->core13.dynamicRendering = true;
+	if (uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 	if (pRenderingInfo->viewMask != 0) instance->core11.multiview = true;
+}
+
+void check_vkCmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
+{
+	instance->has_VK_KHR_dynamic_rendering = true;
+	check_vkCmdBeginRendering(commandBuffer, pRenderingInfo);
+}
+
+void check_vkCmdEndRenderingKHR(VkCommandBuffer commandBuffer)
+{
+	instance->has_VK_KHR_dynamic_rendering = true;
 }
 
 void check_vkCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports)

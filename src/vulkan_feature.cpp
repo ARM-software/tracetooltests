@@ -372,6 +372,107 @@ static void test_copy_commands2_extension_adjustment()
 	assert(f->has_VK_KHR_copy_commands2 == true);
 }
 
+static void test_dynamic_rendering_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_dynamic_rendering" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_dynamic_rendering == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_dynamic_rendering" });
+	assert(exts.empty());
+
+	const char* extname = "VK_KHR_dynamic_rendering";
+	const char* namelist[] = { extname };
+	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &dynamic_rendering };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+
+	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr };
+	VkInstanceCreateInfo ici = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, nullptr };
+	ici.pApplicationInfo = &app_info;
+
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_dynamic_rendering == true);
+	exts.insert("VK_KHR_dynamic_rendering");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_3;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	exts = { "VK_KHR_dynamic_rendering" };
+	dynamic_rendering = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR, nullptr, VK_TRUE };
+	dci.pNext = &dynamic_rendering;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_dynamic_rendering == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_dynamic_rendering" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_KHR_dynamic_rendering" }, false);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkFormat color_format = VK_FORMAT_R8G8B8A8_UNORM;
+	VkPipelineRenderingCreateInfoKHR pipeline_rendering = {
+		VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR, nullptr, 0, 1, &color_format, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED
+	};
+	VkGraphicsPipelineCreateInfo pipeline_info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &pipeline_rendering };
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkResult result = check_vkCreateGraphicsPipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_dynamic_rendering == true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_3;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	pipeline_rendering = {
+		VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR, nullptr, 0, 1, &color_format, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED
+	};
+	pipeline_info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &pipeline_rendering };
+	result = check_vkCreateGraphicsPipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_dynamic_rendering == false);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkCommandBufferInheritanceRenderingInfoKHR inheritance_rendering = {
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO_KHR, nullptr, 0, 0, 1, &color_format, VK_FORMAT_UNDEFINED,
+		VK_FORMAT_UNDEFINED, VK_SAMPLE_COUNT_1_BIT
+	};
+	VkCommandBufferInheritanceInfo inheritance = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO, &inheritance_rendering };
+	VkCommandBufferBeginInfo begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+	begin_info.pInheritanceInfo = &inheritance;
+	special_vkBeginCommandBuffer(VK_NULL_HANDLE, &begin_info, VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+	assert(f->has_VK_KHR_dynamic_rendering == true);
+	assert(f->core13.dynamicRendering == true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_3;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkRenderingInfoKHR rendering_info = {
+		VK_STRUCTURE_TYPE_RENDERING_INFO_KHR, nullptr, 0, {}, 1, 0, 0, nullptr, nullptr, nullptr
+	};
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	assert(f->core13.dynamicRendering == true);
+	assert(f->has_VK_KHR_dynamic_rendering == false);
+
+	check_vkCmdBeginRenderingKHR(VK_NULL_HANDLE, &rendering_info);
+	assert(f->has_VK_KHR_dynamic_rendering == true);
+
+	f->has_VK_KHR_dynamic_rendering.store(false);
+	check_vkCmdEndRenderingKHR(VK_NULL_HANDLE);
+	assert(f->has_VK_KHR_dynamic_rendering == true);
+}
+
 static void test_transform_feedback_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1226,6 +1327,7 @@ int main()
 	test_shader_atomic_int64_extension_adjustment();
 	test_bind_memory2_extension_adjustment();
 	test_copy_commands2_extension_adjustment();
+	test_dynamic_rendering_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
