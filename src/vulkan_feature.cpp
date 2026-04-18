@@ -276,6 +276,100 @@ static void test_bind_memory2_extension_adjustment()
 	assert(f->has_VK_KHR_bind_memory2 == true);
 }
 
+static void test_copy_commands2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_copy_commands2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_copy_commands2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_copy_commands2" });
+	assert(exts.empty());
+
+	VkBufferCopy2 buffer_region = { VK_STRUCTURE_TYPE_BUFFER_COPY_2, nullptr, 0, 0, 16 };
+	VkCopyBufferInfo2 copy_buffer_info = {
+		VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2, nullptr, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &buffer_region
+	};
+	check_vkCmdCopyBuffer2(VK_NULL_HANDLE, &copy_buffer_info);
+	assert(f->has_VK_KHR_copy_commands2 == false);
+
+	check_vkCmdCopyBuffer2KHR(VK_NULL_HANDLE, &copy_buffer_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+	exts.insert("VK_KHR_copy_commands2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	VkImageSubresourceLayers subresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	VkExtent3D extent = { 1, 1, 1 };
+
+	f->has_VK_KHR_copy_commands2.store(false);
+	VkImageCopy2 image_region = { VK_STRUCTURE_TYPE_IMAGE_COPY_2, nullptr };
+	image_region.srcSubresource = subresource;
+	image_region.dstSubresource = subresource;
+	image_region.extent = extent;
+	VkCopyImageInfo2 copy_image_info = {
+		VK_STRUCTURE_TYPE_COPY_IMAGE_INFO_2, nullptr,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &image_region
+	};
+	check_vkCmdCopyImage2KHR(VK_NULL_HANDLE, &copy_image_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+
+	f->has_VK_KHR_copy_commands2.store(false);
+	VkBufferImageCopy2 buffer_image_region = { VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2, nullptr };
+	buffer_image_region.imageSubresource = subresource;
+	buffer_image_region.imageExtent = extent;
+	VkCopyBufferToImageInfo2 copy_buffer_to_image_info = {
+		VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2, nullptr,
+		VK_NULL_HANDLE, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &buffer_image_region
+	};
+	check_vkCmdCopyBufferToImage2KHR(VK_NULL_HANDLE, &copy_buffer_to_image_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+
+	f->has_VK_KHR_copy_commands2.store(false);
+	VkCopyImageToBufferInfo2 copy_image_to_buffer_info = {
+		VK_STRUCTURE_TYPE_COPY_IMAGE_TO_BUFFER_INFO_2, nullptr,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_NULL_HANDLE,
+		1, &buffer_image_region
+	};
+	check_vkCmdCopyImageToBuffer2KHR(VK_NULL_HANDLE, &copy_image_to_buffer_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+
+	f->has_VK_KHR_copy_commands2.store(false);
+	VkOffset3D image_offsets[2] = { { 0, 0, 0 }, { 1, 1, 1 } };
+	VkImageBlit2 blit_region = { VK_STRUCTURE_TYPE_IMAGE_BLIT_2, nullptr };
+	blit_region.srcSubresource = subresource;
+	blit_region.dstSubresource = subresource;
+	blit_region.srcOffsets[0] = image_offsets[0];
+	blit_region.srcOffsets[1] = image_offsets[1];
+	blit_region.dstOffsets[0] = image_offsets[0];
+	blit_region.dstOffsets[1] = image_offsets[1];
+	VkBlitImageInfo2 blit_info = {
+		VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, nullptr,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &blit_region, VK_FILTER_NEAREST
+	};
+	check_vkCmdBlitImage2KHR(VK_NULL_HANDLE, &blit_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+
+	f->has_VK_KHR_copy_commands2.store(false);
+	VkImageResolve2 resolve_region = { VK_STRUCTURE_TYPE_IMAGE_RESOLVE_2, nullptr };
+	resolve_region.srcSubresource = subresource;
+	resolve_region.dstSubresource = subresource;
+	resolve_region.extent = extent;
+	VkResolveImageInfo2 resolve_info = {
+		VK_STRUCTURE_TYPE_RESOLVE_IMAGE_INFO_2, nullptr,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_NULL_HANDLE, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &resolve_region
+	};
+	check_vkCmdResolveImage2KHR(VK_NULL_HANDLE, &resolve_info);
+	assert(f->has_VK_KHR_copy_commands2 == true);
+}
+
 static void test_get_physical_device_properties2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -916,6 +1010,7 @@ int main()
 	test_extension_chain_helpers();
 	test_shader_atomic_int64_extension_adjustment();
 	test_bind_memory2_extension_adjustment();
+	test_copy_commands2_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
