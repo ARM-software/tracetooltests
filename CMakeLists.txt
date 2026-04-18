@@ -170,6 +170,7 @@ endif()
 
 if (NOT NO_VULKAN MATCHES "1")
 vulkan_test(general)
+vulkan_test(get_physical_device_properties2)
 vulkan_test_extra(general_test_2 general -V 2)
 vulkan_test_extra(general_test_3 general -V 3)
 vulkan_test(privatedata)

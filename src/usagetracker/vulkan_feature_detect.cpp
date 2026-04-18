@@ -499,6 +499,7 @@ std::unordered_set<std::string> feature_detection::adjust_instance_extensions(st
 {
 	std::unordered_set<std::string> removed;
 	if (!has_VK_EXT_swapchain_colorspace) removed.insert(exts.extract("VK_EXT_swapchain_colorspace"));
+	if (!has_VK_KHR_get_physical_device_properties2) removed.insert(exts.extract("VK_KHR_get_physical_device_properties2"));
 	return removed;
 }
 
@@ -773,6 +774,45 @@ VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateI
 		instance->has_VK_KHR_multiview = true;
 	}
 	return VK_SUCCESS;
+}
+
+void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+VkResult check_vkGetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2* pImageFormatInfo,
+                                                            VkImageFormatProperties2* pImageFormatProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	return VK_SUCCESS;
+}
+
+void check_vkGetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physicalDevice, uint32_t* pQueueFamilyPropertyCount,
+                                                        VkQueueFamilyProperties2* pQueueFamilyProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+void check_vkGetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceMemoryProperties2* pMemoryProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+void check_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2* pFormatInfo,
+                                                              uint32_t* pPropertyCount, VkSparseImageFormatProperties2* pProperties)
+{
+	instance->has_VK_KHR_get_physical_device_properties2 = true;
 }
 
 VkResult check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities)

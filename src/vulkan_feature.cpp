@@ -34,6 +34,12 @@ static void assert_removed_device_extensions(feature_detection* f, std::unordere
 	assert_string_set_equals(removed, expected_removed);
 }
 
+static void assert_removed_instance_extensions(feature_detection* f, std::unordered_set<std::string>& exts, std::initializer_list<const char*> expected_removed)
+{
+	auto removed = f->adjust_instance_extensions(exts);
+	assert_string_set_equals(removed, expected_removed);
+}
+
 static void assert_adjusted_device_create_info(feature_detection* f, VkDeviceCreateInfo& dci, const std::unordered_set<std::string>& enabled_exts,
                                                std::initializer_list<const char*> expected_adjusted, bool expect_pnext)
 {
@@ -232,6 +238,65 @@ static void test_map_memory2_extension_adjustment()
 	VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr, 0, VK_NULL_HANDLE };
 	check_vkUnmapMemory2(VK_NULL_HANDLE, &unmap_info);
 	assert(f->has_VK_KHR_map_memory2 == true);
+}
+
+static void test_get_physical_device_properties2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_get_physical_device_properties2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == false);
+	assert_removed_instance_extensions(f, exts, { "VK_KHR_get_physical_device_properties2" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceFeatures2 features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, nullptr };
+	VkPhysicalDeviceProperties2 properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, nullptr };
+	VkFormatProperties2 format_properties = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, nullptr };
+	VkPhysicalDeviceImageFormatInfo2 image_info = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2, nullptr,
+		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0
+	};
+	VkImageFormatProperties2 image_properties = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2, nullptr };
+	VkPhysicalDeviceMemoryProperties2 memory_properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2, nullptr };
+	VkPhysicalDeviceSparseImageFormatInfo2 sparse_info = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2, nullptr,
+		VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TYPE_2D, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_TILING_OPTIMAL
+	};
+	uint32_t queue_family_count = 0;
+	uint32_t sparse_property_count = 0;
+
+	check_vkGetPhysicalDeviceFeatures2KHR(VK_NULL_HANDLE, &features);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	exts.insert("VK_KHR_get_physical_device_properties2");
+	assert_removed_instance_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	check_vkGetPhysicalDeviceProperties2KHR(VK_NULL_HANDLE, &properties);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	check_vkGetPhysicalDeviceFormatProperties2KHR(VK_NULL_HANDLE, VK_FORMAT_R8G8B8A8_UNORM, &format_properties);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	VkResult result = check_vkGetPhysicalDeviceImageFormatProperties2KHR(VK_NULL_HANDLE, &image_info, &image_properties);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	check_vkGetPhysicalDeviceQueueFamilyProperties2KHR(VK_NULL_HANDLE, &queue_family_count, nullptr);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	check_vkGetPhysicalDeviceMemoryProperties2KHR(VK_NULL_HANDLE, &memory_properties);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+
+	f->has_VK_KHR_get_physical_device_properties2.store(false);
+	check_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(VK_NULL_HANDLE, &sparse_info, &sparse_property_count, nullptr);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
 }
 
 static void test_get_memory_requirements2_extension_adjustment()
@@ -814,6 +879,7 @@ int main()
 	test_vulkan12_adjustment();
 	test_extension_chain_helpers();
 	test_shader_atomic_int64_extension_adjustment();
+	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
 	test_robustness2_extension_adjustment();

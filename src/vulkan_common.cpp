@@ -566,7 +566,9 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	}
 	else // Vulkan 1.1 or below
 	{
-		deviceInfo.pEnabledFeatures = &reqs.reqfeat2.features;
+		const bool uses_features2_pnext = reqs.extension_features != nullptr &&
+		                                  reqs.extension_features->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		deviceInfo.pEnabledFeatures = uses_features2_pnext ? nullptr : &reqs.reqfeat2.features;
 		deviceInfo.pNext = reqs.extension_features;
 	}
 
