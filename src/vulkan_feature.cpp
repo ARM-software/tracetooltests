@@ -240,6 +240,42 @@ static void test_map_memory2_extension_adjustment()
 	assert(f->has_VK_KHR_map_memory2 == true);
 }
 
+static void test_bind_memory2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_bind_memory2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_bind_memory2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_bind_memory2" });
+	assert(exts.empty());
+
+	VkBindBufferMemoryInfo buffer_info = {
+		VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO, nullptr, VK_NULL_HANDLE, VK_NULL_HANDLE, 0
+	};
+	VkBindImageMemoryInfo image_info = {
+		VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr, VK_NULL_HANDLE, VK_NULL_HANDLE, 0
+	};
+
+	VkResult result = check_vkBindBufferMemory2(VK_NULL_HANDLE, 1, &buffer_info);
+	assert(result == VK_SUCCESS);
+	result = check_vkBindImageMemory2(VK_NULL_HANDLE, 1, &image_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_bind_memory2 == false);
+
+	result = check_vkBindBufferMemory2KHR(VK_NULL_HANDLE, 1, &buffer_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_bind_memory2 == true);
+	exts.insert("VK_KHR_bind_memory2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f->has_VK_KHR_bind_memory2.store(false);
+	result = check_vkBindImageMemory2KHR(VK_NULL_HANDLE, 1, &image_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_bind_memory2 == true);
+}
+
 static void test_get_physical_device_properties2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -879,6 +915,7 @@ int main()
 	test_vulkan12_adjustment();
 	test_extension_chain_helpers();
 	test_shader_atomic_int64_extension_adjustment();
+	test_bind_memory2_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();

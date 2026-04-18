@@ -209,6 +209,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT { false };
 	std::atomic_bool has_VK_IMG_filter_cubic { false };
+	std::atomic_bool has_VK_KHR_bind_memory2 { false };
 	std::atomic_bool has_VK_KHR_get_memory_requirements2 { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
@@ -288,6 +289,10 @@ void check_vkCmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFl
 void check_vkCmdWriteTimestamp2KHR(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query);
 VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence);
 VkResult check_vkQueueSubmit2KHR(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence);
+VkResult check_vkBindBufferMemory2(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfo* pBindInfos);
+VkResult check_vkBindBufferMemory2KHR(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfo* pBindInfos);
+VkResult check_vkBindImageMemory2(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfo* pBindInfos);
+VkResult check_vkBindImageMemory2KHR(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfo* pBindInfos);
 void check_vkGetBufferMemoryRequirements2(VkDevice device, const VkBufferMemoryRequirementsInfo2* pInfo, VkMemoryRequirements2* pMemoryRequirements);
 void check_vkGetBufferMemoryRequirements2KHR(VkDevice device, const VkBufferMemoryRequirementsInfo2* pInfo, VkMemoryRequirements2* pMemoryRequirements);
 void check_vkGetImageMemoryRequirements2(VkDevice device, const VkImageMemoryRequirementsInfo2* pInfo, VkMemoryRequirements2* pMemoryRequirements);

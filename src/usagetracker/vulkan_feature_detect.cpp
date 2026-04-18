@@ -483,6 +483,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
+	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
@@ -1003,6 +1004,28 @@ VkResult check_vkQueueSubmit2KHR(VkQueue queue, uint32_t submitCount, const VkSu
 {
 	assert(submitCount == 0 || pSubmits != nullptr);
 	for (uint32_t i = 0; i < submitCount; i++) if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkBindBufferMemory2(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfo* pBindInfos)
+{
+	return VK_SUCCESS;
+}
+
+VkResult check_vkBindBufferMemory2KHR(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfo* pBindInfos)
+{
+	instance->has_VK_KHR_bind_memory2 = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkBindImageMemory2(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfo* pBindInfos)
+{
+	return VK_SUCCESS;
+}
+
+VkResult check_vkBindImageMemory2KHR(VkDevice device, uint32_t bindInfoCount, const VkBindImageMemoryInfo* pBindInfos)
+{
+	instance->has_VK_KHR_bind_memory2 = true;
 	return VK_SUCCESS;
 }
 
