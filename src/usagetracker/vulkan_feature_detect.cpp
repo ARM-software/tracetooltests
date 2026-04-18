@@ -355,6 +355,8 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityShaderViewportIndex: instance->core12.shaderOutputViewportIndex = true; break;
 			case SpvCapabilityShaderLayer: instance->core12.shaderOutputLayer = true; break;
 			case SpvCapabilityShaderViewportIndexLayerEXT: instance->has_VK_EXT_shader_viewport_index_layer = true; break;
+			case SpvCapabilityTransformFeedback: instance->has_VK_EXT_transform_feedback = true; break;
+			case SpvCapabilityGeometryStreams: instance->has_VK_EXT_transform_feedback = true; break;
 			default: break;
 			}
 		}
@@ -426,6 +428,10 @@ void struct_check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasteri
 	if (info->depthClampEnable == VK_TRUE) instance->core10.depthClamp = true;
 	if (info->polygonMode == VK_POLYGON_MODE_POINT || info->polygonMode == VK_POLYGON_MODE_LINE) instance->core10.fillModeNonSolid = true;
 
+	const VkPipelineRasterizationStateStreamCreateInfoEXT* stream = (const VkPipelineRasterizationStateStreamCreateInfoEXT*)get_extension(
+		info, VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_STREAM_CREATE_INFO_EXT);
+	if (stream) instance->has_VK_EXT_transform_feedback = true;
+
 	const VkPipelineRasterizationLineStateCreateInfo* line = (const VkPipelineRasterizationLineStateCreateInfo*)get_extension(
 		info, VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO);
 	if (line) mark_line_rasterization_mode_usage(line->lineRasterizationMode, line->stippledLineEnable);
@@ -467,6 +473,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
 	return found;
 }
 
@@ -494,6 +501,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_descriptor_heap) removed.insert(exts.extract("VK_EXT_descriptor_heap"));
 	if (!has_VK_EXT_robustness2) removed.insert(exts.extract("VK_EXT_robustness2"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
+	if (!has_VK_EXT_transform_feedback) removed.insert(exts.extract("VK_EXT_transform_feedback"));
 	return removed;
 }
 
@@ -745,6 +753,10 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 		instance->has_VK_EXT_robustness2 = true;
 	}
 
+	const VkPhysicalDeviceTransformFeedbackFeaturesEXT* pdtff = (const VkPhysicalDeviceTransformFeedbackFeaturesEXT*)get_extension(
+		pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT);
+	if (pdtff && (pdtff->transformFeedback || pdtff->geometryStreams)) instance->has_VK_EXT_transform_feedback = true;
+
 	return VK_SUCCESS;
 }
 
@@ -778,14 +790,26 @@ VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateI
 	return VK_SUCCESS;
 }
 
+void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
+{
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+}
+
 void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
+{
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 }
 
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 }
 
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
@@ -871,6 +895,7 @@ VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* p
 {
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) instance->core10.pipelineStatisticsQuery = true;
 	if (is_ray_tracing_maintenance1_query_type(pCreateInfo->queryType)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (pCreateInfo->queryType == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT) instance->has_VK_EXT_transform_feedback = true;
 	return VK_SUCCESS;
 }
 
@@ -912,6 +937,10 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 	                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR))
 	{
 		instance->core12.bufferDeviceAddress = true;
+	}
+	if (info->usage & (VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT | VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT))
+	{
+		instance->has_VK_EXT_transform_feedback = true;
 	}
 	return VK_SUCCESS;
 }
@@ -1028,6 +1057,40 @@ VkResult check_vkBindImageMemory2KHR(VkDevice device, uint32_t bindInfoCount, co
 {
 	instance->has_VK_KHR_bind_memory2 = true;
 	return VK_SUCCESS;
+}
+
+void check_vkCmdBindTransformFeedbackBuffersEXT(VkCommandBuffer commandBuffer, uint32_t firstBinding, uint32_t bindingCount, const VkBuffer* pBuffers,
+                                                const VkDeviceSize* pOffsets, const VkDeviceSize* pSizes)
+{
+	instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkCmdBeginTransformFeedbackEXT(VkCommandBuffer commandBuffer, uint32_t firstCounterBuffer, uint32_t counterBufferCount,
+                                          const VkBuffer* pCounterBuffers, const VkDeviceSize* pCounterBufferOffsets)
+{
+	instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkCmdEndTransformFeedbackEXT(VkCommandBuffer commandBuffer, uint32_t firstCounterBuffer, uint32_t counterBufferCount,
+                                        const VkBuffer* pCounterBuffers, const VkDeviceSize* pCounterBufferOffsets)
+{
+	instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkCmdBeginQueryIndexedEXT(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t query, VkQueryControlFlags flags, uint32_t index)
+{
+	instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkCmdEndQueryIndexedEXT(VkCommandBuffer commandBuffer, VkQueryPool queryPool, uint32_t query, uint32_t index)
+{
+	instance->has_VK_EXT_transform_feedback = true;
+}
+
+void check_vkCmdDrawIndirectByteCountEXT(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance, VkBuffer counterBuffer,
+                                         VkDeviceSize counterBufferOffset, uint32_t counterOffset, uint32_t vertexStride)
+{
+	instance->has_VK_EXT_transform_feedback = true;
 }
 
 void check_vkCmdCopyBuffer2(VkCommandBuffer commandBuffer, const VkCopyBufferInfo2* pCopyBufferInfo)

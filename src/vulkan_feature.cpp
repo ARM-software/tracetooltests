@@ -1,7 +1,9 @@
 #include "vulkan_utility.h"
 #include "src/usagetracker/vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
+#include "vulkan_transform_feedback_vert.inc"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -368,6 +370,119 @@ static void test_copy_commands2_extension_adjustment()
 	};
 	check_vkCmdResolveImage2KHR(VK_NULL_HANDLE, &resolve_info);
 	assert(f->has_VK_KHR_copy_commands2 == true);
+}
+
+static void test_transform_feedback_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_EXT_transform_feedback" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_EXT_transform_feedback == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_transform_feedback" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceTransformFeedbackFeaturesEXT tf_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, nullptr, VK_TRUE, VK_FALSE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &tf_features };
+	const char* extname = "VK_EXT_transform_feedback";
+	const char* namelist[] = { extname };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_transform_feedback == true);
+	exts.insert("VK_EXT_transform_feedback");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	tf_features.transformFeedback = VK_FALSE;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_transform_feedback == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_transform_feedback" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_transform_feedback" }, false);
+
+	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &tf_features };
+	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkGetPhysicalDeviceFeatures2KHR(VK_NULL_HANDLE, &features2);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	VkPhysicalDeviceTransformFeedbackPropertiesEXT tf_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT, nullptr
+	};
+	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tf_properties };
+	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkGetPhysicalDeviceProperties2KHR(VK_NULL_HANDLE, &properties2);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f = reset_detection();
+	VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
+	buffer_info.size = 64;
+	buffer_info.usage = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	buffer_info.usage = VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	VkQueryPoolCreateInfo query_pool_info = { VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr };
+	query_pool_info.queryType = VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT;
+	query_pool_info.queryCount = 1;
+	VkResult result = check_vkCreateQueryPool(VK_NULL_HANDLE, &query_pool_info, nullptr, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	VkPipelineRasterizationStateStreamCreateInfoEXT stream_info = {
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_STREAM_CREATE_INFO_EXT, nullptr, 0, 0
+	};
+	VkPipelineRasterizationStateCreateInfo raster_state = {
+		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO, &stream_info
+	};
+	struct_check_VkPipelineRasterizationStateCreateInfo(&raster_state);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	std::array<VkBuffer, 1> buffers = { VK_NULL_HANDLE };
+	std::array<VkDeviceSize, 1> offsets = { 0 };
+	std::array<VkDeviceSize, 1> sizes = { 64 };
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdBindTransformFeedbackBuffersEXT(VK_NULL_HANDLE, 0, 1, buffers.data(), offsets.data(), sizes.data());
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdBeginTransformFeedbackEXT(VK_NULL_HANDLE, 0, 1, buffers.data(), offsets.data());
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdEndTransformFeedbackEXT(VK_NULL_HANDLE, 0, 1, buffers.data(), offsets.data());
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdBeginQueryIndexedEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 0, 0);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdEndQueryIndexedEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 0);
+	assert(f->has_VK_EXT_transform_feedback == true);
+
+	f->has_VK_EXT_transform_feedback.store(false);
+	check_vkCmdDrawIndirectByteCountEXT(VK_NULL_HANDLE, 1, 0, VK_NULL_HANDLE, 0, 0, 16);
+	assert(f->has_VK_EXT_transform_feedback == true);
 }
 
 static void test_get_physical_device_properties2_extension_adjustment()
@@ -1002,6 +1117,15 @@ static void test_buffer_device_address_shader_module()
 	                         5);
 }
 
+static void test_transform_feedback_shader_module()
+{
+	reset_detection();
+	check_shader_module_code((const uint32_t*)vulkan_transform_feedback_vert_spirv,
+	                         long(ceil(vulkan_transform_feedback_vert_spirv_len / 4.0)) * sizeof(uint32_t),
+	                         6);
+	assert(vulkan_feature_detection_get()->has_VK_EXT_transform_feedback == true);
+}
+
 int main()
 {
 	test_logic_op_adjustment();
@@ -1011,6 +1135,7 @@ int main()
 	test_shader_atomic_int64_extension_adjustment();
 	test_bind_memory2_extension_adjustment();
 	test_copy_commands2_extension_adjustment();
+	test_transform_feedback_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
@@ -1029,5 +1154,6 @@ int main()
 	test_large_points_detection();
 	test_vulkan14_line_rasterization_adjustment();
 	test_buffer_device_address_shader_module();
+	test_transform_feedback_shader_module();
 	return 0;
 }
