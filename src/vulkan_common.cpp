@@ -1043,6 +1043,18 @@ void testBindBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuff
 
 uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vector<VkBuffer>& buffers, std::vector<VkDeviceMemory>& memory, bool deviceaddress, bool dedicated, bool pattern, const char* name)
 {
+	const bool use_core_map_memory2 = vulkan.apiVersion >= VK_API_VERSION_1_4;
+	const bool use_khr_map_memory2 = !use_core_map_memory2 && vulkan.device_extensions.count(VK_KHR_MAP_MEMORY_2_EXTENSION_NAME) != 0;
+	PFN_vkMapMemory2KHR pf_vkMapMemory2KHR = nullptr;
+	PFN_vkUnmapMemory2KHR pf_vkUnmapMemory2KHR = nullptr;
+	if (use_khr_map_memory2)
+	{
+		pf_vkMapMemory2KHR = reinterpret_cast<PFN_vkMapMemory2KHR>(vkGetDeviceProcAddr(vulkan.device, "vkMapMemory2KHR"));
+		pf_vkUnmapMemory2KHR = reinterpret_cast<PFN_vkUnmapMemory2KHR>(vkGetDeviceProcAddr(vulkan.device, "vkUnmapMemory2KHR"));
+		assert(pf_vkMapMemory2KHR);
+		assert(pf_vkUnmapMemory2KHR);
+	}
+
 	// Allocate
 	const unsigned count = dedicated ? buffers.size() : 1;
 	uint32_t aligned_size = 0;
@@ -1109,7 +1121,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		const VkDeviceSize offset = dedicated ? 0 : i * aligned_size;
 		uint8_t* data = nullptr;
 		VkDeviceMemory mem = memory.at(dedicated ? i : 0);
-		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+		if (use_core_map_memory2)
 		{
 			VkMemoryMapInfo map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO, nullptr };
 			map_info.flags = 0;
@@ -1117,6 +1129,16 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			map_info.offset = offset;
 			map_info.size = aligned_size;
 			VkResult result = vkMapMemory2(vulkan.device, &map_info, (void**)&data);
+			check(result);
+		}
+		else if (use_khr_map_memory2)
+		{
+			VkMemoryMapInfoKHR map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO_KHR, nullptr };
+			map_info.flags = 0;
+			map_info.memory = mem;
+			map_info.offset = offset;
+			map_info.size = aligned_size;
+			VkResult result = pf_vkMapMemory2KHR(vulkan.device, &map_info, (void**)&data);
 			check(result);
 		}
 		else
@@ -1136,12 +1158,20 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			mmr.size = VK_WHOLE_SIZE;
 			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 		}
-		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
+		if (use_core_map_memory2)
 		{
 			VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr };
 			unmap_info.flags = 0;
 			unmap_info.memory = mem;
 			VkResult result = vkUnmapMemory2(vulkan.device, &unmap_info);
+			check(result);
+		}
+		else if (use_khr_map_memory2)
+		{
+			VkMemoryUnmapInfoKHR unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO_KHR, nullptr };
+			unmap_info.flags = 0;
+			unmap_info.memory = mem;
+			VkResult result = pf_vkUnmapMemory2KHR(vulkan.device, &unmap_info);
 			check(result);
 		}
 		else

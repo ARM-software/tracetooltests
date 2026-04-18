@@ -8,7 +8,9 @@ int main(int argc, char** argv)
 	vulkan_req_t reqs;
 	reqs.apiVersion = VK_API_VERSION_1_1;
 	reqs.minApiVersion = VK_API_VERSION_1_1;
+	reqs.maxApiVersion = VK_API_VERSION_1_3;
 	reqs.device_extensions.push_back("VK_KHR_get_memory_requirements2");
+	reqs.device_extensions.push_back("VK_KHR_map_memory2");
 	reqs.device_extensions.push_back("VK_KHR_maintenance1");
 	reqs.device_extensions.push_back("VK_KHR_maintenance2");
 	reqs.device_extensions.push_back("VK_KHR_maintenance3");
@@ -92,6 +94,27 @@ int main(int argc, char** argv)
 	assert(memory != 0);
 
 	testBindBufferMemory(vulkan, buffer, memory, req.size);
+
+	const VkDeviceSize map_offset = req.size * (NUM_BUFFERS / 2);
+	uint8_t* mapped = nullptr;
+
+	MAKEDEVICEPROCADDR(vulkan, vkMapMemory2KHR);
+	VkMemoryMapInfoKHR map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO_KHR, nullptr };
+	map_info.flags = 0;
+	map_info.memory = memory;
+	map_info.offset = map_offset;
+	map_info.size = req.size;
+	result = pf_vkMapMemory2KHR(vulkan.device, &map_info, (void**)&mapped);
+	check(result);
+	assert(mapped);
+	memset(mapped, 0x5a, req.size);
+
+	MAKEDEVICEPROCADDR(vulkan, vkUnmapMemory2KHR);
+	VkMemoryUnmapInfoKHR unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO_KHR, nullptr };
+	unmap_info.flags = 0;
+	unmap_info.memory = memory;
+	result = pf_vkUnmapMemory2KHR(vulkan.device, &unmap_info);
+	check(result);
 
 	VkDescriptorSetLayoutCreateInfo cdslayout = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr };
 	cdslayout.bindingCount = 1;
