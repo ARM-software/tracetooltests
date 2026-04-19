@@ -143,6 +143,11 @@ static bool uses_pre13_dynamic_rendering()
 	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
 }
 
+static bool uses_pre13_synchronization2()
+{
+	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
+}
+
 static bool has_enabled_tensor_features(const VkPhysicalDeviceTensorFeaturesARM* features)
 {
 	if (!features) return false;
@@ -519,6 +524,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_EXT_shader_image_atomic_int64"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_multiview"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_dynamic_rendering"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_KHR_synchronization2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
@@ -550,6 +556,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
+	if (!has_VK_KHR_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
@@ -700,6 +707,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 	CHECK_FEATURE13(shaderDemoteToHelperInvocation);
 	CHECK_FEATURE13(shaderIntegerDotProduct);
 	CHECK_FEATURE13(subgroupSizeControl);
+	CHECK_FEATURE13(synchronization2);
 	#undef CHECK_FEATURE13
 	return found;
 }
@@ -803,6 +811,10 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceDynamicRenderingFeatures* pddrf =
 		(const VkPhysicalDeviceDynamicRenderingFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
 	if (pddrf && pddrf->dynamicRendering && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
+
+	const VkPhysicalDeviceSynchronization2Features* pds2f =
+		(const VkPhysicalDeviceSynchronization2Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES);
+	if (pds2f && pds2f->synchronization2 && uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 
 	const VkPhysicalDeviceTensorFeaturesARM* pdtf =
 		(const VkPhysicalDeviceTensorFeaturesARM*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM);
@@ -1121,28 +1133,35 @@ void check_vkCmdTraceRaysIndirect2KHR(VkCommandBuffer commandBuffer, VkDeviceAdd
 
 void check_vkCmdSetEvent2(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdSetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, const VkDependencyInfo* pDependencyInfo)
 {
-	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
-	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
+	instance->has_VK_KHR_synchronization2 = true;
+	check_vkCmdSetEvent2(commandBuffer, event, pDependencyInfo);
 }
 
 void check_vkCmdResetEvent2(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (uses_ray_tracing_maintenance1_stage(stageMask)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 }
 
 void check_vkCmdResetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
 {
-	if (uses_ray_tracing_maintenance1_stage(stageMask)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	instance->has_VK_KHR_synchronization2 = true;
+	check_vkCmdResetEvent2(commandBuffer, event, stageMask);
 }
 
 void check_vkCmdWaitEvents2(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent* pEvents, const VkDependencyInfo* pDependencyInfos)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	assert(eventCount == 0 || pEvents != nullptr);
 	assert(eventCount == 0 || pDependencyInfos != nullptr);
 	for (uint32_t i = 0; i < eventCount; i++)
@@ -1154,39 +1173,41 @@ void check_vkCmdWaitEvents2(VkCommandBuffer commandBuffer, uint32_t eventCount, 
 
 void check_vkCmdWaitEvents2KHR(VkCommandBuffer commandBuffer, uint32_t eventCount, const VkEvent* pEvents, const VkDependencyInfo* pDependencyInfos)
 {
-	assert(eventCount == 0 || pEvents != nullptr);
-	assert(eventCount == 0 || pDependencyInfos != nullptr);
-	for (uint32_t i = 0; i < eventCount; i++)
-	{
-		if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
-		if (dependency_info_uses_tensors(&pDependencyInfos[i])) instance->has_VK_ARM_tensors = true;
-	}
+	instance->has_VK_KHR_synchronization2 = true;
+	check_vkCmdWaitEvents2(commandBuffer, eventCount, pEvents, pDependencyInfos);
 }
 
 void check_vkCmdPipelineBarrier2(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkCmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer, const VkDependencyInfo* pDependencyInfo)
 {
-	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
-	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
+	instance->has_VK_KHR_synchronization2 = true;
+	check_vkCmdPipelineBarrier2(commandBuffer, pDependencyInfo);
 }
 
 void check_vkCmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (uses_ray_tracing_maintenance1_stage(stage)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 }
 
 void check_vkCmdWriteTimestamp2KHR(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
 {
-	if (uses_ray_tracing_maintenance1_stage(stage)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	instance->has_VK_KHR_synchronization2 = true;
+	check_vkCmdWriteTimestamp2(commandBuffer, stage, queryPool, query);
 }
 
 VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
 {
+	instance->core13.synchronization2 = true;
+	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	assert(submitCount == 0 || pSubmits != nullptr);
 	for (uint32_t i = 0; i < submitCount; i++)
 	{
@@ -1198,13 +1219,8 @@ VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmi
 
 VkResult check_vkQueueSubmit2KHR(VkQueue queue, uint32_t submitCount, const VkSubmitInfo2* pSubmits, VkFence fence)
 {
-	assert(submitCount == 0 || pSubmits != nullptr);
-	for (uint32_t i = 0; i < submitCount; i++)
-	{
-		if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
-		if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
-	}
-	return VK_SUCCESS;
+	instance->has_VK_KHR_synchronization2 = true;
+	return check_vkQueueSubmit2(queue, submitCount, pSubmits, fence);
 }
 
 VkResult check_vkBindBufferMemory2(VkDevice device, uint32_t bindInfoCount, const VkBindBufferMemoryInfo* pBindInfos)

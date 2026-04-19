@@ -160,7 +160,7 @@ struct atomicPhysicalDeviceVulkan13Features
 	std::atomic_bool shaderTerminateInvocation { false }; // not handled
 	std::atomic_bool subgroupSizeControl { false };
 	std::atomic_bool computeFullSubgroups { false }; // not handled
-	std::atomic_bool synchronization2 { false }; // not handled
+	std::atomic_bool synchronization2 { false };
 	std::atomic_bool textureCompressionASTC_HDR { false }; // not handled
 	std::atomic_bool shaderZeroInitializeWorkgroupMemory { false }; // not handled
 	std::atomic_bool dynamicRendering { false };
@@ -218,6 +218,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_maintenance1 { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
+	std::atomic_bool has_VK_KHR_synchronization2 { false };
 	std::atomic_bool has_VK_ARM_tensors { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_pipeline { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_maintenance1 { false };

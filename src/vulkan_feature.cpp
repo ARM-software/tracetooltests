@@ -551,6 +551,131 @@ static void test_dynamic_rendering_extension_adjustment()
 	assert(f->has_VK_KHR_dynamic_rendering == true);
 }
 
+static void test_synchronization2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_synchronization2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_synchronization2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_synchronization2" });
+	assert(exts.empty());
+
+	const char* extname = "VK_KHR_synchronization2";
+	const char* namelist[] = { extname };
+	VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2 = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &synchronization2 };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+
+	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr };
+	VkInstanceCreateInfo ici = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, nullptr };
+	ici.pApplicationInfo = &app_info;
+
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_synchronization2 == true);
+	exts.insert("VK_KHR_synchronization2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_3;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	exts = { "VK_KHR_synchronization2" };
+	synchronization2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR, nullptr, VK_TRUE };
+	dci.pNext = &synchronization2;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_synchronization2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_synchronization2" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_KHR_synchronization2" }, false);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+
+	VkPhysicalDeviceVulkan13Features feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	feat13.synchronization2 = VK_TRUE;
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan13Features(feat13);
+	assert_string_set_equals(adjusted, { "synchronization2" });
+	assert(feat13.synchronization2 == VK_FALSE);
+
+	VkMemoryBarrier2 memory_barrier = {
+		VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr,
+		VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT
+	};
+	VkDependencyInfo dependency_info = {
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr, 0,
+		1, &memory_barrier,
+		0, nullptr,
+		0, nullptr
+	};
+
+	check_vkCmdSetEvent2(VK_NULL_HANDLE, VK_NULL_HANDLE, &dependency_info);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCmdResetEvent2(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_PIPELINE_STAGE_2_COPY_BIT);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkEvent events[] = { VK_NULL_HANDLE };
+	check_vkCmdWaitEvents2(VK_NULL_HANDLE, 1, events, &dependency_info);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCmdPipelineBarrier2(VK_NULL_HANDLE, &dependency_info);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	feat13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+	feat13.synchronization2 = VK_TRUE;
+	adjusted = f->adjust_VkPhysicalDeviceVulkan13Features(feat13);
+	assert(adjusted.empty());
+	assert(feat13.synchronization2 == VK_TRUE);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCmdWriteTimestamp2(VK_NULL_HANDLE, VK_PIPELINE_STAGE_2_COPY_BIT, VK_NULL_HANDLE, 0);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkCommandBufferSubmitInfo command_buffer_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, VK_NULL_HANDLE, 0 };
+	VkSemaphoreSubmitInfo signal_info = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr };
+	signal_info.semaphore = VK_NULL_HANDLE;
+	signal_info.value = 0;
+	signal_info.stageMask = VK_PIPELINE_STAGE_2_COPY_BIT;
+	signal_info.deviceIndex = 0;
+	VkSubmitInfo2 submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr, 0, 0, nullptr, 1, &command_buffer_info, 1, &signal_info };
+	VkResult result = check_vkQueueSubmit2(VK_NULL_HANDLE, 1, &submit_info, VK_NULL_HANDLE);
+	assert(result == VK_SUCCESS);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_3;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCmdPipelineBarrier2(VK_NULL_HANDLE, &dependency_info);
+	assert(f->core13.synchronization2 == true);
+	assert(f->has_VK_KHR_synchronization2 == false);
+	check_vkCmdPipelineBarrier2KHR(VK_NULL_HANDLE, &dependency_info);
+	assert(f->has_VK_KHR_synchronization2 == true);
+}
+
 static void test_transform_feedback_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1655,6 +1780,7 @@ int main()
 	test_copy_commands2_extension_adjustment();
 	test_create_renderpass2_extension_adjustment();
 	test_dynamic_rendering_extension_adjustment();
+	test_synchronization2_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
