@@ -543,6 +543,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
+	if (!has_VK_KHR_create_renderpass2) removed.insert(exts.extract("VK_KHR_create_renderpass2"));
 	if (!has_VK_KHR_copy_commands2) removed.insert(exts.extract("VK_KHR_copy_commands2"));
 	if (!has_VK_KHR_dynamic_rendering) removed.insert(exts.extract("VK_KHR_dynamic_rendering"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
@@ -860,12 +861,35 @@ VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo
 
 VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
-	if (render_pass_uses_multiview(pCreateInfo))
-	{
-		instance->core11.multiview = true;
-		instance->has_VK_KHR_multiview = true;
-	}
-	return VK_SUCCESS;
+	instance->has_VK_KHR_create_renderpass2 = true;
+	return check_vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+void check_vkCmdBeginRenderPass2(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo)
+{
+}
+
+void check_vkCmdBeginRenderPass2KHR(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo)
+{
+	instance->has_VK_KHR_create_renderpass2 = true;
+}
+
+void check_vkCmdNextSubpass2(VkCommandBuffer commandBuffer, const VkSubpassBeginInfo* pSubpassBeginInfo, const VkSubpassEndInfo* pSubpassEndInfo)
+{
+}
+
+void check_vkCmdNextSubpass2KHR(VkCommandBuffer commandBuffer, const VkSubpassBeginInfo* pSubpassBeginInfo, const VkSubpassEndInfo* pSubpassEndInfo)
+{
+	instance->has_VK_KHR_create_renderpass2 = true;
+}
+
+void check_vkCmdEndRenderPass2(VkCommandBuffer commandBuffer, const VkSubpassEndInfo* pSubpassEndInfo)
+{
+}
+
+void check_vkCmdEndRenderPass2KHR(VkCommandBuffer commandBuffer, const VkSubpassEndInfo* pSubpassEndInfo)
+{
+	instance->has_VK_KHR_create_renderpass2 = true;
 }
 
 void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)

@@ -372,6 +372,84 @@ static void test_copy_commands2_extension_adjustment()
 	assert(f->has_VK_KHR_copy_commands2 == true);
 }
 
+static void test_create_renderpass2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_create_renderpass2" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_create_renderpass2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_create_renderpass2" });
+	assert(exts.empty());
+
+	VkAttachmentDescription2 attachment = { VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2, nullptr };
+	attachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference2 color_reference = { VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr };
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	color_reference.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkSubpassDescription2 subpasses[2] = {};
+	for (VkSubpassDescription2& subpass : subpasses)
+	{
+		subpass.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &color_reference;
+	}
+
+	VkSubpassDependency2 dependencies[2] = {};
+	for (uint32_t i = 0; i < 2; i++)
+	{
+		dependencies[i].sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
+		dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	}
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcSubpass = 0;
+	dependencies[1].dstSubpass = 1;
+	dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	VkRenderPassCreateInfo2 render_pass_info = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2, nullptr, 0, 1, &attachment, 2, subpasses, 2, dependencies, 0, nullptr
+	};
+
+	check_vkCreateRenderPass2(VK_NULL_HANDLE, &render_pass_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_create_renderpass2 == false);
+
+	check_vkCreateRenderPass2KHR(VK_NULL_HANDLE, &render_pass_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_create_renderpass2 == true);
+	exts.insert("VK_KHR_create_renderpass2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f->has_VK_KHR_create_renderpass2.store(false);
+	VkRenderPassBeginInfo begin_render_pass = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, nullptr };
+	VkSubpassBeginInfo begin_info = { VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO, nullptr, VK_SUBPASS_CONTENTS_INLINE };
+	VkSubpassEndInfo end_info = { VK_STRUCTURE_TYPE_SUBPASS_END_INFO, nullptr };
+
+	check_vkCmdBeginRenderPass2(VK_NULL_HANDLE, &begin_render_pass, &begin_info);
+	assert(f->has_VK_KHR_create_renderpass2 == false);
+
+	check_vkCmdBeginRenderPass2KHR(VK_NULL_HANDLE, &begin_render_pass, &begin_info);
+	assert(f->has_VK_KHR_create_renderpass2 == true);
+
+	f->has_VK_KHR_create_renderpass2.store(false);
+	check_vkCmdNextSubpass2KHR(VK_NULL_HANDLE, &begin_info, &end_info);
+	assert(f->has_VK_KHR_create_renderpass2 == true);
+
+	f->has_VK_KHR_create_renderpass2.store(false);
+	check_vkCmdEndRenderPass2KHR(VK_NULL_HANDLE, &end_info);
+	assert(f->has_VK_KHR_create_renderpass2 == true);
+}
+
 static void test_dynamic_rendering_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1575,6 +1653,7 @@ int main()
 	test_shader_atomic_int64_extension_adjustment();
 	test_bind_memory2_extension_adjustment();
 	test_copy_commands2_extension_adjustment();
+	test_create_renderpass2_extension_adjustment();
 	test_dynamic_rendering_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
