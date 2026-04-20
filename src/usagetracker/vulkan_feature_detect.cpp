@@ -271,6 +271,11 @@ static bool is_astc_ldr_format(VkFormat format)
 	}
 }
 
+static void mark_external_memory_usage(VkExternalMemoryHandleTypeFlags handleTypes)
+{
+	if (handleTypes != 0) instance->has_VK_KHR_external_memory = true;
+}
+
 static void mark_all_stippled_line_features_used()
 {
 	instance->core14.stippledRectangularLines = true;
@@ -547,6 +552,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VkPhysicalDeviceShaderAtomicInt64Features) removed.insert(exts.extract("VK_KHR_shader_atomic_int64"));
 	if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
+	if (!has_VK_EXT_external_memory_host) removed.insert(exts.extract("VK_EXT_external_memory_host"));
 	if (!has_VK_IMG_filter_cubic) removed.insert(exts.extract("VK_IMG_filter_cubic"));
 	if (!has_VK_KHR_bind_memory2) removed.insert(exts.extract("VK_KHR_bind_memory2"));
 	if (!has_VK_KHR_create_renderpass2) removed.insert(exts.extract("VK_KHR_create_renderpass2"));
@@ -554,6 +560,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_dynamic_rendering) removed.insert(exts.extract("VK_KHR_dynamic_rendering"));
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
+	if (!has_VK_KHR_external_memory) removed.insert(exts.extract("VK_KHR_external_memory"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_KHR_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
@@ -1034,14 +1041,11 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 	return VK_SUCCESS;
 }
 
-VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory)
-{
-	if (get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_TENSOR_ARM)) instance->has_VK_ARM_tensors = true;
-	return VK_SUCCESS;
-}
-
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
+	const VkExternalMemoryImageCreateInfo* external_info = (const VkExternalMemoryImageCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
+	if (external_info) mark_external_memory_usage(external_info->handleTypes);
+
 	if (is_etc2_format(info->format)) instance->core10.textureCompressionETC2 = true;
 	if (is_astc_ldr_format(info->format)) instance->core10.textureCompressionASTC_LDR = true;
 	if (is_bc_format(info->format)) instance->core10.textureCompressionBC = true;
@@ -1065,6 +1069,9 @@ VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, con
 
 VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer)
 {
+	const VkExternalMemoryBufferCreateInfo* external_info = (const VkExternalMemoryBufferCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO);
+	if (external_info) mark_external_memory_usage(external_info->handleTypes);
+
 	if (info->flags & VK_BUFFER_CREATE_SPARSE_BINDING_BIT)
 	{
 		instance->core10.sparseBinding = true;
@@ -1084,6 +1091,19 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 	{
 		instance->has_VK_EXT_transform_feedback = true;
 	}
+	return VK_SUCCESS;
+}
+
+VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory)
+{
+	if (get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_TENSOR_ARM)) instance->has_VK_ARM_tensors = true;
+
+	const VkImportMemoryHostPointerInfoEXT* import_host_info = (const VkImportMemoryHostPointerInfoEXT*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT);
+	if (import_host_info) instance->has_VK_EXT_external_memory_host = true;
+
+	const VkExportMemoryAllocateInfo* export_info = (const VkExportMemoryAllocateInfo*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO);
+	if (export_info) mark_external_memory_usage(export_info->handleTypes);
+
 	return VK_SUCCESS;
 }
 
@@ -1463,6 +1483,12 @@ VkResult check_vkUnmapMemory2KHR(VkDevice device, const VkMemoryUnmapInfo* pMemo
 void check_vkTrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags)
 {
 	instance->has_VK_KHR_maintenance1 = true;
+}
+
+VkResult check_vkGetMemoryHostPointerPropertiesEXT(VkDevice device, VkExternalMemoryHandleTypeFlagBits handleType, const void* pHostPointer, VkMemoryHostPointerPropertiesEXT* pMemoryHostPointerProperties)
+{
+	instance->has_VK_EXT_external_memory_host = true;
+	return VK_SUCCESS;
 }
 
 // Note that this is place where the Vulkan standard gets really awful. pInheritanceInfo is allowed to be a garbage invalid pointer

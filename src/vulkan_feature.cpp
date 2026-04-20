@@ -890,6 +890,104 @@ static void test_get_memory_requirements2_extension_adjustment()
 	assert(f->has_VK_KHR_get_memory_requirements2 == true);
 }
 
+static void test_external_memory_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_external_memory" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_external_memory == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_external_memory" });
+	assert(exts.empty());
+
+	exts.insert("VK_KHR_external_memory");
+
+	VkExternalMemoryBufferCreateInfo buffer_external_info = {
+		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO, nullptr, VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+	};
+	VkBufferCreateInfo buffer_info = {
+		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, &buffer_external_info, 0, 64,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr
+	};
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_external_memory == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_KHR_external_memory" };
+
+	VkExternalMemoryImageCreateInfo image_external_info = {
+		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, nullptr, VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+	};
+	VkImageCreateInfo image_info = {
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &image_external_info, 0,
+		VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_UNORM, { 4, 4, 1 },
+		1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_SAMPLED_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_external_memory == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_KHR_external_memory" };
+
+	VkExportMemoryAllocateInfo export_info = {
+		VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO, nullptr, VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+	};
+	VkMemoryAllocateInfo alloc_info = {
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &export_info, 4096, 0
+	};
+	check_vkAllocateMemory(VK_NULL_HANDLE, &alloc_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_external_memory == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
+static void test_external_memory_host_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_EXT_external_memory_host" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_EXT_external_memory_host == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_external_memory_host" });
+	assert(exts.empty());
+
+	exts.insert("VK_EXT_external_memory_host");
+
+	int host_value = 17;
+	VkImportMemoryHostPointerInfoEXT import_info = {
+		VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT, nullptr,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT, &host_value
+	};
+	VkMemoryAllocateInfo alloc_info = {
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &import_info, 4096, 0
+	};
+	check_vkAllocateMemory(VK_NULL_HANDLE, &alloc_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_external_memory_host == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_EXT_external_memory_host" };
+
+	VkMemoryHostPointerPropertiesEXT pointer_props = {
+		VK_STRUCTURE_TYPE_MEMORY_HOST_POINTER_PROPERTIES_EXT, nullptr, 0
+	};
+	check_vkGetMemoryHostPointerPropertiesEXT(
+		VK_NULL_HANDLE,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT,
+		&host_value,
+		&pointer_props);
+	assert(f->has_VK_EXT_external_memory_host == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_robustness2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1785,6 +1883,8 @@ int main()
 	test_get_physical_device_properties2_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
+	test_external_memory_extension_adjustment();
+	test_external_memory_host_extension_adjustment();
 	test_robustness2_extension_adjustment();
 	test_multiview_extension_adjustment();
 	test_multiview_render_pass_detection();

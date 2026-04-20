@@ -209,6 +209,7 @@ struct feature_detection
 	std::atomic_bool has_VkPhysicalDeviceShaderAtomicInt64Features { false };
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT { false };
+	std::atomic_bool has_VK_EXT_external_memory_host { false };
 	std::atomic_bool has_VK_IMG_filter_cubic { false };
 	std::atomic_bool has_VK_KHR_bind_memory2 { false };
 	std::atomic_bool has_VK_KHR_create_renderpass2 { false };
@@ -216,6 +217,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_dynamic_rendering { false };
 	std::atomic_bool has_VK_KHR_get_memory_requirements2 { false };
 	std::atomic_bool has_VK_KHR_maintenance1 { false };
+	std::atomic_bool has_VK_KHR_external_memory { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
 	std::atomic_bool has_VK_KHR_synchronization2 { false };
@@ -294,6 +296,7 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory);
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage);
 VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer);
+VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory);
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView);
 VkResult check_vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence);
 VkResult check_vkQueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence);
@@ -361,6 +364,7 @@ VkResult check_vkMapMemory2KHR(VkDevice device, const VkMemoryMapInfo* pMemoryMa
 VkResult check_vkUnmapMemory2(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo);
 VkResult check_vkUnmapMemory2KHR(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo);
 void check_vkTrimCommandPoolKHR(VkDevice device, VkCommandPool commandPool, VkCommandPoolTrimFlagsKHR flags);
+VkResult check_vkGetMemoryHostPointerPropertiesEXT(VkDevice device, VkExternalMemoryHandleTypeFlagBits handleType, const void* pHostPointer, VkMemoryHostPointerPropertiesEXT* pMemoryHostPointerProperties);
 VkDeviceAddress check_vkGetBufferDeviceAddress(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 VkDeviceAddress check_vkGetBufferDeviceAddressEXT(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
 VkDeviceAddress check_vkGetBufferDeviceAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo* pInfo);
