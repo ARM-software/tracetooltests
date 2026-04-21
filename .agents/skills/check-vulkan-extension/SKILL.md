@@ -1,5 +1,5 @@
 ---
-name: test_vulkan_extension
+name: check-vulkan-extension
 description: Check support for a particular Vulkan extension
 metadata:
   short-description: Investigate a Vulkan extension test coverage

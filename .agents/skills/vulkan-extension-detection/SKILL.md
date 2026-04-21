@@ -1,5 +1,5 @@
 ---
-name: vulkan_extension_detection
+name: vulkan-extension-detection
 description: Add extension usage detection
 metadata:
   short-description: Generate code to detect whether an extension was actually used or not
