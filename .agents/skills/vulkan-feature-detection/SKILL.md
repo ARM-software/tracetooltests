@@ -1,5 +1,5 @@
 ---
-name: vulkan_feature_detection
+name: vulkan-feature-detection
 description: Add Vulkan unused feature detection
 metadata:
   short-description: Generate code to detect whether a core Vulkan feature was actually used or not

@@ -1,5 +1,5 @@
 ---
-name: test_vulkan_extension
+name: test-vulkan-extension
 description: Add a test case for a particular Vulkan extension
 metadata:
   short-description: Generate a new Vulkan extension test case
