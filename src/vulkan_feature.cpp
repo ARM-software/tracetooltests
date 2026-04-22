@@ -1222,11 +1222,7 @@ static void test_ray_tracing_maintenance1_extension_adjustment()
 	dci.enabledExtensionCount = 1;
 
 	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(f->has_VK_KHR_ray_tracing_maintenance1 == true);
-	assert_removed_device_extensions(f, rtm1_exts, {});
-	assert(rtm1_exts.size() == 1);
-
-	f->has_VK_KHR_ray_tracing_maintenance1.store(false);
+	assert(f->has_VK_KHR_ray_tracing_maintenance1 == false);
 	assert_removed_device_extensions(f, rtm1_exts, { "VK_KHR_ray_tracing_maintenance1" });
 	assert(rtm1_exts.empty());
 	assert_adjusted_device_create_info(f, dci, rtm1_exts, { "VK_KHR_ray_tracing_maintenance1" }, false);
@@ -1252,11 +1248,7 @@ static void test_ray_tracing_pipeline_extension_adjustment()
 	dci.enabledExtensionCount = 1;
 
 	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
-	assert_removed_device_extensions(f, rtp_exts, {});
-	assert(rtp_exts.size() == 1);
-
-	f->has_VK_KHR_ray_tracing_pipeline.store(false);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == false);
 	assert_removed_device_extensions(f, rtp_exts, { "VK_KHR_ray_tracing_pipeline" });
 	assert(rtp_exts.empty());
 	assert_adjusted_device_create_info(f, dci, rtp_exts, { "VK_KHR_ray_tracing_pipeline" }, false);

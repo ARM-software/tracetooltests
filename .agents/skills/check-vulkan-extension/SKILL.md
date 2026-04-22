@@ -11,10 +11,11 @@ metadata:
    features gated by enable flags, make sure we only run these gates features when they are supported. Sometimes creating
    a new test is the right choice, sometimes we can just insert usage into existing tests.
 4. If we are missing a test for the extension or parts of the extension, you can improve existing tests or use the AI skill
-   $test_vulkan_extension to make one.
+   $test-vulkan-extension to make one.
 5. Make note of any commands and structs you could not add to the test, things you find that did not make sense, and suggest the
    best improvement that could be made to make the test even better.
-6. Make sure usage detection of this extension is in `include/vulkan_feature_detect.cpp`. You can use the skill
-   $vulkan_extension_detection to add this if missing.
+6. Make sure usage detection of this extension is in `src/usagetracker/vulkan_feature_detect.cpp` and
+   `src/usagetracker/vulkan_feature_detect.h`. You can use the skill
+   $vulkan-extension-detection to add this if missing.
 7. For any modified test, run the test with `VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump` environment variable set to verify that
    the expected changes actually got executed.

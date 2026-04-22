@@ -806,6 +806,8 @@ VkResult check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperati
 
 VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
 {
+	// If we need to check the feature enable struct to know whether an extension is used, we check it here.
+
 	const VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
 	if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) instance->has_VkPhysicalDeviceShaderAtomicInt64Features = true;
 
@@ -831,14 +833,6 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 		(const VkPhysicalDeviceDescriptorBufferTensorFeaturesARM*)get_extension(
 			pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM);
 	if (pddbtf && pddbtf->descriptorBufferTensorDescriptors) instance->has_VK_ARM_tensors = true;
-
-	const VkPhysicalDeviceRayTracingPipelineFeaturesKHR* pdrtpf = (VkPhysicalDeviceRayTracingPipelineFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR);
-	if (pdrtpf && (pdrtpf->rayTracingPipeline || pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplay ||
-	               pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplayMixed || pdrtpf->rayTracingPipelineTraceRaysIndirect ||
-	               pdrtpf->rayTraversalPrimitiveCulling)) instance->has_VK_KHR_ray_tracing_pipeline = true;
-
-	const VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR* pdrtm1f = (VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR);
-	if (pdrtm1f && (pdrtm1f->rayTracingMaintenance1 || pdrtm1f->rayTracingPipelineTraceRaysIndirect2)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 
 	const VkPhysicalDeviceDescriptorHeapFeaturesEXT* pddhf = (VkPhysicalDeviceDescriptorHeapFeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT);
 	if (pddhf && pddhf->descriptorHeap) instance->has_VK_EXT_descriptor_heap = true;

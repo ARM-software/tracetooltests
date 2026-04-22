@@ -9,7 +9,7 @@ metadata:
 2. Check that we were told which test or common code to use as a starting point or if we should make a test
    from scratch. If this was not specified, ask.
 3. Download the extension text from `https://docs.vulkan.org/refpages/latest/refpages/source/<extension name>.html` and read it.
-4. If you cannot download the extension test due to sandbox permission issues, ask user to add the following to their `.condex/config.toml`:
+4. If you cannot download the extension text due to sandbox permission issues, ask user to add the following to their `~/.codex/config.toml`:
 ```
 [network]
 enable_domain_allowlist = true
@@ -31,5 +31,6 @@ domain_allowlist = [
    we wanted to test actually got executed.
 12. Make note of any commands and structs you could not add to the test, things you find that did not make sense, and suggest the
    best improvement that could be made to make the test even better.
-13. Make sure usage detection of this extension is in `include/vulkan_feature_detect.cpp`. You can use the skill
-   $vulkan_extension_detection to add this if missing.
+13. Make sure usage detection of this extension is in `src/usagetracker/vulkan_feature_detect.cpp` and
+   `src/usagetracker/vulkan_feature_detect.h`. You can use the skill
+   $vulkan-extension-detection to add this if missing.

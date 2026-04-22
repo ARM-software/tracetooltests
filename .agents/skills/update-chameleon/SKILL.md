@@ -18,7 +18,7 @@ Typical issues include missing implementations of new functions defined in the V
 	- If sandboxed auth status fails, rerun the command with `sandbox_permissions=require_escalated` to allow network/keyring access.
 2. `( cd build ; make -j 6 )`
 	- Build with the updated submodule and look for issues. Typically problems would be due to missing functions.
-	- Create function stubs in `vulkan.cpp` for any missing functions defined in the Vulkan spec and not implemented yet by us.
+	- Create function stubs in `src/chameleon/vulkan.cpp` for any missing functions defined in the Vulkan spec and not implemented yet by us.
 
 Minimal example stub function that is not `vkCmd` type:
 ```cpp

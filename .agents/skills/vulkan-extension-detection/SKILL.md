@@ -7,7 +7,7 @@ metadata:
 
 1. Check that we were told which Vulkan extension we are supposed to check. If this was not specified, ask.
 2. Download the extension text from `https://docs.vulkan.org/refpages/latest/refpages/source/<extension name>.html` and read it.
-3. If you cannot download the extension text due to sandbox permission issues, ask user to add the following to their `.codex/config.toml`:
+3. If you cannot download the extension text due to sandbox permission issues, ask user to add the following to their `~/.codex/config.toml`:
 ```
 [network]
 enable_domain_allowlist = true
@@ -17,8 +17,8 @@ domain_allowlist = [
   "api.github.com"
 ]
 ```
-4. Our usage detection code is in `include/vulkan_feature_detect.cpp` and `include/vulkan_feature_detect.h`. There is a test
-   for it at `src/vulkan_feature.cpp`.
+4. Our usage detection code is in `src/usagetracker/vulkan_feature_detect.cpp` and `src/usagetracker/vulkan_feature_detect.h`.
+   There is a test for it at `src/vulkan_feature.cpp`.
 5. Consider whether it is possible at all for us to detect whether the extension is actually being used. It has to express its
    functionality through commands, structures and SPIRV capabilities for us to actually detect it. We do not track state or
    maintain internal bookkeeping and we cannot add this. If we cannot detect its usage with these limitations, stop and inform
@@ -27,15 +27,21 @@ domain_allowlist = [
 ```cpp
     std::atomic_bool has_<name of extension> { false };
 ```
-7. Add support for our extension to `adjust_device_extensions` if it is a device extension, or `adjust_instance_extensions` if
+7. If the extension has a feature enablement struct (typically named `VK_STRUCTURE_TYPE_<something>_FEATURES`), then we need
+   to make a decision: Do we need to check this feature struct to determine if the extension is used or will we have sufficient
+   evidence without it? If we need to check it, then add this check to `check_vkCreateDevice` and count it as used if its feature
+   bit is set. If we can do without it, then do not add this check there and we instead allow `check_prune_device` to later remove
+   the feature struct of unused extensions. Inform the user of the decision you make here.
+	- Usually a feature struct has a main bit that gates access to all other features. If so, we only need to check this one.
+8. Add support for our extension to `adjust_device_extensions` if it is a device extension, or `adjust_instance_extensions` if
    it is an instance extension. If we have a feature enable struct in our extension, then we should add a removal of it also
    to `adjust_VkDeviceCreateInfo` (if device extension) or to `adjust_VkInstanceCreateInfo` (if instance extension).
-8. Make sure each new Vulkan command and command using any new struct defined in the given extension are checked in our detection
+9. Make sure each new Vulkan command and command using any new struct defined in the given extension are checked in our detection
    code. If not, add them. If the extension adds new SPIRV capabilities, also check that in `parse_SPIRV`. If any of our new
    Vulkan commands or structs or SPIRV capabilities are used, we must flag the extension as in use.
-9. If it is safe to do so, we should not consider command variants that have been promoted to core as using the extension -
+10. If it is safe to do so, we should not consider command variants that have been promoted to core as using the extension -
    they would be using the relevant core version or core feature instead, which is out of scope here.
-10. Err on the side of caution - if we cannot tell for sure whether an extension is being used in some way or not, then we should
+11. Err on the side of caution - if we cannot tell for sure whether an extension is being used in some way or not, then we should
    assume it is being used. If this caution means we always assume it is used, then this detection is pointless so stop and
    inform the user of the problem.
-11. Add a quick test for our extension to `src/vulkan_feature.cpp`. Compile and test that it all works fine.
+12. Add a quick test for our extension to `src/vulkan_feature.cpp`. Compile and test that it all works fine.
