@@ -232,7 +232,7 @@ static void image_barrier(VkCommandBuffer command_buffer, VkImage image, VkImage
 	vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-static bool image_has_color(const uint8_t* data, size_t size)
+[[maybe_unused]] static bool image_has_color(const uint8_t* data, size_t size)
 {
 	for (size_t i = 0; i + 3 < size; i += 4)
 	{

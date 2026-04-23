@@ -130,7 +130,7 @@ void write_buffer(const vulkan_setup_t& vulkan, const BufferResource& resource, 
 	vkUnmapMemory(vulkan.device, resource.memory);
 }
 
-std::vector<uint8_t> read_buffer(const vulkan_setup_t& vulkan, const BufferResource& resource)
+[[maybe_unused]] std::vector<uint8_t> read_buffer(const vulkan_setup_t& vulkan, const BufferResource& resource)
 {
 	uint8_t* mapped = nullptr;
 	VkResult result = vkMapMemory(vulkan.device, resource.memory, 0, kImageBytes, 0, (void**)&mapped);

@@ -87,6 +87,7 @@ static void callback_draw(TOOLSTEST *handle)
 	GLboolean ret = GL_FALSE;
 	ret = glIsEnabled(GL_SAMPLE_SHADING);
 	assert(ret == GL_TRUE);
+	(void)ret; // silence compiler warning when asserts are disabled
 
 	GLfloat min_value;
 	glGetFloatv(GL_MIN_SAMPLE_SHADING_VALUE, &min_value);

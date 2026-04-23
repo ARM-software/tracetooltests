@@ -1152,7 +1152,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(
 	cVkDeviceMemory memory;
 	memory.allocationSize = pAllocateInfo->allocationSize;
 	memory.memoryTypeIndex = pAllocateInfo->memoryTypeIndex;
-	posix_memalign((void**)&memory.ptr, sizeof(void*), memory.allocationSize);
+	const int ret = posix_memalign((void**)&memory.ptr, sizeof(void*), memory.allocationSize);
+	if (ret != 0)
+	{
+		memory.ptr = nullptr;
+		return VK_ERROR_OUT_OF_HOST_MEMORY;
+	}
 	dev->deviceMemory.push_back(memory);
 #ifndef FAST
 	dev->memory_allocated[memory.memoryTypeIndex] += memory.allocationSize;

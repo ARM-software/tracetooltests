@@ -65,6 +65,7 @@ static void callback_draw(TOOLSTEST *handle)
 	{
 		if (!is_null_run()) assert(ptr[i] == 1.0f);
 	}
+	(void)ptr; // silence compiler warning when asserts are disabled
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
 
 	// verify in retracer
