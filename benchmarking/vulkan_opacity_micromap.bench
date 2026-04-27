@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_opacity_micromap",
+	"description": "Build, serialize, deserialize, compact, and consume a VK_EXT_opacity_micromap micromap"
+}

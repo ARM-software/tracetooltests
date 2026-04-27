@@ -1360,6 +1360,214 @@ static void test_ray_tracing_pipeline_detection()
 	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
 }
 
+static void test_opacity_micromap_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_EXT_opacity_micromap" };
+	assert(exts.size() == 1);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_opacity_micromap" });
+	assert(exts.empty());
+
+	exts.insert("VK_EXT_opacity_micromap");
+	const char* extname = "VK_EXT_opacity_micromap";
+	const char* names[] = { extname };
+	VkPhysicalDeviceOpacityMicromapFeaturesEXT micromap_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, nullptr, VK_TRUE, VK_TRUE, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &micromap_features };
+	dci.ppEnabledExtensionNames = names;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_opacity_micromap" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_opacity_micromap" }, false);
+}
+
+static void test_opacity_micromap_detection()
+{
+	feature_detection* f = reset_detection();
+
+	VkQueryPoolCreateInfo qpci = {
+		VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr, 0, VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT, 1, 0
+	};
+	check_vkCreateQueryPool(VK_NULL_HANDLE, &qpci, nullptr, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
+	buffer_info.size = 256;
+	buffer_info.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT;
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkPhysicalDeviceOpacityMicromapFeaturesEXT micromap_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, nullptr, VK_FALSE, VK_FALSE, VK_FALSE
+	};
+	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &micromap_features };
+	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkPhysicalDeviceOpacityMicromapPropertiesEXT micromap_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT, nullptr, 0, 0
+	};
+	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &micromap_properties };
+	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkMicromapUsageEXT usage = { 1, 0, VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT };
+	VkMicromapTriangleEXT triangle = { 0, 0, VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT };
+	VkMicromapBuildInfoEXT build_info = { VK_STRUCTURE_TYPE_MICROMAP_BUILD_INFO_EXT, nullptr };
+	build_info.type = VK_MICROMAP_TYPE_OPACITY_MICROMAP_EXT;
+	build_info.flags = VK_BUILD_MICROMAP_ALLOW_COMPACTION_BIT_EXT;
+	build_info.mode = VK_BUILD_MICROMAP_MODE_BUILD_EXT;
+	build_info.usageCountsCount = 1;
+	build_info.pUsageCounts = &usage;
+	build_info.triangleArray.hostAddress = &triangle;
+	VkMicromapBuildSizesInfoEXT micromap_sizes = { VK_STRUCTURE_TYPE_MICROMAP_BUILD_SIZES_INFO_EXT, nullptr };
+	check_vkGetMicromapBuildSizesEXT(VK_NULL_HANDLE, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR, &build_info, &micromap_sizes);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkMicromapCreateInfoEXT create_info = { VK_STRUCTURE_TYPE_MICROMAP_CREATE_INFO_EXT, nullptr };
+	create_info.buffer = VK_NULL_HANDLE;
+	create_info.size = 256;
+	create_info.type = VK_MICROMAP_TYPE_OPACITY_MICROMAP_EXT;
+	check_vkCreateMicromapEXT(VK_NULL_HANDLE, &create_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkDestroyMicromapEXT(VK_NULL_HANDLE, (VkMicromapEXT)1, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkBuildMicromapsEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &build_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdBuildMicromapsEXT(VK_NULL_HANDLE, 1, &build_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkCopyMicromapInfoEXT copy_info = { VK_STRUCTURE_TYPE_COPY_MICROMAP_INFO_EXT, nullptr, (VkMicromapEXT)1, (VkMicromapEXT)2, VK_COPY_MICROMAP_MODE_COMPACT_EXT };
+	check_vkCopyMicromapEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, &copy_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdCopyMicromapEXT(VK_NULL_HANDLE, &copy_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkCopyMicromapToMemoryInfoEXT copy_to_memory_info = { VK_STRUCTURE_TYPE_COPY_MICROMAP_TO_MEMORY_INFO_EXT, nullptr, (VkMicromapEXT)1, {}, VK_COPY_MICROMAP_MODE_SERIALIZE_EXT };
+	check_vkCopyMicromapToMemoryEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, &copy_to_memory_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdCopyMicromapToMemoryEXT(VK_NULL_HANDLE, &copy_to_memory_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkCopyMemoryToMicromapInfoEXT copy_from_memory_info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_MICROMAP_INFO_EXT, nullptr, {}, (VkMicromapEXT)1, VK_COPY_MICROMAP_MODE_DESERIALIZE_EXT };
+	check_vkCopyMemoryToMicromapEXT(VK_NULL_HANDLE, VK_NULL_HANDLE, &copy_from_memory_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdCopyMemoryToMicromapEXT(VK_NULL_HANDLE, &copy_from_memory_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkWriteMicromapsPropertiesEXT(VK_NULL_HANDLE, 1, nullptr, VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT, sizeof(VkDeviceSize), nullptr, sizeof(VkDeviceSize));
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdWriteMicromapsPropertiesEXT(VK_NULL_HANDLE, 1, nullptr, VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT, VK_NULL_HANDLE, 0);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	uint8_t version_data[16] = {};
+	VkMicromapVersionInfoEXT version_info = { VK_STRUCTURE_TYPE_MICROMAP_VERSION_INFO_EXT, nullptr, version_data };
+	VkAccelerationStructureCompatibilityKHR compatibility = VK_ACCELERATION_STRUCTURE_COMPATIBILITY_COMPATIBLE_KHR;
+	check_vkGetDeviceMicromapCompatibilityEXT(VK_NULL_HANDLE, &version_info, &compatibility);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkAccelerationStructureTrianglesOpacityMicromapEXT opacity_info = {
+		VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_EXT, nullptr,
+		VK_INDEX_TYPE_NONE_KHR, {}, 0, 0, 1, &usage, nullptr, (VkMicromapEXT)1
+	};
+	VkAccelerationStructureGeometryTrianglesDataKHR triangles = {
+		VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR, &opacity_info
+	};
+	VkAccelerationStructureGeometryKHR geometry = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR, nullptr };
+	geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+	geometry.geometry.triangles = triangles;
+	VkAccelerationStructureBuildGeometryInfoKHR as_build_info = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr };
+	as_build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+	as_build_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_OPACITY_MICROMAP_UPDATE_BIT_EXT;
+	as_build_info.geometryCount = 1;
+	as_build_info.pGeometries = &geometry;
+	uint32_t primitive_count = 1;
+	VkAccelerationStructureBuildSizesInfoKHR as_sizes = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr };
+	check_vkGetAccelerationStructureBuildSizesKHR(VK_NULL_HANDLE, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &as_build_info, &primitive_count, &as_sizes);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkBuildAccelerationStructuresKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &as_build_info, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+	check_vkCmdBuildAccelerationStructuresKHR(VK_NULL_HANDLE, 1, &as_build_info, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkMemoryBarrier2 memory_barrier = {
+		VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr,
+		VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT,
+		VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT,
+		VK_PIPELINE_STAGE_2_NONE,
+		VK_ACCESS_2_NONE
+	};
+	VkDependencyInfo dependency_info = {
+		VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr, 0,
+		1, &memory_barrier,
+		0, nullptr,
+		0, nullptr
+	};
+	check_vkCmdPipelineBarrier2(VK_NULL_HANDLE, &dependency_info);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkRayTracingPipelineCreateInfoKHR pipeline_info = { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR, nullptr };
+	pipeline_info.flags = VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT;
+	check_vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	buffer_info.usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT;
+	std::unordered_set<std::string> exts = { "VK_EXT_opacity_micromap" };
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_spirv_extension_detection()
 {
 	feature_detection* f = reset_detection();
@@ -1399,6 +1607,23 @@ static void test_spirv_extension_detection()
 	assert(f->core11.multiview == true);
 	assert_removed_device_extensions(f, multiview_exts, {});
 	assert(multiview_exts.size() == 1);
+
+	f = reset_detection();
+
+	const uint32_t opacity_micromap_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		SpvCapabilityRayTracingOpacityMicromapEXT,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	check_shader_module_code(opacity_micromap_spirv, sizeof(opacity_micromap_spirv), 3);
+	assert(f->has_VK_EXT_opacity_micromap == true);
 }
 
 static void test_tensor_extension_adjustment()
@@ -1885,7 +2110,9 @@ int main()
 	test_maintenance1_extension_adjustment();
 	test_ray_tracing_pipeline_extension_adjustment();
 	test_ray_tracing_maintenance1_extension_adjustment();
+	test_opacity_micromap_extension_adjustment();
 	test_maintenance1_detection();
+	test_opacity_micromap_detection();
 	test_ray_tracing_pipeline_detection();
 	test_ray_tracing_maintenance1_detection();
 	test_spirv_extension_detection();

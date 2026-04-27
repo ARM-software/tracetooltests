@@ -67,9 +67,45 @@ inline bool uses_ray_tracing_maintenance1_access(VkAccessFlags2 access)
 	return (access & VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR) != 0;
 }
 
+inline bool is_opacity_micromap_query_type(VkQueryType type)
+{
+	return type == VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT ||
+	       type == VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT;
+}
+
+inline bool uses_opacity_micromap_stage(VkPipelineStageFlags2 stages)
+{
+	return (stages & VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT) != 0;
+}
+
+inline bool uses_opacity_micromap_access(VkAccessFlags2 access)
+{
+	return (access & (VK_ACCESS_2_MICROMAP_READ_BIT_EXT | VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT)) != 0;
+}
+
 inline bool is_ray_tracing_maintenance1_token_type(VkIndirectCommandsTokenTypeEXT type)
 {
 	return type == VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
+}
+
+static bool build_info_uses_opacity_micromap(const VkAccelerationStructureBuildGeometryInfoKHR* info)
+{
+	if (!info) return false;
+	assert(info->geometryCount == 0 || info->pGeometries != nullptr || info->ppGeometries != nullptr);
+
+	for (uint32_t i = 0; i < info->geometryCount; i++)
+	{
+		const VkAccelerationStructureGeometryKHR* geometry =
+			info->pGeometries ? &info->pGeometries[i] : info->ppGeometries[i];
+		assert(geometry != nullptr);
+		if (geometry->geometryType != VK_GEOMETRY_TYPE_TRIANGLES_KHR) continue;
+		if (get_extension(geometry->geometry.triangles.pNext, VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_TRIANGLES_OPACITY_MICROMAP_EXT))
+			return true;
+	}
+
+	return (info->flags & (VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_OPACITY_MICROMAP_UPDATE_BIT_EXT |
+	                       VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DISABLE_OPACITY_MICROMAPS_BIT_EXT |
+	                       VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT_EXT)) != 0;
 }
 
 static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo* info)
@@ -100,6 +136,40 @@ static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo
 		const VkImageMemoryBarrier2& barrier = info->pImageMemoryBarriers[i];
 		if (uses_ray_tracing_maintenance1_stage(barrier.srcStageMask) || uses_ray_tracing_maintenance1_stage(barrier.dstStageMask) ||
 		    uses_ray_tracing_maintenance1_access(barrier.srcAccessMask) || uses_ray_tracing_maintenance1_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	return false;
+}
+
+static bool dependency_info_uses_opacity_micromap(const VkDependencyInfo* info)
+{
+	if (!info) return false;
+	assert(info->memoryBarrierCount == 0 || info->pMemoryBarriers != nullptr);
+	assert(info->bufferMemoryBarrierCount == 0 || info->pBufferMemoryBarriers != nullptr);
+	assert(info->imageMemoryBarrierCount == 0 || info->pImageMemoryBarriers != nullptr);
+
+	for (uint32_t i = 0; i < info->memoryBarrierCount; i++)
+	{
+		const VkMemoryBarrier2& barrier = info->pMemoryBarriers[i];
+		if (uses_opacity_micromap_stage(barrier.srcStageMask) || uses_opacity_micromap_stage(barrier.dstStageMask) ||
+		    uses_opacity_micromap_access(barrier.srcAccessMask) || uses_opacity_micromap_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; i++)
+	{
+		const VkBufferMemoryBarrier2& barrier = info->pBufferMemoryBarriers[i];
+		if (uses_opacity_micromap_stage(barrier.srcStageMask) || uses_opacity_micromap_stage(barrier.dstStageMask) ||
+		    uses_opacity_micromap_access(barrier.srcAccessMask) || uses_opacity_micromap_access(barrier.dstAccessMask))
+			return true;
+	}
+
+	for (uint32_t i = 0; i < info->imageMemoryBarrierCount; i++)
+	{
+		const VkImageMemoryBarrier2& barrier = info->pImageMemoryBarriers[i];
+		if (uses_opacity_micromap_stage(barrier.srcStageMask) || uses_opacity_micromap_stage(barrier.dstStageMask) ||
+		    uses_opacity_micromap_access(barrier.srcAccessMask) || uses_opacity_micromap_access(barrier.dstAccessMask))
 			return true;
 	}
 
@@ -414,6 +484,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityShaderViewportIndex: instance->core12.shaderOutputViewportIndex = true; break;
 			case SpvCapabilityShaderLayer: instance->core12.shaderOutputLayer = true; break;
 			case SpvCapabilityShaderViewportIndexLayerEXT: instance->has_VK_EXT_shader_viewport_index_layer = true; break;
+			case SpvCapabilityRayTracingOpacityMicromapEXT: instance->has_VK_EXT_opacity_micromap = true; break;
 			case SpvCapabilityTransformFeedback: instance->has_VK_EXT_transform_feedback = true; break;
 			case SpvCapabilityGeometryStreams: instance->has_VK_EXT_transform_feedback = true; break;
 			default: break;
@@ -533,6 +604,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_opacity_micromap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -569,6 +641,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
 	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
 	if (!has_VK_EXT_descriptor_heap) removed.insert(exts.extract("VK_EXT_descriptor_heap"));
+	if (!has_VK_EXT_opacity_micromap) removed.insert(exts.extract("VK_EXT_opacity_micromap"));
 	if (!has_VK_EXT_robustness2) removed.insert(exts.extract("VK_EXT_robustness2"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	if (!has_VK_EXT_transform_feedback) removed.insert(exts.extract("VK_EXT_transform_feedback"));
@@ -767,6 +840,7 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 		const VkPipelineRenderingCreateInfo* rendering_info =
 			(const VkPipelineRenderingCreateInfo*)get_extension(pCreateInfos[i].pNext, VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO);
 		if (rendering_info && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
+		if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT) instance->has_VK_EXT_opacity_micromap = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->depthBiasClamp != 0.0) instance->core10.depthBiasClamp = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->lineWidth != 1.0) instance->core10.wideLines = true;
 		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
@@ -796,6 +870,7 @@ VkResult check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperati
 	instance->has_VK_KHR_ray_tracing_pipeline = true;
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
+		if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT) instance->has_VK_EXT_opacity_micromap = true;
 		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
 		{
 			struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
@@ -850,6 +925,17 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	if (pdtff && (pdtff->transformFeedback || pdtff->geometryStreams)) instance->has_VK_EXT_transform_feedback = true;
 
 	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateMicromapEXT(VkDevice device, const VkMicromapCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkMicromapEXT* pMicromap)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+void check_vkDestroyMicromapEXT(VkDevice device, VkMicromapEXT micromap, const VkAllocationCallbacks* pAllocator)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
 }
 
 VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
@@ -907,6 +993,7 @@ void check_vkCmdEndRenderPass2KHR(VkCommandBuffer commandBuffer, const VkSubpass
 
 void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
 {
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
@@ -915,6 +1002,7 @@ void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysi
 void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
 	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
@@ -922,6 +1010,7 @@ void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPh
 
 void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
 {
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
@@ -930,6 +1019,7 @@ void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhy
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
@@ -1024,6 +1114,7 @@ VkResult check_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo* p
 {
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_PIPELINE_STATISTICS && pCreateInfo->pipelineStatistics != 0) instance->core10.pipelineStatisticsQuery = true;
 	if (is_ray_tracing_maintenance1_query_type(pCreateInfo->queryType)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (is_opacity_micromap_query_type(pCreateInfo->queryType)) instance->has_VK_EXT_opacity_micromap = true;
 	if (pCreateInfo->queryType == VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT) instance->has_VK_EXT_transform_feedback = true;
 	return VK_SUCCESS;
 }
@@ -1085,6 +1176,10 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 	{
 		instance->has_VK_EXT_transform_feedback = true;
 	}
+	if (info->usage & (VK_BUFFER_USAGE_MICROMAP_BUILD_INPUT_READ_ONLY_BIT_EXT | VK_BUFFER_USAGE_MICROMAP_STORAGE_BIT_EXT))
+	{
+		instance->has_VK_EXT_opacity_micromap = true;
+	}
 	return VK_SUCCESS;
 }
 
@@ -1130,6 +1225,105 @@ VkResult check_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* pPresent
 	return VK_SUCCESS;
 }
 
+void check_vkGetMicromapBuildSizesEXT(VkDevice device, VkAccelerationStructureBuildTypeKHR buildType, const VkMicromapBuildInfoEXT* pBuildInfo,
+                                      VkMicromapBuildSizesInfoEXT* pSizeInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+VkResult check_vkBuildMicromapsEXT(VkDevice device, VkDeferredOperationKHR deferredOperation, uint32_t infoCount, const VkMicromapBuildInfoEXT* pInfos)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+void check_vkCmdBuildMicromapsEXT(VkCommandBuffer commandBuffer, uint32_t infoCount, const VkMicromapBuildInfoEXT* pInfos)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+VkResult check_vkCopyMicromapEXT(VkDevice device, VkDeferredOperationKHR deferredOperation, const VkCopyMicromapInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCopyMicromapToMemoryEXT(VkDevice device, VkDeferredOperationKHR deferredOperation, const VkCopyMicromapToMemoryInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCopyMemoryToMicromapEXT(VkDevice device, VkDeferredOperationKHR deferredOperation, const VkCopyMemoryToMicromapInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkWriteMicromapsPropertiesEXT(VkDevice device, uint32_t micromapCount, const VkMicromapEXT* pMicromaps, VkQueryType queryType, size_t dataSize,
+                                             void* pData, size_t stride)
+{
+	if (is_opacity_micromap_query_type(queryType)) instance->has_VK_EXT_opacity_micromap = true;
+	return VK_SUCCESS;
+}
+
+void check_vkCmdCopyMicromapEXT(VkCommandBuffer commandBuffer, const VkCopyMicromapInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+void check_vkCmdCopyMicromapToMemoryEXT(VkCommandBuffer commandBuffer, const VkCopyMicromapToMemoryInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+void check_vkCmdCopyMemoryToMicromapEXT(VkCommandBuffer commandBuffer, const VkCopyMemoryToMicromapInfoEXT* pInfo)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+void check_vkCmdWriteMicromapsPropertiesEXT(VkCommandBuffer commandBuffer, uint32_t micromapCount, const VkMicromapEXT* pMicromaps, VkQueryType queryType,
+                                            VkQueryPool queryPool, uint32_t firstQuery)
+{
+	if (is_opacity_micromap_query_type(queryType)) instance->has_VK_EXT_opacity_micromap = true;
+}
+
+void check_vkGetDeviceMicromapCompatibilityEXT(VkDevice device, const VkMicromapVersionInfoEXT* pVersionInfo,
+                                               VkAccelerationStructureCompatibilityKHR* pCompatibility)
+{
+	instance->has_VK_EXT_opacity_micromap = true;
+}
+
+void check_vkGetAccelerationStructureBuildSizesKHR(VkDevice device, VkAccelerationStructureBuildTypeKHR buildType,
+                                                   const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const uint32_t* pMaxPrimitiveCounts,
+                                                   VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo)
+{
+	if (build_info_uses_opacity_micromap(pBuildInfo)) instance->has_VK_EXT_opacity_micromap = true;
+}
+
+VkResult check_vkBuildAccelerationStructuresKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, uint32_t infoCount,
+                                                const VkAccelerationStructureBuildGeometryInfoKHR* pInfos,
+                                                const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos)
+{
+	assert(infoCount == 0 || pInfos != nullptr);
+	for (uint32_t i = 0; i < infoCount; i++)
+	{
+		if (build_info_uses_opacity_micromap(&pInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
+	}
+	return VK_SUCCESS;
+}
+
+void check_vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t infoCount,
+                                               const VkAccelerationStructureBuildGeometryInfoKHR* pInfos,
+                                               const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos)
+{
+	assert(infoCount == 0 || pInfos != nullptr);
+	for (uint32_t i = 0; i < infoCount; i++)
+	{
+		if (build_info_uses_opacity_micromap(&pInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
+	}
+}
+
 void check_vkCmdTraceRaysIndirectKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, VkDeviceAddress indirectDeviceAddress)
 {
 	instance->has_VK_KHR_ray_tracing_pipeline = true;
@@ -1150,6 +1344,7 @@ void check_vkCmdSetEvent2(VkCommandBuffer commandBuffer, VkEvent event, const Vk
 	instance->core13.synchronization2 = true;
 	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_opacity_micromap(pDependencyInfo)) instance->has_VK_EXT_opacity_micromap = true;
 	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
@@ -1164,6 +1359,7 @@ void check_vkCmdResetEvent2(VkCommandBuffer commandBuffer, VkEvent event, VkPipe
 	instance->core13.synchronization2 = true;
 	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (uses_ray_tracing_maintenance1_stage(stageMask)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (uses_opacity_micromap_stage(stageMask)) instance->has_VK_EXT_opacity_micromap = true;
 }
 
 void check_vkCmdResetEvent2KHR(VkCommandBuffer commandBuffer, VkEvent event, VkPipelineStageFlags2 stageMask)
@@ -1181,6 +1377,7 @@ void check_vkCmdWaitEvents2(VkCommandBuffer commandBuffer, uint32_t eventCount, 
 	for (uint32_t i = 0; i < eventCount; i++)
 	{
 		if (dependency_info_uses_ray_tracing_maintenance1(&pDependencyInfos[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		if (dependency_info_uses_opacity_micromap(&pDependencyInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
 		if (dependency_info_uses_tensors(&pDependencyInfos[i])) instance->has_VK_ARM_tensors = true;
 	}
 }
@@ -1196,6 +1393,7 @@ void check_vkCmdPipelineBarrier2(VkCommandBuffer commandBuffer, const VkDependen
 	instance->core13.synchronization2 = true;
 	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (dependency_info_uses_ray_tracing_maintenance1(pDependencyInfo)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (dependency_info_uses_opacity_micromap(pDependencyInfo)) instance->has_VK_EXT_opacity_micromap = true;
 	if (dependency_info_uses_tensors(pDependencyInfo)) instance->has_VK_ARM_tensors = true;
 }
 
@@ -1210,6 +1408,7 @@ void check_vkCmdWriteTimestamp2(VkCommandBuffer commandBuffer, VkPipelineStageFl
 	instance->core13.synchronization2 = true;
 	if (uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
 	if (uses_ray_tracing_maintenance1_stage(stage)) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+	if (uses_opacity_micromap_stage(stage)) instance->has_VK_EXT_opacity_micromap = true;
 }
 
 void check_vkCmdWriteTimestamp2KHR(VkCommandBuffer commandBuffer, VkPipelineStageFlags2 stage, VkQueryPool queryPool, uint32_t query)
@@ -1226,6 +1425,14 @@ VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmi
 	for (uint32_t i = 0; i < submitCount; i++)
 	{
 		if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
+		for (uint32_t j = 0; j < pSubmits[i].waitSemaphoreInfoCount; j++)
+		{
+			if (uses_opacity_micromap_stage(pSubmits[i].pWaitSemaphoreInfos[j].stageMask)) instance->has_VK_EXT_opacity_micromap = true;
+		}
+		for (uint32_t j = 0; j < pSubmits[i].signalSemaphoreInfoCount; j++)
+		{
+			if (uses_opacity_micromap_stage(pSubmits[i].pSignalSemaphoreInfos[j].stageMask)) instance->has_VK_EXT_opacity_micromap = true;
+		}
 		if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
 	}
 	return VK_SUCCESS;
