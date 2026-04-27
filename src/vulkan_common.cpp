@@ -434,16 +434,36 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	vulkan.physical = physical_devices.at(selected_gpu);
 
 	uint32_t family_count = 0;
+	uint32_t selected_queue_family = 0;
+	bool found_matching_queue_family = false;
+
 	if (vulkan.apiVersion > VK_API_VERSION_1_2) // requirement is 1.1 but want to test both and nobody would run 1.0 anymore
 	{
 		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, nullptr);
 		std::vector<VkQueueFamilyProperties2> familyprops(family_count);
 		for (uint32_t i = 0; i < family_count; i++) familyprops[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
 		vkGetPhysicalDeviceQueueFamilyProperties2(vulkan.physical, &family_count, familyprops.data());
-		if (familyprops[0].queueFamilyProperties.queueCount < reqs.queues)
+		if (reqs.required_queue_flags == 0)
 		{
-			printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueFamilyProperties.queueCount, reqs.queues);
-			exit(77);
+			if (familyprops[0].queueFamilyProperties.queueCount < reqs.queues)
+			{
+				printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueFamilyProperties.queueCount, reqs.queues);
+				exit(77);
+			}
+			selected_queue_family = 0;
+			found_matching_queue_family = true;
+		}
+		else
+		{
+			for (uint32_t i = 0; i < family_count; i++)
+			{
+				const VkQueueFamilyProperties& props = familyprops[i].queueFamilyProperties;
+				if (props.queueCount < reqs.queues) continue;
+				if ((props.queueFlags & reqs.required_queue_flags) != reqs.required_queue_flags) continue;
+				selected_queue_family = i;
+				found_matching_queue_family = true;
+				break;
+			}
 		}
 	}
 	else // old style
@@ -451,12 +471,37 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
 		std::vector<VkQueueFamilyProperties> familyprops(family_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, familyprops.data());
-		if (familyprops[0].queueCount < reqs.queues)
+		if (reqs.required_queue_flags == 0)
 		{
-			printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueCount, reqs.queues);
-			exit(77);
+			if (familyprops[0].queueCount < reqs.queues)
+			{
+				printf("Vulkan implementation does not have sufficient queues (only %d, need %u) for this test\n", familyprops[0].queueCount, reqs.queues);
+				exit(77);
+			}
+			selected_queue_family = 0;
+			found_matching_queue_family = true;
+		}
+		else
+		{
+			for (uint32_t i = 0; i < family_count; i++)
+			{
+				const VkQueueFamilyProperties& props = familyprops[i];
+				if (props.queueCount < reqs.queues) continue;
+				if ((props.queueFlags & reqs.required_queue_flags) != reqs.required_queue_flags) continue;
+				selected_queue_family = i;
+				found_matching_queue_family = true;
+				break;
+			}
 		}
 	}
+
+	if (!found_matching_queue_family)
+	{
+		printf("Vulkan implementation does not have a queue family matching flags 0x%x with at least %u queues for this test\n",
+		       reqs.required_queue_flags, reqs.queues);
+		exit(77);
+	}
+	vulkan.queue_family_index = selected_queue_family;
 
 	if (reqs.bufferDeviceAddress && reqs.apiVersion < VK_API_VERSION_1_2)
 	{
@@ -548,7 +593,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	vkEnumerateInstanceLayerProperties(&layer_count, layer_info.data());
 
 	VkDeviceQueueCreateInfo queueCreateInfo = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, nullptr };
-	queueCreateInfo.queueFamilyIndex = 0; // just grab first one
+	queueCreateInfo.queueFamilyIndex = vulkan.queue_family_index;
 	queueCreateInfo.queueCount = reqs.queues;
 	std::vector<float> queuePriorities(reqs.queues);
 	std::fill(queuePriorities.begin(), queuePriorities.end(), 1.0f);

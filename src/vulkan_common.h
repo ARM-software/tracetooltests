@@ -61,6 +61,7 @@ struct vulkan_req_t // Vulkan context requirements
 	uint32_t minApiVersion = VK_API_VERSION_1_0; // the minimum required for the test
 	uint32_t maxApiVersion = VK_API_VERSION_1_4; // the maximum allowed for the test
 	uint32_t queues = 1;
+	VkQueueFlags required_queue_flags = 0;
 	std::vector<std::string> instance_extensions;
 	std::vector<std::string> device_extensions;
 	std::vector<VkDriverId> blocked_drivers; // if we know a driver is broken for a particular test
@@ -96,6 +97,7 @@ struct vulkan_setup_t
 	PFN_vkCmdUpdateBuffer2ARM vkCmdUpdateBuffer2 = nullptr;
 	PFN_vkCmdUpdateMemory2ARM vkCmdUpdateMemory2 = nullptr;
 	PFN_vkCmdPushConstants2KHR vkCmdPushConstants2 = nullptr;
+	uint32_t queue_family_index = 0;
 
 	uint32_t apiVersion = VK_API_VERSION_1_1;
 	std::unordered_set<std::string> instance_extensions;

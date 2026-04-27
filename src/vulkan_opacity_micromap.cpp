@@ -43,27 +43,19 @@ struct Resources
 	VkQueue queue = VK_NULL_HANDLE;
 	VkCommandPool command_pool = VK_NULL_HANDLE;
 	VkCommandBuffer command_buffer = VK_NULL_HANDLE;
-	VkQueryPool compacted_query_pool = VK_NULL_HANDLE;
-	VkQueryPool serialization_query_pool = VK_NULL_HANDLE;
 
 	Buffer data_buffer;
 	Buffer triangle_buffer;
 	Buffer vertex_buffer;
 	Buffer index_buffer;
 	Buffer source_storage_buffer;
-	Buffer compacted_storage_buffer;
-	Buffer serialized_buffer;
-	Buffer deserialized_storage_buffer;
 	Buffer blas_buffer;
 
 	VkMicromapEXT source_micromap = VK_NULL_HANDLE;
-	VkMicromapEXT compacted_micromap = VK_NULL_HANDLE;
-	VkMicromapEXT deserialized_micromap = VK_NULL_HANDLE;
 	AccelerationStructure blas;
 
 	AlignedBufferAddress data_address;
 	AlignedBufferAddress triangle_address;
-	AlignedBufferAddress serialized_address;
 };
 
 static const std::array<Vertex, 3> kVertices = {{
@@ -177,7 +169,7 @@ static void init_resources(const vulkan_setup_t& vulkan, Resources& resources)
 	resources.micromap = query_micromap_functions(vulkan);
 
 	VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr};
-	pool_info.queueFamilyIndex = 0;
+	pool_info.queueFamilyIndex = vulkan.queue_family_index;
 	pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	check(vkCreateCommandPool(vulkan.device, &pool_info, nullptr, &resources.command_pool));
 
@@ -187,17 +179,7 @@ static void init_resources(const vulkan_setup_t& vulkan, Resources& resources)
 	alloc_info.commandBufferCount = 1;
 	check(vkAllocateCommandBuffers(vulkan.device, &alloc_info, &resources.command_buffer));
 
-	vkGetDeviceQueue(vulkan.device, 0, 0, &resources.queue);
-
-	VkQueryPoolCreateInfo compacted_query_info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
-	compacted_query_info.queryType = VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT;
-	compacted_query_info.queryCount = 1;
-	check(vkCreateQueryPool(vulkan.device, &compacted_query_info, nullptr, &resources.compacted_query_pool));
-
-	VkQueryPoolCreateInfo serialization_query_info{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
-	serialization_query_info.queryType = VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT;
-	serialization_query_info.queryCount = 1;
-	check(vkCreateQueryPool(vulkan.device, &serialization_query_info, nullptr, &resources.serialization_query_pool));
+	vkGetDeviceQueue(vulkan.device, vulkan.queue_family_index, 0, &resources.queue);
 
 	resources.vertex_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
@@ -293,8 +275,6 @@ static void build_source_micromap(const vulkan_setup_t& vulkan, Resources& resou
 	build_info.scratchData.deviceAddress = scratch_buffer.address.deviceAddress;
 
 	begin_commands(resources.command_buffer);
-	vkCmdResetQueryPool(resources.command_buffer, resources.compacted_query_pool, 0, 1);
-	vkCmdResetQueryPool(resources.command_buffer, resources.serialization_query_pool, 0, 1);
 	resources.micromap.vkCmdBuildMicromapsEXT(resources.command_buffer, 1, &build_info);
 
 	VkMemoryBarrier2 barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr};
@@ -306,57 +286,9 @@ static void build_source_micromap(const vulkan_setup_t& vulkan, Resources& resou
 	dependency_info.memoryBarrierCount = 1;
 	dependency_info.pMemoryBarriers = &barrier;
 	vkCmdPipelineBarrier2(resources.command_buffer, &dependency_info);
-
-	resources.micromap.vkCmdWriteMicromapsPropertiesEXT(
-		resources.command_buffer, 1, &resources.source_micromap, VK_QUERY_TYPE_MICROMAP_COMPACTED_SIZE_EXT, resources.compacted_query_pool, 0);
-	resources.micromap.vkCmdWriteMicromapsPropertiesEXT(
-		resources.command_buffer, 1, &resources.source_micromap, VK_QUERY_TYPE_MICROMAP_SERIALIZATION_SIZE_EXT, resources.serialization_query_pool, 0);
 	submit_and_wait(resources.queue, resources.command_buffer);
 
 	destroy_buffer(vulkan, scratch_buffer);
-}
-
-static void serialize_and_copy_micromap(const vulkan_setup_t& vulkan, Resources& resources, VkDeviceSize compacted_size, VkDeviceSize serialization_size)
-{
-	resources.compacted_micromap = create_micromap(vulkan, resources, resources.compacted_storage_buffer, compacted_size, "compacted_opacity_micromap");
-
-	resources.serialized_buffer = acceleration_structures::prepare_buffer(
-		vulkan,
-		serialization_size + 512,
-		nullptr,
-		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	resources.serialized_address = get_aligned_device_address(vulkan, resources.serialized_buffer, 256);
-	assert((resources.serialized_address.device_address & 255) == 0);
-
-	VkCopyMicromapInfoEXT compact_info{VK_STRUCTURE_TYPE_COPY_MICROMAP_INFO_EXT, nullptr};
-	compact_info.src = resources.source_micromap;
-	compact_info.dst = resources.compacted_micromap;
-	compact_info.mode = VK_COPY_MICROMAP_MODE_COMPACT_EXT;
-
-	VkCopyMicromapToMemoryInfoEXT serialize_info{VK_STRUCTURE_TYPE_COPY_MICROMAP_TO_MEMORY_INFO_EXT, nullptr};
-	serialize_info.src = resources.source_micromap;
-	serialize_info.dst.deviceAddress = resources.serialized_address.device_address;
-	serialize_info.mode = VK_COPY_MICROMAP_MODE_SERIALIZE_EXT;
-
-	begin_commands(resources.command_buffer);
-	resources.micromap.vkCmdCopyMicromapEXT(resources.command_buffer, &compact_info);
-	resources.micromap.vkCmdCopyMicromapToMemoryEXT(resources.command_buffer, &serialize_info);
-	submit_and_wait(resources.queue, resources.command_buffer);
-}
-
-static void deserialize_micromap(const vulkan_setup_t& vulkan, Resources& resources, VkDeviceSize size)
-{
-	resources.deserialized_micromap = create_micromap(vulkan, resources, resources.deserialized_storage_buffer, size, "deserialized_opacity_micromap");
-
-	VkCopyMemoryToMicromapInfoEXT deserialize_info{VK_STRUCTURE_TYPE_COPY_MEMORY_TO_MICROMAP_INFO_EXT, nullptr};
-	deserialize_info.src.deviceAddress = resources.serialized_address.device_address;
-	deserialize_info.dst = resources.deserialized_micromap;
-	deserialize_info.mode = VK_COPY_MICROMAP_MODE_DESERIALIZE_EXT;
-
-	begin_commands(resources.command_buffer);
-	resources.micromap.vkCmdCopyMemoryToMicromapEXT(resources.command_buffer, &deserialize_info);
-	submit_and_wait(resources.queue, resources.command_buffer);
 }
 
 static void build_blas_with_micromap(const vulkan_setup_t& vulkan, Resources& resources, const VkMicromapUsageEXT& usage)
@@ -368,7 +300,7 @@ static void build_blas_with_micromap(const vulkan_setup_t& vulkan, Resources& re
 	opacity_info.baseTriangle = 0;
 	opacity_info.usageCountsCount = 1;
 	opacity_info.pUsageCounts = &usage;
-	opacity_info.micromap = resources.deserialized_micromap;
+	opacity_info.micromap = resources.source_micromap;
 
 	VkAccelerationStructureGeometryKHR geometry{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR, nullptr};
 	geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
@@ -442,31 +374,14 @@ static void cleanup_resources(const vulkan_setup_t& vulkan, Resources& resources
 		resources.blas.handle = VK_NULL_HANDLE;
 	}
 
-	destroy_micromap(vulkan, resources.micromap, resources.deserialized_micromap);
-	destroy_micromap(vulkan, resources.micromap, resources.compacted_micromap);
 	destroy_micromap(vulkan, resources.micromap, resources.source_micromap);
 
 	destroy_buffer(vulkan, resources.blas_buffer);
-	destroy_buffer(vulkan, resources.deserialized_storage_buffer);
-	destroy_buffer(vulkan, resources.serialized_buffer);
-	destroy_buffer(vulkan, resources.compacted_storage_buffer);
 	destroy_buffer(vulkan, resources.source_storage_buffer);
 	destroy_buffer(vulkan, resources.index_buffer);
 	destroy_buffer(vulkan, resources.vertex_buffer);
 	destroy_buffer(vulkan, resources.triangle_buffer);
 	destroy_buffer(vulkan, resources.data_buffer);
-
-	if (resources.compacted_query_pool != VK_NULL_HANDLE)
-	{
-		vkDestroyQueryPool(vulkan.device, resources.compacted_query_pool, nullptr);
-		resources.compacted_query_pool = VK_NULL_HANDLE;
-	}
-
-	if (resources.serialization_query_pool != VK_NULL_HANDLE)
-	{
-		vkDestroyQueryPool(vulkan.device, resources.serialization_query_pool, nullptr);
-		resources.serialization_query_pool = VK_NULL_HANDLE;
-	}
 
 	if (resources.command_pool != VK_NULL_HANDLE)
 	{
@@ -479,15 +394,21 @@ static void cleanup_resources(const vulkan_setup_t& vulkan, Resources& resources
 int main(int argc, char** argv)
 {
 	VkPhysicalDeviceOpacityMicromapFeaturesEXT micromap_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, nullptr};
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &micromap_features
+	};
+	acceleration_features.accelerationStructure = VK_TRUE;
 	micromap_features.micromap = VK_TRUE;
 
 	vulkan_req_t reqs{};
 	reqs.apiVersion = VK_API_VERSION_1_3;
 	reqs.minApiVersion = VK_API_VERSION_1_3;
+	reqs.required_queue_flags = VK_QUEUE_COMPUTE_BIT;
+	reqs.device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_EXT_OPACITY_MICROMAP_EXTENSION_NAME);
 	reqs.bufferDeviceAddress = true;
-	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&micromap_features);
+	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&acceleration_features);
 
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_opacity_micromap", reqs);
 
@@ -517,29 +438,7 @@ int main(int argc, char** argv)
 	bench_start_iteration(vulkan.bench);
 	VkMicromapBuildSizesInfoEXT build_sizes{VK_STRUCTURE_TYPE_MICROMAP_BUILD_SIZES_INFO_EXT, nullptr};
 	build_source_micromap(vulkan, resources, usage, build_sizes);
-
-	VkDeviceSize compacted_size = 0;
-	VkDeviceSize serialization_size = 0;
-	check(vkGetQueryPoolResults(vulkan.device, resources.compacted_query_pool, 0, 1, sizeof(compacted_size), &compacted_size, sizeof(compacted_size),
-	                            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
-	check(vkGetQueryPoolResults(vulkan.device, resources.serialization_query_pool, 0, 1, sizeof(serialization_size), &serialization_size,
-	                            sizeof(serialization_size), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT));
-	assert(compacted_size > 0);
-	assert(serialization_size > 0);
-
-	serialize_and_copy_micromap(vulkan, resources, compacted_size, serialization_size);
-
-	void* mapped = nullptr;
-	check(vkMapMemory(vulkan.device, resources.serialized_buffer.memory, 0, resources.serialized_address.offset + serialization_size, 0, &mapped));
-	VkMicromapVersionInfoEXT version_info{VK_STRUCTURE_TYPE_MICROMAP_VERSION_INFO_EXT, nullptr};
-	version_info.pVersionData = static_cast<const uint8_t*>(mapped) + resources.serialized_address.offset;
-	VkAccelerationStructureCompatibilityKHR compatibility = VK_ACCELERATION_STRUCTURE_COMPATIBILITY_INCOMPATIBLE_KHR;
-	resources.micromap.vkGetDeviceMicromapCompatibilityEXT(vulkan.device, &version_info, &compatibility);
-	vkUnmapMemory(vulkan.device, resources.serialized_buffer.memory);
-	assert(compatibility == VK_ACCELERATION_STRUCTURE_COMPATIBILITY_COMPATIBLE_KHR);
-
-	deserialize_micromap(vulkan, resources, build_sizes.micromapSize);
-	test_marker_mention(vulkan, "Built and deserialized opacity micromaps", VK_OBJECT_TYPE_MICROMAP_EXT, (uint64_t)resources.deserialized_micromap);
+	test_marker_mention(vulkan, "Built opacity micromap", VK_OBJECT_TYPE_MICROMAP_EXT, (uint64_t)resources.source_micromap);
 
 	build_blas_with_micromap(vulkan, resources, usage);
 	bench_stop_iteration(vulkan.bench);
