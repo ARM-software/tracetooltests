@@ -430,6 +430,8 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 		{
 			switch (insn[1])
 			{
+			case SpvCapabilityGeometry: instance->core10.geometryShader = true; break;
+			case SpvCapabilityTessellation: instance->core10.tessellationShader = true; break;
 			case SpvCapabilityImageGatherExtended: instance->core10.shaderImageGatherExtended = true; break;
 			case SpvCapabilityUniformBufferArrayDynamicIndexing: instance->core10.shaderUniformBufferArrayDynamicIndexing = true; break;
 			case SpvCapabilitySampledImageArrayDynamicIndexing: instance->core10.shaderSampledImageArrayDynamicIndexing = true; break;
