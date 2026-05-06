@@ -461,7 +461,13 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityGroupNonUniformRotateKHR: instance->core14.shaderSubgroupRotate = true; break;
 			case SpvCapabilityExpectAssumeKHR: instance->core14.shaderExpectAssume = true; break;
 			case SpvCapabilityFloatControls2: instance->core14.shaderFloatControls2 = true; break;
+			case SpvCapabilityRayQueryKHR: instance->has_VK_KHR_ray_query = true; break;
 			case SpvCapabilityRayCullMaskKHR: instance->has_VK_KHR_ray_tracing_maintenance1 = true; break;
+			case SpvCapabilityRayTracingKHR: instance->has_VK_KHR_ray_tracing_pipeline = true; break;
+			case SpvCapabilityRayTraversalPrimitiveCullingKHR:
+				instance->has_VK_KHR_ray_tracing_pipeline = true;
+				instance->has_VK_KHR_ray_query = true;
+				break;
 			case SpvCapabilityTensorsARM: instance->has_VK_ARM_tensors = true; break;
 			case SpvCapabilityStorageTensorArrayDynamicIndexingARM: instance->has_VK_ARM_tensors = true; break;
 			case SpvCapabilityStorageTensorArrayNonUniformIndexingARM: instance->has_VK_ARM_tensors = true; break;
@@ -595,6 +601,22 @@ static void check_prune_device(const std::vector<std::string>& aliases, VkDevice
 	if (none_found && prune_extension(info, sType)) for (const auto& v : aliases) if (enables_extension(v, info->ppEnabledExtensionNames, info->enabledExtensionCount)) found.insert(v);
 }
 
+static bool preserve_acceleration_structure_dependency(const std::unordered_set<std::string>& exts)
+{
+	if (exts.count("VK_KHR_acceleration_structure") == 0) return false;
+	if (exts.count("VK_KHR_ray_query") != 0 && instance->has_VK_KHR_ray_query) return true;
+	if (exts.count("VK_KHR_ray_tracing_pipeline") != 0 && instance->has_VK_KHR_ray_tracing_pipeline) return true;
+	if (exts.count("VK_KHR_ray_tracing_maintenance1") != 0 && instance->has_VK_KHR_ray_tracing_maintenance1) return true;
+	if (exts.count("VK_EXT_opacity_micromap") != 0 && instance->has_VK_EXT_opacity_micromap) return true;
+	return false;
+}
+
+static bool preserve_synchronization2_dependency(const std::unordered_set<std::string>& exts)
+{
+	return exts.count("VK_KHR_synchronization2") != 0 && uses_pre13_synchronization2() &&
+	       exts.count("VK_EXT_opacity_micromap") != 0 && instance->has_VK_EXT_opacity_micromap;
+}
+
 std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const
 {
 	std::unordered_set<std::string> found;
@@ -603,6 +625,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_multiview"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_dynamic_rendering"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_synchronization2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES, enabled_exts, found);
+	check_prune_device({"VK_KHR_acceleration_structure"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, enabled_exts, found);
+	check_prune_device({"VK_KHR_ray_query"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
@@ -623,6 +647,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkInstanceCreateInfo(V
 std::unordered_set<std::string> feature_detection::adjust_device_extensions(std::unordered_set<std::string>& exts) const
 {
 	std::unordered_set<std::string> removed;
+	const bool preserve_acceleration_structure = preserve_acceleration_structure_dependency(exts);
+	const bool preserve_synchronization2 = preserve_synchronization2_dependency(exts);
 	if (!has_VkPhysicalDeviceShaderAtomicInt64Features) removed.insert(exts.extract("VK_KHR_shader_atomic_int64"));
 	if (!has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT) removed.insert(exts.extract("VK_EXT_shader_image_atomic_int64")); // alias of above
 	if (!has_VK_KHR_shared_presentable_image) removed.insert(exts.extract("VK_KHR_shared_presentable_image"));
@@ -637,7 +663,9 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_external_memory) removed.insert(exts.extract("VK_KHR_external_memory"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
-	if (!has_VK_KHR_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
+	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
+	if (!has_VK_KHR_acceleration_structure && !preserve_acceleration_structure) removed.insert(exts.extract("VK_KHR_acceleration_structure"));
+	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
@@ -901,6 +929,27 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceSynchronization2Features* pds2f =
 		(const VkPhysicalDeviceSynchronization2Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES);
 	if (pds2f && pds2f->synchronization2 && uses_pre13_synchronization2()) instance->has_VK_KHR_synchronization2 = true;
+
+	const VkPhysicalDeviceAccelerationStructureFeaturesKHR* pdasf =
+		(const VkPhysicalDeviceAccelerationStructureFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR);
+	if (pdasf && (pdasf->accelerationStructure || pdasf->accelerationStructureCaptureReplay || pdasf->accelerationStructureIndirectBuild ||
+	              pdasf->accelerationStructureHostCommands || pdasf->descriptorBindingAccelerationStructureUpdateAfterBind))
+	{
+		instance->has_VK_KHR_acceleration_structure = true;
+	}
+
+	const VkPhysicalDeviceRayQueryFeaturesKHR* pdrqf =
+		(const VkPhysicalDeviceRayQueryFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR);
+	if (pdrqf && pdrqf->rayQuery) instance->has_VK_KHR_ray_query = true;
+
+	const VkPhysicalDeviceRayTracingPipelineFeaturesKHR* pdrtpf =
+		(const VkPhysicalDeviceRayTracingPipelineFeaturesKHR*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR);
+	if (pdrtpf && (pdrtpf->rayTracingPipeline || pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplay ||
+	               pdrtpf->rayTracingPipelineShaderGroupHandleCaptureReplayMixed || pdrtpf->rayTracingPipelineTraceRaysIndirect ||
+	               pdrtpf->rayTraversalPrimitiveCulling))
+	{
+		instance->has_VK_KHR_ray_tracing_pipeline = true;
+	}
 
 	const VkPhysicalDeviceTensorFeaturesARM* pdtf =
 		(const VkPhysicalDeviceTensorFeaturesARM*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM);
@@ -1173,6 +1222,11 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 	                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR))
 	{
 		instance->core12.bufferDeviceAddress = true;
+	}
+	if (info->usage & (VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR |
+	                   VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR))
+	{
+		instance->has_VK_KHR_acceleration_structure = true;
 	}
 	if (info->usage & (VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT | VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT))
 	{

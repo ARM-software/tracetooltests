@@ -1,6 +1,7 @@
 #include "vulkan_utility.h"
 #include "src/usagetracker/vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
+#include "vulkan_rayquery.frag.inc"
 #include "vulkan_transform_feedback_vert.inc"
 
 #include <array>
@@ -1248,10 +1249,124 @@ static void test_ray_tracing_pipeline_extension_adjustment()
 	dci.enabledExtensionCount = 1;
 
 	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
-	assert(f->has_VK_KHR_ray_tracing_pipeline == false);
-	assert_removed_device_extensions(f, rtp_exts, { "VK_KHR_ray_tracing_pipeline" });
-	assert(rtp_exts.empty());
-	assert_adjusted_device_create_info(f, dci, rtp_exts, { "VK_KHR_ray_tracing_pipeline" }, false);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+	assert_removed_device_extensions(f, rtp_exts, {});
+	assert(rtp_exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, rtp_exts, {}, true);
+}
+
+static void test_acceleration_structure_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> as_exts = { "VK_KHR_acceleration_structure" };
+	assert(as_exts.size() == 1);
+	assert_removed_device_extensions(f, as_exts, { "VK_KHR_acceleration_structure" });
+	assert(as_exts.empty());
+
+	as_exts.insert("VK_KHR_acceleration_structure");
+	VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
+	buffer_info.size = 256;
+	buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+	check_vkCreateBuffer(VK_NULL_HANDLE, &buffer_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_acceleration_structure == true);
+	assert_removed_device_extensions(f, as_exts, {});
+	assert(as_exts.size() == 1);
+}
+
+static void test_ray_query_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> rq_exts = { "VK_KHR_ray_query" };
+	assert(rq_exts.size() == 1);
+	assert_removed_device_extensions(f, rq_exts, { "VK_KHR_ray_query" });
+	assert(rq_exts.empty());
+
+	rq_exts.insert("VK_KHR_ray_query");
+	VkPhysicalDeviceRayQueryFeaturesKHR rq_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr, VK_TRUE };
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &rq_features };
+	const char* rq_extname = "VK_KHR_ray_query";
+	dci.ppEnabledExtensionNames = &rq_extname;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_query == true);
+	assert_removed_device_extensions(f, rq_exts, {});
+	assert(rq_exts.size() == 1);
+}
+
+static void test_ray_query_acceleration_structure_dependency()
+{
+	feature_detection* f = reset_detection();
+
+	check_shader_module_code((const uint32_t*)vulkan_rayquery_frag_spv,
+	                         long(ceil(vulkan_rayquery_frag_spv_len / 4.0)) * sizeof(uint32_t),
+	                         8);
+
+	std::unordered_set<std::string> rq_exts = { "VK_KHR_acceleration_structure", "VK_KHR_ray_query" };
+	assert_removed_device_extensions(f, rq_exts, {});
+	assert_string_set_equals(rq_exts, { "VK_KHR_acceleration_structure", "VK_KHR_ray_query" });
+
+	VkPhysicalDeviceRayQueryFeaturesKHR rq_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr };
+	rq_features.rayQuery = VK_TRUE;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR as_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rq_features };
+	as_features.accelerationStructure = VK_TRUE;
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &as_features };
+	const char* rq_names[] = { "VK_KHR_acceleration_structure", "VK_KHR_ray_query" };
+	dci.ppEnabledExtensionNames = rq_names;
+	dci.enabledExtensionCount = 2;
+
+	assert_adjusted_device_create_info(f, dci, { "VK_KHR_acceleration_structure", "VK_KHR_ray_query" }, {}, true);
+	assert(dci.pNext == &as_features);
+	assert(as_features.pNext == &rq_features);
+}
+
+static void test_ray_tracing_pipeline_acceleration_structure_dependency()
+{
+	feature_detection* f = reset_detection();
+
+	check_vkCmdSetRayTracingPipelineStackSizeKHR(VK_NULL_HANDLE, 128);
+
+	std::unordered_set<std::string> rtp_exts = { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline" };
+	assert_removed_device_extensions(f, rtp_exts, {});
+	assert_string_set_equals(rtp_exts, { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline" });
+
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtp_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
+	rtp_features.rayTracingPipeline = VK_TRUE;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR as_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rtp_features };
+	as_features.accelerationStructure = VK_TRUE;
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &as_features };
+	const char* rtp_names[] = { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline" };
+	dci.ppEnabledExtensionNames = rtp_names;
+	dci.enabledExtensionCount = 2;
+
+	assert_adjusted_device_create_info(f, dci, { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_pipeline" }, {}, true);
+	assert(dci.pNext == &as_features);
+	assert(as_features.pNext == &rtp_features);
+}
+
+static void test_ray_tracing_maintenance1_acceleration_structure_dependency()
+{
+	feature_detection* f = reset_detection();
+
+	check_vkCmdTraceRaysIndirect2KHR(VK_NULL_HANDLE, 0);
+
+	std::unordered_set<std::string> rtm1_exts = { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_maintenance1" };
+	assert_removed_device_extensions(f, rtm1_exts, {});
+	assert_string_set_equals(rtm1_exts, { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_maintenance1" });
+
+	VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rtm1_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, nullptr };
+	rtm1_features.rayTracingMaintenance1 = VK_TRUE;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR as_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rtm1_features };
+	as_features.accelerationStructure = VK_TRUE;
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &as_features };
+	const char* rtm1_names[] = { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_maintenance1" };
+	dci.ppEnabledExtensionNames = rtm1_names;
+	dci.enabledExtensionCount = 2;
+
+	assert_adjusted_device_create_info(f, dci, { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_maintenance1" }, {}, true);
+	assert(dci.pNext == &as_features);
+	assert(as_features.pNext == &rtm1_features);
 }
 
 static void test_ray_tracing_maintenance1_detection()
@@ -1358,6 +1473,23 @@ static void test_ray_tracing_pipeline_detection()
 
 	check_vkCmdSetRayTracingPipelineStackSizeKHR(VK_NULL_HANDLE, 128);
 	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	const uint32_t primitive_culling_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		SpvCapabilityRayTraversalPrimitiveCullingKHR,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	check_shader_module_code(primitive_culling_spirv, sizeof(primitive_culling_spirv), 9);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
 }
 
 static void test_opacity_micromap_extension_adjustment()
@@ -1384,6 +1516,30 @@ static void test_opacity_micromap_extension_adjustment()
 	assert_removed_device_extensions(f, exts, { "VK_EXT_opacity_micromap" });
 	assert(exts.empty());
 	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_opacity_micromap" }, false);
+}
+
+static void test_opacity_micromap_acceleration_structure_dependency()
+{
+	feature_detection* f = reset_detection();
+
+	check_vkGetMicromapBuildSizesEXT(VK_NULL_HANDLE, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, nullptr, nullptr);
+
+	std::unordered_set<std::string> exts = { "VK_KHR_acceleration_structure", "VK_KHR_synchronization2", "VK_EXT_opacity_micromap" };
+	assert_removed_device_extensions(f, exts, {});
+	assert_string_set_equals(exts, { "VK_KHR_acceleration_structure", "VK_KHR_synchronization2", "VK_EXT_opacity_micromap" });
+
+	VkPhysicalDeviceOpacityMicromapFeaturesEXT micromap_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, nullptr };
+	micromap_features.micromap = VK_TRUE;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR as_features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &micromap_features };
+	as_features.accelerationStructure = VK_TRUE;
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &as_features };
+	const char* ext_names[] = { "VK_KHR_acceleration_structure", "VK_EXT_opacity_micromap" };
+	dci.ppEnabledExtensionNames = ext_names;
+	dci.enabledExtensionCount = 2;
+
+	assert_adjusted_device_create_info(f, dci, { "VK_KHR_acceleration_structure", "VK_EXT_opacity_micromap" }, {}, true);
+	assert(dci.pNext == &as_features);
+	assert(as_features.pNext == &micromap_features);
 }
 
 static void test_opacity_micromap_detection()
@@ -2084,6 +2240,15 @@ static void test_transform_feedback_shader_module()
 	assert(vulkan_feature_detection_get()->has_VK_EXT_transform_feedback == true);
 }
 
+static void test_ray_query_shader_module()
+{
+	reset_detection();
+	check_shader_module_code((const uint32_t*)vulkan_rayquery_frag_spv,
+	                         long(ceil(vulkan_rayquery_frag_spv_len / 4.0)) * sizeof(uint32_t),
+	                         8);
+	assert(vulkan_feature_detection_get()->has_VK_KHR_ray_query == true);
+}
+
 int main()
 {
 	test_logic_op_adjustment();
@@ -2110,7 +2275,13 @@ int main()
 	test_maintenance1_extension_adjustment();
 	test_ray_tracing_pipeline_extension_adjustment();
 	test_ray_tracing_maintenance1_extension_adjustment();
+	test_acceleration_structure_extension_adjustment();
+	test_ray_query_extension_adjustment();
+	test_ray_query_acceleration_structure_dependency();
+	test_ray_tracing_pipeline_acceleration_structure_dependency();
+	test_ray_tracing_maintenance1_acceleration_structure_dependency();
 	test_opacity_micromap_extension_adjustment();
+	test_opacity_micromap_acceleration_structure_dependency();
 	test_maintenance1_detection();
 	test_opacity_micromap_detection();
 	test_ray_tracing_pipeline_detection();
@@ -2124,5 +2295,6 @@ int main()
 	test_vulkan14_line_rasterization_adjustment();
 	test_buffer_device_address_shader_module();
 	test_transform_feedback_shader_module();
+	test_ray_query_shader_module();
 	return 0;
 }
