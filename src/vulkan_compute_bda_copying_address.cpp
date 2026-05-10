@@ -125,7 +125,7 @@ public:
 };
 
 static std::unique_ptr<benchmarkContext> p_benchmark = nullptr;
-static void render(const vulkan_setup_t& vulkan);
+static void render(vulkan_setup_t& vulkan);
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
@@ -150,11 +150,14 @@ int main(int argc, char** argv)
 	req.reqfeat12.bufferDeviceAddress = VK_TRUE;
 	req.apiVersion = VK_API_VERSION_1_2;
 	req.device_extensions.push_back("VK_KHR_maintenance6");
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_falseAddress", req);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_bda_copying_address", req);
 
 	p_benchmark->initBasic(vulkan, req);
 
-	p_benchmark->numPixelsPerBuffer = p_benchmark->width * p_benchmark->height / NUM_OUTPUT_BUFFERS;
+	const uint64_t totalPixels = static_cast<uint64_t>(p_benchmark->width) * p_benchmark->height;
+	assert(totalPixels > 0);
+	assert(totalPixels <= UINT32_MAX);
+	p_benchmark->numPixelsPerBuffer = static_cast<uint32_t>((totalPixels + NUM_OUTPUT_BUFFERS - 1) / NUM_OUTPUT_BUFFERS);
 
 	/******************* pipeline layout *********************/
 	std::vector<VkPushConstantRange> range = { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushAddress)} };
@@ -238,7 +241,7 @@ int main(int argc, char** argv)
 	if (!p_benchmark->gpu_driven) propFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	else propFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	size = p_benchmark->width * p_benchmark->height * sizeof(VkDeviceAddress);
+	size = totalPixels * sizeof(VkDeviceAddress);
 	p_benchmark->m_colorBuffer = std::make_unique<Buffer>(vulkan);
 	p_benchmark->m_colorBuffer->create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT|VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, size, propFlags);
 
@@ -296,15 +299,18 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 
 	if(p_benchmark->m_vulkanSetup.has_trace_helpers && p_benchmark->m_vulkanSetup.has_explicit_host_updates)
 	{
-		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr,p_benchmark->m_addressBuffer->getMemory(), 0, VK_WHOLE_SIZE};
+		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE, nullptr, VK_NULL_HANDLE, 0, VK_WHOLE_SIZE};
 		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr, VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM };
 		VkMarkedOffsetsARM markings { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr, numPixels, marking_types.data(),sub_types.data(), offsets.data()};
 
 		range.pNext = &frf; 
 		frf.pNext = &markings; 
 		
+		range.memory = p_benchmark->m_colorBuffer->getMemory();
 		VkResult result = vkFlushMappedMemoryRanges(p_benchmark->m_colorBuffer->m_device, 1, &range);
 		check(result);
+
+		range.memory = p_benchmark->m_addressBuffer->getMemory();
 		result = vkFlushMappedMemoryRanges(p_benchmark->m_addressBuffer->m_device, 1, &range);
 		check(result);
 	}
@@ -344,12 +350,12 @@ static void populate_addressAndColorBuffer_comp(VkCommandBuffer commandBuffer, u
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 2, buffer_barries.data(), 0, nullptr);
 }
 
-static void render(const vulkan_setup_t& vulkan)
+static void render(vulkan_setup_t& vulkan)
 {
 	uint32_t groupCount_x = (uint32_t)ceil(p_benchmark->width/float(p_benchmark->wg_size));
 	uint32_t groupCount_y = (uint32_t)ceil(p_benchmark->height/float(p_benchmark->wg_size));
 
-	benchmarking bench = vulkan.bench;
+	benchmarking& bench = p_benchmark->m_vulkanSetup.bench;
 
 	while (p__loops--)
 	{
