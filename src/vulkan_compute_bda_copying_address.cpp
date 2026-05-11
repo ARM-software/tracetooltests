@@ -72,7 +72,7 @@ static void push_address_constants(VkCommandBuffer commandBuffer, const vulkan_s
 static void show_usage()
 {
 	usage();
-	printf("-gdriven/--gpu-driven             using gpu-driven to update.\n");
+	printf("-gd/--gpu-driven       Use GPU-driven code path to update.\n");
 }
 
 using namespace tracetooltests;
@@ -82,12 +82,15 @@ class benchmarkContext : public GraphicContext
 {
 public:
 	benchmarkContext() : GraphicContext() {}
-	~benchmarkContext() {
+
+	~benchmarkContext()
+	{
 		destroy();
 	}
+
 	void destroy()
 	{
-		DLOG3("MEM detection: compute_bda_falseAddress benchmark destroy().");
+		DLOG3("MEM detection: vulkan_compute_bda_copying_address benchmark destroy().");
 
 		m_colorBuffer = nullptr;
 		m_addressBuffer = nullptr;
@@ -129,7 +132,7 @@ static void render(vulkan_setup_t& vulkan);
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 {
-	if (match(argv[i], "-gdriven", "--gpu-driven"))
+	if (match(argv[i], "-gd", "--gpu-driven"))
 	{
 		p_benchmark->gpu_driven = true;
 		return true;
@@ -303,9 +306,9 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 		VkFlushRangesFlagsARM frf = { VK_STRUCTURE_TYPE_FLUSH_RANGES_FLAGS_ARM, nullptr, VK_FLUSH_OPERATION_INFORMATIVE_BIT_ARM };
 		VkMarkedOffsetsARM markings { VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr, numPixels, marking_types.data(),sub_types.data(), offsets.data()};
 
-		range.pNext = &frf; 
-		frf.pNext = &markings; 
-		
+		range.pNext = &frf;
+		frf.pNext = &markings;
+
 		range.memory = p_benchmark->m_colorBuffer->getMemory();
 		VkResult result = vkFlushMappedMemoryRanges(p_benchmark->m_colorBuffer->m_device, 1, &range);
 		check(result);
