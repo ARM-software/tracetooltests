@@ -72,10 +72,11 @@ function(gles_test test_name)
 endfunction()
 
 if (NOT NO_VULKAN MATCHES "1")
+find_package(Vulkan REQUIRED)
 add_library(vulkan_common STATIC src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
 	src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h
 	src/vulkan_raytracing_common.cpp src/vulkan_raytracing_common.h src/util.cpp src/util.h)
-target_link_libraries(vulkan_common PRIVATE vulkan pthread ${IT_LIBS} ${XCB_LIBRARIES})
+target_link_libraries(vulkan_common PRIVATE ${Vulkan_LIBRARY} pthread ${IT_LIBS} ${XCB_LIBRARIES})
 target_link_directories(vulkan_common PRIVATE ${LIB_DIRS})
 target_compile_definitions(vulkan_common PUBLIC ${IT_DEFINES})
 set_target_properties(vulkan_common PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
@@ -523,7 +524,7 @@ endif()
 
 function(cl_test_build test_name cl_version)
 	add_executable(opencl_${ARGV0}_v${ARGV1} src/opencl_${ARGV0}.cpp src/opencl_common.cpp src/opencl_common.h src/util.cpp src/util.h)
-	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL pthread vulkan_common vulkan)
+	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL pthread vulkan_common ${Vulkan_LIBRARY})
 	target_compile_definitions(opencl_${ARGV0}_v${ARGV1} PUBLIC ${IT_DEFINES} CL_TARGET_OPENCL_VERSION=${ARGV1})
 	set_target_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
