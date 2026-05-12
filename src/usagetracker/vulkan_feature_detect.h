@@ -206,6 +206,7 @@ struct feature_detection
 	// Extensions
 	std::atomic_bool has_VK_EXT_swapchain_colorspace { false };
 	std::atomic_bool has_VK_KHR_get_physical_device_properties2 { false };
+	std::atomic_bool has_VK_KHR_external_fence_capabilities { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderAtomicInt64Features { false };
 	std::atomic_bool has_VK_KHR_shared_presentable_image { false };
 	std::atomic_bool has_VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT { false };
@@ -288,6 +289,8 @@ void check_vkGetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physica
 void check_vkGetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceMemoryProperties2* pMemoryProperties);
 void check_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSparseImageFormatInfo2* pFormatInfo,
                                                               uint32_t* pPropertyCount, VkSparseImageFormatProperties2* pProperties);
+void check_vkGetPhysicalDeviceExternalFencePropertiesKHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalFenceInfo* pExternalFenceInfo,
+                                                         VkExternalFenceProperties* pExternalFenceProperties);
 VkResult check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities);
 VkResult check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains);
 VkResult check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain);

@@ -683,6 +683,7 @@ std::unordered_set<std::string> feature_detection::adjust_instance_extensions(st
 	std::unordered_set<std::string> removed;
 	if (!has_VK_EXT_swapchain_colorspace) removed.insert(exts.extract("VK_EXT_swapchain_colorspace"));
 	if (!has_VK_KHR_get_physical_device_properties2) removed.insert(exts.extract("VK_KHR_get_physical_device_properties2"));
+	if (!has_VK_KHR_external_fence_capabilities) removed.insert(exts.extract("VK_KHR_external_fence_capabilities"));
 	return removed;
 }
 
@@ -1109,6 +1110,12 @@ void check_vkGetPhysicalDeviceSparseImageFormatProperties2KHR(VkPhysicalDevice p
                                                               uint32_t* pPropertyCount, VkSparseImageFormatProperties2* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+}
+
+void check_vkGetPhysicalDeviceExternalFencePropertiesKHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceExternalFenceInfo* pExternalFenceInfo,
+                                                         VkExternalFenceProperties* pExternalFenceProperties)
+{
+	instance->has_VK_KHR_external_fence_capabilities = true;
 }
 
 VkResult check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceSurfaceInfo2KHR* pSurfaceInfo, VkSurfaceCapabilities2KHR* pSurfaceCapabilities)

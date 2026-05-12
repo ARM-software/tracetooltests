@@ -1,0 +1,22 @@
+{
+	"name": "vulkan_external_fence_fd_capabilities",
+	"description": "Query external fence FD capabilities and exercise OPAQUE_FD fence import/export",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}

@@ -1,0 +1,22 @@
+{
+	"name": "vulkan_external_fence_core_capabilities",
+	"description": "Query Vulkan 1.1 core external fence capabilities without FD extensions",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}

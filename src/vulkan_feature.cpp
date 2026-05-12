@@ -849,6 +849,29 @@ static void test_get_physical_device_properties2_extension_adjustment()
 	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
 }
 
+static void test_external_fence_capabilities_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_external_fence_capabilities" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_external_fence_capabilities == false);
+	assert_removed_instance_extensions(f, exts, { "VK_KHR_external_fence_capabilities" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceExternalFenceInfo external_info = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_FENCE_INFO, nullptr, VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT
+	};
+	VkExternalFenceProperties external_properties = { VK_STRUCTURE_TYPE_EXTERNAL_FENCE_PROPERTIES, nullptr };
+
+	check_vkGetPhysicalDeviceExternalFencePropertiesKHR(VK_NULL_HANDLE, &external_info, &external_properties);
+	assert(f->has_VK_KHR_external_fence_capabilities == true);
+
+	exts.insert("VK_KHR_external_fence_capabilities");
+	assert_removed_instance_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_get_memory_requirements2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2263,6 +2286,7 @@ int main()
 	test_synchronization2_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
+	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
 	test_external_memory_extension_adjustment();
