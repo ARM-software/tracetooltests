@@ -344,6 +344,10 @@ static bool is_astc_ldr_format(VkFormat format)
 static void mark_external_memory_usage(VkExternalMemoryHandleTypeFlags handleTypes)
 {
 	if (handleTypes != 0) instance->has_VK_KHR_external_memory = true;
+	if (handleTypes & (VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT | VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT))
+	{
+		instance->has_VK_KHR_external_memory_fd = true;
+	}
 }
 
 static void mark_all_stippled_line_features_used()
@@ -661,6 +665,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_get_memory_requirements2) removed.insert(exts.extract("VK_KHR_get_memory_requirements2"));
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_external_memory) removed.insert(exts.extract("VK_KHR_external_memory"));
+	if (!has_VK_KHR_external_memory_fd) removed.insert(exts.extract("VK_KHR_external_memory_fd"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
@@ -1253,9 +1258,26 @@ VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAl
 	const VkImportMemoryHostPointerInfoEXT* import_host_info = (const VkImportMemoryHostPointerInfoEXT*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT);
 	if (import_host_info) instance->has_VK_EXT_external_memory_host = true;
 
+	const VkImportMemoryFdInfoKHR* import_fd_info = (const VkImportMemoryFdInfoKHR*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR);
+	if (import_fd_info) mark_external_memory_usage(import_fd_info->handleType);
+
 	const VkExportMemoryAllocateInfo* export_info = (const VkExportMemoryAllocateInfo*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO);
 	if (export_info) mark_external_memory_usage(export_info->handleTypes);
 
+	return VK_SUCCESS;
+}
+
+VkResult check_vkGetMemoryFdKHR(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd)
+{
+	instance->has_VK_KHR_external_memory_fd = true;
+	if (pGetFdInfo) mark_external_memory_usage(pGetFdInfo->handleType);
+	return VK_SUCCESS;
+}
+
+VkResult check_vkGetMemoryFdPropertiesKHR(VkDevice device, VkExternalMemoryHandleTypeFlagBits handleType, int fd, VkMemoryFdPropertiesKHR* pMemoryFdProperties)
+{
+	instance->has_VK_KHR_external_memory_fd = true;
+	mark_external_memory_usage(handleType);
 	return VK_SUCCESS;
 }
 

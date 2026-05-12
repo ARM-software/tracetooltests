@@ -219,6 +219,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_get_memory_requirements2 { false };
 	std::atomic_bool has_VK_KHR_maintenance1 { false };
 	std::atomic_bool has_VK_KHR_external_memory { false };
+	std::atomic_bool has_VK_KHR_external_memory_fd { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
 	std::atomic_bool has_VK_KHR_synchronization2 { false };
@@ -305,6 +306,8 @@ VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAl
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage);
 VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkBuffer* pBuffer);
 VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory);
+VkResult check_vkGetMemoryFdKHR(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd);
+VkResult check_vkGetMemoryFdPropertiesKHR(VkDevice device, VkExternalMemoryHandleTypeFlagBits handleType, int fd, VkMemoryFdPropertiesKHR* pMemoryFdProperties);
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView);
 VkResult check_vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence);
 VkResult check_vkQueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence);

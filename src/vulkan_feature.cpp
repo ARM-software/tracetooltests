@@ -971,6 +971,58 @@ static void test_external_memory_extension_adjustment()
 	assert(exts.size() == 1);
 }
 
+static void test_external_memory_fd_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_external_memory_fd" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_KHR_external_memory_fd == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_external_memory_fd" });
+	assert(exts.empty());
+
+	exts.insert("VK_KHR_external_memory_fd");
+
+	VkMemoryGetFdInfoKHR get_fd_info = {
+		VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR, nullptr,
+		VK_NULL_HANDLE, VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+	};
+	check_vkGetMemoryFdKHR(VK_NULL_HANDLE, &get_fd_info, nullptr);
+	assert(f->has_VK_KHR_external_memory_fd == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_KHR_external_memory_fd" };
+
+	VkMemoryFdPropertiesKHR fd_properties = {
+		VK_STRUCTURE_TYPE_MEMORY_FD_PROPERTIES_KHR, nullptr, 0
+	};
+	check_vkGetMemoryFdPropertiesKHR(
+		VK_NULL_HANDLE,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+		-1,
+		&fd_properties);
+	assert(f->has_VK_KHR_external_memory_fd == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_KHR_external_memory_fd" };
+
+	VkImportMemoryFdInfoKHR import_info = {
+		VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR, nullptr,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT, -1
+	};
+	VkMemoryAllocateInfo alloc_info = {
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &import_info, 4096, 0
+	};
+	check_vkAllocateMemory(VK_NULL_HANDLE, &alloc_info, nullptr, nullptr);
+	assert(f->has_VK_KHR_external_memory_fd == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_external_memory_host_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2290,6 +2342,7 @@ int main()
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
 	test_external_memory_extension_adjustment();
+	test_external_memory_fd_extension_adjustment();
 	test_external_memory_host_extension_adjustment();
 	test_robustness2_extension_adjustment();
 	test_multiview_extension_adjustment();
