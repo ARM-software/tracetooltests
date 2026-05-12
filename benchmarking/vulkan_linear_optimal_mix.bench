@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_linear_optimal_mix",
+	"description": "Interleave many small buffers and optimal images in one Vulkan memory allocation"
+}
