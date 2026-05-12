@@ -364,6 +364,7 @@ else()
 endif()
 
 set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G925" CACHE STRING "Default Chameleon GPU profile directory")
+set(CHAMELEON_VULKANCORE_1_4_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/VulkanCore-1.4")
 set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
 set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
@@ -505,6 +506,12 @@ chameleon_icd_test(init init)
 chameleon_icd_test(general general)
 chameleon_icd_test(multiinstance multiinstance)
 chameleon_icd_window_test(window_1 window_1)
+add_test(NAME chameleon_vulkancore_1_4_general COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_general --gpu)
+set(ENABLE_JSON "{\"target\": \"chameleon_vulkancore_1_4_general\"}")
+set_tests_properties(chameleon_vulkancore_1_4_general PROPERTIES
+	SKIP_RETURN_CODE 77
+	ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_VULKANCORE_1_4_GPU_PATH};${TRACETOOLTESTS_TEST_ARGUMENTS}"
+	LABELS "chameleon;icd")
 
 add_custom_target(chameleon DEPENDS
 	chameleon_icd
