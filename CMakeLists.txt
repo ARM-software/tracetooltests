@@ -446,7 +446,11 @@ set(CHAMELEON_COMPILE_OPTIONS
 	-Wno-unused-variable
 	-Wno-unused-but-set-variable
 )
-set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow;-Wno-maybe-uninitialized;-Wno-error=maybe-uninitialized")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow;-Wno-maybe-uninitialized;-Wno-error=maybe-uninitialized")
+else()
+	set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow")
+endif()
 
 add_library(chameleon_icd SHARED ${CHAMELEON_FULL_SOURCES} ${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp)
 add_dependencies(chameleon_icd chameleon_codegen)
