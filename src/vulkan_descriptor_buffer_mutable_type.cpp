@@ -214,8 +214,7 @@ void setup_descriptor_set_layout()
 
 	p_benchmark->m_mutableSetLayout = std::move(mutableSetLayout);
 
-	std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>>  //set num --> descriptorSetLayout
-	layoutMap = { {0, p_benchmark->m_mutableSetLayout} };
+	std::vector<VkDescriptorSetLayout> setLayouts = { p_benchmark->m_mutableSetLayout->getHandle() };
 
 	VkPushConstantRange const_range{};
 	const_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
@@ -223,7 +222,7 @@ void setup_descriptor_set_layout()
 	const_range.size       = sizeof(CameraData);
 
 	auto pipelineLayout = std::make_unique<PipelineLayout>(p_benchmark->m_vulkanSetup.device);
-	pipelineLayout->create(layoutMap, {const_range});
+	pipelineLayout->create(setLayouts, {const_range});
 	p_benchmark->m_pipelineLayout = std::move(pipelineLayout);
 }
 
@@ -303,8 +302,8 @@ void prepare_compute_pipeline()
 
 	ShaderPipelineState cullShaderStage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(cullShader));
 	cullShaderStage.setSpecialization(smentries, 4 * sdata.size(), sdata.data());
-	p_benchmark->m_cullingPipeline = std::make_unique<ComputePipeline>(p_benchmark->m_pipelineLayout);
-	p_benchmark->m_cullingPipeline->create(cullShaderStage, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	p_benchmark->m_cullingPipeline = std::make_unique<ComputePipeline>(p_benchmark->m_vulkanSetup.device);
+	p_benchmark->m_cullingPipeline->create(p_benchmark->m_pipelineLayout->getHandle(), cullShaderStage, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
 void prepare_graphic_pipeline()
@@ -327,7 +326,7 @@ void prepare_graphic_pipeline()
 	colorImageView->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// attachments: set VkAttachmentDescription
-	AttachmentInfo color{ 0, std::move(colorImageView), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	AttachmentInfo color{ 0, *colorImageView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 
 	// subpass: set VkAttachmentReference
 	SubpassInfo subpass{};
@@ -352,7 +351,7 @@ void prepare_graphic_pipeline()
 
 	/********************************** framebuffer *********************************/
 	auto framebuffer = std::make_unique<FrameBuffer>(p_benchmark->m_vulkanSetup.device);
-	framebuffer->create(*renderpass, {p_benchmark->width, p_benchmark->height});
+	framebuffer->create(*renderpass, {colorImageView}, {p_benchmark->width, p_benchmark->height});
 
 	/*************************** shader module **************************************/
 	auto vertShader = std::make_unique<Shader>(p_benchmark->m_vulkanSetup.device);
@@ -367,8 +366,8 @@ void prepare_graphic_pipeline()
 
 	/*************************** graphic pipeline creation **************************/
 	std::vector<ShaderPipelineState> shaderStages = {vertShaderState, fragShaderState};
-	auto pipeline = std::make_unique<GraphicPipeline>(p_benchmark->m_pipelineLayout);
-	pipeline->create(shaderStages, pipelineState, *renderpass, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+	auto pipeline = std::make_unique<GraphicPipeline>(p_benchmark->m_vulkanSetup.device);
+	pipeline->create(p_benchmark->m_pipelineLayout->getHandle(), shaderStages, pipelineState, *renderpass, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
 	p_benchmark->m_renderPass = std::move(renderpass);
 	p_benchmark->m_framebuffer = std::move(framebuffer);

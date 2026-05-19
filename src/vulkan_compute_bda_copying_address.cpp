@@ -102,6 +102,7 @@ public:
 		m_initPipeline = nullptr;
 		m_interleavePipeline = nullptr;
 		m_outputPipeline = nullptr;
+		m_computePipelineLayout = nullptr;
 
 		if (m_frameFence != VK_NULL_HANDLE)
 		{
@@ -120,6 +121,7 @@ public:
 	std::unique_ptr<ComputePipeline> m_initPipeline;
 	std::unique_ptr<ComputePipeline> m_interleavePipeline;
 	std::unique_ptr<ComputePipeline> m_outputPipeline;
+	std::shared_ptr<PipelineLayout> m_computePipelineLayout;
 
 	VkFence m_frameFence = VK_NULL_HANDLE;
 	uint32_t numPixelsPerBuffer;
@@ -166,6 +168,7 @@ int main(int argc, char** argv)
 	std::vector<VkPushConstantRange> range = { {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushAddress)} };
 	auto pipeline_layout = std::make_shared<PipelineLayout>(vulkan.device);
 	pipeline_layout->create(range);
+	p_benchmark->m_computePipelineLayout = pipeline_layout;
 
 	/******************* shader and pipeline *********************/
 	std::vector<VkSpecializationMapEntry> smentries(6);
@@ -192,8 +195,8 @@ int main(int argc, char** argv)
 		ShaderPipelineState initShaderStage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(initShader));
 		initShaderStage.setSpecialization(smentries, 4 * sdata.size(), sdata.data());
 
-		p_benchmark->m_initPipeline = std::make_unique<ComputePipeline>(pipeline_layout);
-		p_benchmark->m_initPipeline->create(initShaderStage);
+		p_benchmark->m_initPipeline = std::make_unique<ComputePipeline>(vulkan.device);
+		p_benchmark->m_initPipeline->create(pipeline_layout->getHandle(), initShaderStage);
 
 		initShaderStage.destroy();
 	}
@@ -210,11 +213,11 @@ int main(int argc, char** argv)
 	ShaderPipelineState outputShaderStage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(outputShader));
 	outputShaderStage.setSpecialization(smentries, 4 * sdata.size(), sdata.data());
 
-	p_benchmark->m_interleavePipeline = std::make_unique<ComputePipeline>(pipeline_layout);
-	p_benchmark->m_interleavePipeline->create(interleaveShaderStage);
+	p_benchmark->m_interleavePipeline = std::make_unique<ComputePipeline>(vulkan.device);
+	p_benchmark->m_interleavePipeline->create(pipeline_layout->getHandle(), interleaveShaderStage);
 
-	p_benchmark->m_outputPipeline = std::make_unique<ComputePipeline>(pipeline_layout);
-	p_benchmark->m_outputPipeline->create(outputShaderStage);
+	p_benchmark->m_outputPipeline = std::make_unique<ComputePipeline>(vulkan.device);
+	p_benchmark->m_outputPipeline->create(pipeline_layout->getHandle(), outputShaderStage);
 
 	outputShaderStage.destroy();
 	interleaveShaderStage.destroy();
@@ -310,11 +313,11 @@ static void populate_addressAndColorBuffer(uint32_t numPixelsPerBuffer)
 		frf.pNext = &markings;
 
 		range.memory = p_benchmark->m_colorBuffer->getMemory();
-		VkResult result = vkFlushMappedMemoryRanges(p_benchmark->m_colorBuffer->m_device, 1, &range);
+		VkResult result = vkFlushMappedMemoryRanges(p_benchmark->m_colorBuffer->getDevice(), 1, &range);
 		check(result);
 
 		range.memory = p_benchmark->m_addressBuffer->getMemory();
-		result = vkFlushMappedMemoryRanges(p_benchmark->m_addressBuffer->m_device, 1, &range);
+		result = vkFlushMappedMemoryRanges(p_benchmark->m_addressBuffer->getDevice(), 1, &range);
 		check(result);
 	}
 
@@ -331,7 +334,7 @@ static void populate_addressAndColorBuffer_comp(VkCommandBuffer commandBuffer, u
 	push_address.BDA = p_benchmark->m_baseAddressBuffer->getBufferDeviceAddress();
 	push_address.colorBDA = p_benchmark->m_colorBuffer->getBufferDeviceAddress();
 	push_address.addressBDA = p_benchmark->m_addressBuffer->getBufferDeviceAddress();
-	push_address_constants(commandBuffer, p_benchmark->m_vulkanSetup, p_benchmark->m_initPipeline->m_pipelineLayout->getHandle(),
+	push_address_constants(commandBuffer, p_benchmark->m_vulkanSetup, p_benchmark->m_computePipelineLayout->getHandle(),
 	                       push_address, 3, sizeof(push_address));
 
 	vkCmdDispatch(commandBuffer, groupCount_x, groupCount_y, 1);
@@ -418,7 +421,7 @@ static void render(vulkan_setup_t& vulkan)
 		push_address.BDA = p_benchmark->m_interleaveBuffer->getBufferDeviceAddress();
 		push_address.colorBDA = p_benchmark->m_colorBuffer->getBufferDeviceAddress();
 		push_address.addressBDA = p_benchmark->m_addressBuffer->getBufferDeviceAddress();
-		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_interleavePipeline->m_pipelineLayout->getHandle(),
+		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_computePipelineLayout->getHandle(),
 		                       push_address, 3, sizeof(push_address));
 
 		vkCmdDispatch(defaultCmd, groupCount_x, groupCount_y, 1);
@@ -440,7 +443,7 @@ static void render(vulkan_setup_t& vulkan)
 		push_address.colorBDA = 0;
 		push_address.addressBDA = 0;
 		push_address.BDA = p_benchmark->m_interleaveBuffer->getBufferDeviceAddress();
-		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_outputPipeline->m_pipelineLayout->getHandle(),
+		push_address_constants(defaultCmd, p_benchmark->m_vulkanSetup, p_benchmark->m_computePipelineLayout->getHandle(),
 		                       push_address, 1, sizeof(VkDeviceAddress));
 		vkCmdDispatch(defaultCmd, groupCount_x, groupCount_y, 1);
 

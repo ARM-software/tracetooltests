@@ -3,6 +3,8 @@
 #include "vulkan_common.h"
 #include <memory>
 #include <functional>
+#include <map>
+#include <deque>
 
 namespace tracetooltests
 {
@@ -45,14 +47,17 @@ public:
 	inline VkDeviceSize getSize() const {
 		return m_size;
 	}
+	inline VkDevice getDevice() const {
+		return m_device;
+	}
 
 	/* user definition createinfo: could used in corner cases, eg garbage data */
 	VkResult create(const BufferCreateInfoFunc& createInfoFunc, const AllocationCreateInfoFunc& allocationInfoFunc);
 
-	VkDevice m_device;
 	void* m_mappedAddress = nullptr;
 
 private:
+	VkDevice m_device;
 	VkResult create();
 
 	bool emit_extra_flushes = false;
@@ -117,13 +122,16 @@ public:
 	inline VkImageCreateInfo getCreateInfo() const {
 		return m_createInfo;
 	}
+	inline VkDevice getDevice() const {
+		return m_device;
+	}
 
-	VkDevice m_device;
 	VkFormat m_format = VK_FORMAT_UNDEFINED;
 	VkImageAspectFlags m_aspect = VK_IMAGE_ASPECT_NONE;
 	VkImageLayout m_imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 private:
+	VkDevice m_device;
 	void setAspectMask(VkFormat format);
 	VkImageType findImageType(VkExtent3D extent) const;
 
@@ -173,9 +181,8 @@ public:
 		return m_handle;
 	}
 
-	VkDevice m_device;
-
 private:
+	VkDevice m_device;
 	VkResult create();
 
 	VkSampler m_handle = VK_NULL_HANDLE;
@@ -196,10 +203,12 @@ public:
 	inline VkCommandPool getHandle() const {
 		return m_handle;
 	}
-
-	VkDevice m_device;
+	inline VkDevice getDevice() const {
+		return m_device;
+	}
 
 private:
+	VkDevice m_device;
 	VkCommandPool m_handle = VK_NULL_HANDLE;
 	VkCommandPoolCreateInfo m_createInfo { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
 };
@@ -235,9 +244,9 @@ public:
 	}
 
 	std::shared_ptr<CommandBufferPool> m_pCommandBufferPool;
-	VkDevice m_device;
 
 private:
+	VkDevice m_device;
 	VkCommandBuffer m_handle = VK_NULL_HANDLE;
 	VkCommandBufferAllocateInfo m_createInfo { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
 };
@@ -303,9 +312,8 @@ public:
 		return m_handle;
 	}
 
-	VkDevice m_device;
-
 private:
+	VkDevice m_device;
 	VkResult create();
 
 	VkShaderModule m_handle = VK_NULL_HANDLE;
@@ -345,9 +353,8 @@ public:
 		return m_bindings;
 	}
 
-	VkDevice m_device;
-
 private:
+	VkDevice m_device;
 	VkDescriptorSetLayout m_handle = VK_NULL_HANDLE;
 	VkDescriptorSetLayoutCreateInfo m_createInfo { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
 	std::vector<VkDescriptorSetLayoutBinding> m_bindings; // the real inserted bindings.
@@ -365,70 +372,81 @@ class DescriptorSetPool
 public:
 	using DescriptorPoolCreateFuncType = std::function<void(VkDescriptorPoolCreateInfo&)>;
 
-	DescriptorSetPool(std::shared_ptr<DescriptorSetLayout> descSetLayout)
-		: m_pDescriptorSetLayout(descSetLayout) { }
+	DescriptorSetPool(VkDevice device)
+		: m_device(device) { }
 	~DescriptorSetPool() {
 		destroy();
 	}
 
-	VkResult create(uint32_t maxSets, VkDescriptorPoolCreateFlags flags = 0);
+	VkResult create(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = 0);
 	VkResult create(const DescriptorPoolCreateFuncType& createFunc);
 	VkResult destroy();
 
 	inline VkDescriptorPool getHandle() const {
 		return m_handle;
 	}
-
-	std::shared_ptr<DescriptorSetLayout> m_pDescriptorSetLayout;
+	inline VkDevice getDevice() const {
+		return m_device;
+	}
 
 private:
 	VkResult create();
+	VkDevice m_device = VK_NULL_HANDLE;
 	VkDescriptorPool m_handle = VK_NULL_HANDLE;
 	VkDescriptorPoolCreateInfo m_createInfo { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr };
 	std::vector<VkDescriptorPoolSize> m_poolSizes;
 };
 
-typedef struct DescriptorSetState
+typedef struct DescriptorSetWriteData
 {
-	std::unordered_map<uint32_t, std::vector<VkDescriptorBufferInfo>> m_buffers; // binding -> info
-	std::unordered_map<uint32_t, std::vector<VkDescriptorImageInfo>> m_images;
-	std::unordered_map<uint32_t, VkBufferView> m_bufferViews;
+	template <typename T>
+	using BindingWriteMap = std::map<uint32_t, std::map<uint32_t, T>>;
+
+	BindingWriteMap<VkDescriptorBufferInfo> m_buffers; // binding -> arrayElement -> info
+	BindingWriteMap<VkDescriptorImageInfo> m_images;
+	BindingWriteMap<VkBufferView> m_bufferViews;
 	// acceleration Structure related
 
-	DescriptorSetState() {}
-	void setBuffer(uint32_t binding, const VkDescriptorBufferInfo& info)
+	DescriptorSetWriteData() {}
+	void setBuffer(uint32_t binding, uint32_t arrayElement, const VkDescriptorBufferInfo& info)
 	{
-		m_buffers[binding].emplace_back(info);
+		m_buffers[binding][arrayElement] = info;
 	}
-	void setImage(uint32_t binding, const VkDescriptorImageInfo& info)
+	void setImage(uint32_t binding, uint32_t arrayElement, const VkDescriptorImageInfo& info)
 	{
-		m_images[binding].emplace_back(info);
+		m_images[binding][arrayElement] = info;
 	}
-	void setBufferView(uint32_t binding, const VkBufferView& view)
+	void setBufferView(uint32_t binding, uint32_t arrayElement, const VkBufferView& view)
 	{
-		m_bufferViews[binding] = view;
+		m_bufferViews[binding][arrayElement] = view;
 	}
-} DescriptorSetState;
+} DescriptorSetWriteData;
 
 class DescriptorSet
 {
 public:
 	DescriptorSet(std::shared_ptr<DescriptorSetPool> pool)
-		: m_pDescriptorSetPool(pool) { };
+		: m_pDescriptorSetPool(pool), m_device(pool->getDevice()) { };
 	~DescriptorSet() {
 		destroy();
 	}
 
-	VkResult create();
+	VkResult create(VkDescriptorSetLayout layout, const std::vector<VkDescriptorSetLayoutBinding>& bindings);
+	VkResult create(const DescriptorSetLayout& layout);
 	VkResult destroy();
 	void insertNext(const VkDescriptorSetVariableDescriptorCountAllocateInfo& next);
 
 	void update();
-	void setBuffer(uint32_t binding, const Buffer& buffer, VkDeviceSize offsetInBytes = 0, VkDeviceSize sizeInBytes = VK_WHOLE_SIZE);
-	void setCombinedImageSampler(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler);
-	void setImage(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout);
-	void setSampler(uint32_t binding, const Sampler& sampler);
-	void setTexelBufferView(uint32_t binding, const TexelBufferView& bufferView);
+	// arrayElement selects which descriptor array element within the binding to update.
+	void setBuffer(uint32_t binding, uint32_t arrayElement, const Buffer& buffer, VkDeviceSize offsetInBytes = 0, VkDeviceSize sizeInBytes = VK_WHOLE_SIZE);
+	void setBufferNullDescriptor(uint32_t binding, uint32_t arrayElement = 0);
+	void setCombinedImageSampler(uint32_t binding, uint32_t arrayElement, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler);
+	void setCombinedImageSamplerNullDescriptor(uint32_t binding, uint32_t arrayElement, const Sampler& sampler, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED);
+	void setImage(uint32_t binding, uint32_t arrayElement, const ImageView& imageView, VkImageLayout imageLayout);
+	void setImageNullDescriptor(uint32_t binding, uint32_t arrayElement = 0, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED);
+	void setSampler(uint32_t binding, uint32_t arrayElement, const Sampler& sampler);
+	void setTexelBufferView(uint32_t binding, uint32_t arrayElement, const TexelBufferView& bufferView);
+	void setTexelBufferViewNullDescriptor(uint32_t binding, uint32_t arrayElement = 0);
 	void setAccelerationStructure();
 
 	inline VkDescriptorSet getHandle() const {
@@ -436,9 +454,17 @@ public:
 	}
 
 	std::shared_ptr<DescriptorSetPool> m_pDescriptorSetPool;
-	DescriptorSetState m_setState {};
+	DescriptorSetWriteData m_writeData {};
 
 private:
+	template <typename T, typename AssignWritePointer>
+	void collectDescriptorWrites(const DescriptorSetWriteData::BindingWriteMap<T>& bindingWrites,
+	                             std::deque<std::vector<T>>& contiguousWriteStorage,
+	                             std::vector<VkWriteDescriptorSet>& writes,
+	                             AssignWritePointer assignWritePointer) const;
+
+	VkDevice m_device = VK_NULL_HANDLE;
+	std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> m_bindings;
 	VkDescriptorSet m_handle = VK_NULL_HANDLE;
 	VkDescriptorSetAllocateInfo m_createInfo { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr };
 
@@ -455,21 +481,17 @@ public:
 		destroy();
 	}
 
-	VkResult create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
+	VkResult create(const std::vector<VkDescriptorSetLayout>& setLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
 	VkResult create(const std::vector<VkPushConstantRange>& pushConstantRanges);
-	VkResult create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap,
-	                uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges);
 	VkResult destroy();
 
 	inline VkPipelineLayout getHandle() const {
 		return m_handle;
 	}
 
-	VkDevice m_device;
-	std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> m_pDescriptorSetLayouts; // set -> setLayout
-
 private:
-	VkResult create(uint32_t layoutCount, uint32_t constantCount);
+	VkDevice m_device;
+	VkResult create();
 
 	VkPipelineLayout m_handle = VK_NULL_HANDLE;
 	VkPipelineLayoutCreateInfo m_createInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr };
@@ -482,7 +504,6 @@ class AttachmentInfo
 {
 public:
 	uint32_t m_location;
-	std::shared_ptr<ImageView> m_pImageView; // we need some members of ImageView
 	VkAttachmentDescription m_description;
 	VkClearValue m_clear;
 
@@ -497,12 +518,12 @@ public:
 		m_clear.depthStencil.stencil = 0;
 	}
 
-	AttachmentInfo(uint32_t location, std::shared_ptr<ImageView> imageView, VkImageLayout finalLayout) : AttachmentInfo()
+	AttachmentInfo(uint32_t location, const ImageView& imageView, VkImageLayout finalLayout) : AttachmentInfo()
 	{
 		m_location = location;
-		m_pImageView = imageView;
+		assert(imageView.m_pImage);
 
-		VkImageCreateInfo createInfo = m_pImageView->m_pImage->getCreateInfo();
+		const VkImageCreateInfo createInfo = imageView.m_pImage->getCreateInfo();
 
 		m_description.format = createInfo.format;
 		m_description.samples = createInfo.samples;
@@ -519,7 +540,6 @@ public:
 	{
 		DLOG3("MEM detection: attacmentInfo destroy().");
 		resetDescription();
-		m_pImageView = nullptr;
 		return VK_SUCCESS;
 	}
 
@@ -586,15 +606,20 @@ public:
 	inline VkRenderPass getHandle() const {
 		return m_handle;
 	}
-
-	VkDevice m_device;
-	std::vector<AttachmentInfo> m_attachmentInfos;
+	inline const std::vector<VkAttachmentDescription>& getAttachmentDescriptions() const {
+		return m_attachmentDescriptions;
+	}
+	inline const std::vector<VkClearValue>& getAttachmentClears() const {
+		return m_attachmentClears;
+	}
 
 private:
+	VkDevice m_device;
 	VkRenderPass m_handle = VK_NULL_HANDLE;
 	VkRenderPassCreateInfo m_createInfo { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, nullptr };
 
 	std::vector<VkAttachmentDescription> m_attachmentDescriptions;
+	std::vector<VkClearValue> m_attachmentClears;
 	std::vector<VkSubpassDescription> m_subpassDescriptions;
 	std::vector<VkSubpassDependency> m_subpassDependencies;
 };
@@ -609,7 +634,8 @@ public:
 		destroy();
 	}
 
-	VkResult create(const RenderPass& renderPass, VkExtent2D extent, uint32_t layers = 1);
+	VkResult create(const RenderPass& renderPass, const std::vector<std::shared_ptr<ImageView>>& attachments,
+	                VkExtent2D extent, uint32_t layers = 1);
 	VkResult destroy();
 
 	inline VkFramebuffer getHandle() const {
@@ -618,14 +644,17 @@ public:
 	inline VkFramebufferCreateInfo getCreateInfo() const {
 		return m_createInfo;
 	}
+	inline const std::vector<std::shared_ptr<ImageView>>& getAttachmentImageViews() const {
+		return m_attachmentImageViews;
+	}
 
 	VkResult create(const FrameBufferCreateInfoFunc& createInfoFunc);
 
-	VkDevice m_device;
-
 private:
+	VkDevice m_device;
 	VkFramebuffer m_handle = VK_NULL_HANDLE;
 	VkFramebufferCreateInfo m_createInfo { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, nullptr };
+	std::vector<std::shared_ptr<ImageView>> m_attachmentImageViews;
 	std::vector<VkImageView> m_attachments;
 };
 
@@ -644,9 +673,9 @@ public:
 		return m_createInfo;
 	}
 
+private:
 	std::shared_ptr<Shader> m_pShader;
 
-private:
 	std::string m_entry;
 	VkPipelineShaderStageCreateInfo m_createInfo { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr};
 	VkSpecializationInfo m_specializationInfo {};
@@ -707,21 +736,20 @@ private:
 class GraphicPipeline
 {
 public:
-	GraphicPipeline(std::shared_ptr<PipelineLayout> pipelineLayout) : m_pipelineLayout(pipelineLayout) {}
+	GraphicPipeline(VkDevice device) : m_device(device) {}
 	~GraphicPipeline() {
 		destroy();
 	}
 
-	VkResult create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags = 0,uint32_t subpassIndex = 0);
+	VkResult create(VkPipelineLayout layout, const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags = 0, uint32_t subpassIndex = 0);
 	VkResult destroy();
 	bool hasDynamicState(VkDynamicState dynamic) const;
 	inline VkPipeline getHandle() const {
 		return m_handle;
 	}
 
-	std::shared_ptr<PipelineLayout> m_pipelineLayout;
-
 private:
+	VkDevice m_device = VK_NULL_HANDLE;
 	VkPipeline m_handle = VK_NULL_HANDLE;
 	VkGraphicsPipelineCreateInfo m_createInfo{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, nullptr };
 
@@ -731,7 +759,6 @@ private:
 	std::vector<VkSpecializationInfo>                  m_specializationInfos;
 	std::vector<std::vector<VkSpecializationMapEntry>> m_specializationMapEntries;
 	std::vector<std::vector<char>>                     m_specializationData;
-	std::unordered_map<VkShaderStageFlagBits, std::shared_ptr<Shader>> m_shaders;
 
 	VkPipelineVertexInputStateCreateInfo               m_vertexInputStateCreateInfo;
 	std::vector<VkVertexInputBindingDescription>       m_vertexInputBindingDescriptions;
@@ -760,13 +787,13 @@ private:
 class ComputePipeline
 {
 public:
-	ComputePipeline(std::shared_ptr<PipelineLayout> pipelineLayout) : m_pipelineLayout(pipelineLayout) {}
+	ComputePipeline(VkDevice device) : m_device(device) {}
 	~ComputePipeline()
 	{
 		destroy();
 	}
 
-	VkResult create(const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags = 0);
+	VkResult create(VkPipelineLayout layout, const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags = 0);
 	VkResult destroy();
 
 	inline VkPipeline getHandle() const
@@ -774,14 +801,12 @@ public:
 		return m_handle;
 	}
 
-	std::shared_ptr<PipelineLayout> m_pipelineLayout;
-
 private:
+	VkDevice m_device = VK_NULL_HANDLE;
 	VkPipeline m_handle = VK_NULL_HANDLE;
 	VkComputePipelineCreateInfo m_createInfo { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
 
 	VkPipelineShaderStageCreateInfo m_shaderStageCreateInfo;
-	std::shared_ptr<Shader>         m_shader;
 	std::string                           m_shaderEntry;
 	VkSpecializationInfo                  m_specializationInfo;
 	std::vector<VkSpecializationMapEntry> m_specializationMapEntries;
