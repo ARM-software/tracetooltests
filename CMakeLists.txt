@@ -285,6 +285,9 @@ vulkan_test(descriptor_buffer_mutable_type)
 
 vulkan_test(compute_aliasing)
 vulkan_test(compute_bda_sc) # buffer device address through specialization constants
+vulkan_test(compute_bda_sc_unhappy) # specialization constant BDA trace write-out edge cases
+vulkan_test_extra(compute_bda_sc_unhappy_multi_create_info compute_bda_sc_unhappy --multi-create-info)
+vulkan_test_extra(compute_bda_sc_unhappy_stage_pnext compute_bda_sc_unhappy --stage-pnext)
 vulkan_test(compute_bda_pushconstant) # buffer device address through push constants
 vulkan_test(compute_bda_ubo) # buffer device address through uniform buffer objects
 vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
