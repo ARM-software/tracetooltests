@@ -276,6 +276,8 @@ vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
 vulkan_test(compute_device_generated)
 
 vulkan_test(compute_shader_object)
+vulkan_test(compute_bda_sc_shader_object)
+vulkan_test_extra(compute_bda_sc_shader_object_multi_create_info compute_bda_sc_shader_object --multi-create-info)
 vulkan_test(compute_shader_module_identifier)
 
 vulkan_test(compute_descriptor_buffer)

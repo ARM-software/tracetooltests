@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_compute_bda_sc_shader_object",
+	"description": "Test of buffer device address in shader object specialization constants"
+}
