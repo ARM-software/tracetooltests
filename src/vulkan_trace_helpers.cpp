@@ -88,6 +88,11 @@ int main(int argc, char** argv)
 	reqs.minApiVersion = VK_API_VERSION_1_2;
 	reqs.required_queue_flags = VK_QUEUE_TRANSFER_BIT;
 	reqs.bufferDeviceAddress = true;
+	VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR device_address_commands_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR, reqs.extension_features, VK_TRUE
+	};
+	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&device_address_commands_features);
+	reqs.device_extensions.push_back(VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME);
 	reqs.device_extensions.push_back("VK_ARM_trace_helpers");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_trace_helpers", reqs);
 
