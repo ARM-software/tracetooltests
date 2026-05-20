@@ -80,7 +80,7 @@ private:
 class TexelBufferView
 {
 public:
-	TexelBufferView(std::shared_ptr<Buffer> buffer) : m_pBuffer(buffer) {}
+	TexelBufferView(std::shared_ptr<Buffer> buffer) : m_pBuffer(std::move(buffer)) {}
 	~TexelBufferView() {
 		destroy();
 	}
@@ -143,7 +143,7 @@ private:
 class ImageView
 {
 public:
-	ImageView(std::shared_ptr<Image> image) : m_pImage(image) {}
+	ImageView(std::shared_ptr<Image> image) : m_pImage(std::move(image)) {}
 	~ImageView() {
 		destroy();
 	}
@@ -216,7 +216,8 @@ private:
 class CommandBuffer
 {
 public:
-	CommandBuffer(std::shared_ptr<CommandBufferPool> commandBufferPool);
+	CommandBuffer(std::shared_ptr<CommandBufferPool> commandBufferPool)
+		: m_pCommandBufferPool(std::move(commandBufferPool)), m_device(m_pCommandBufferPool->getDevice()) { };
 	~CommandBuffer() {
 		destroy();
 	}
@@ -378,7 +379,7 @@ public:
 		destroy();
 	}
 
-	VkResult create(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags = 0);
+	VkResult create(uint32_t maxSets, std::vector<VkDescriptorPoolSize> poolSizes, VkDescriptorPoolCreateFlags flags = 0);
 	VkResult create(const DescriptorPoolCreateFuncType& createFunc);
 	VkResult destroy();
 
@@ -426,7 +427,7 @@ class DescriptorSet
 {
 public:
 	DescriptorSet(std::shared_ptr<DescriptorSetPool> pool)
-		: m_pDescriptorSetPool(pool), m_device(pool->getDevice()) { };
+		: m_pDescriptorSetPool(std::move(pool)), m_device(m_pDescriptorSetPool->getDevice()) { };
 	~DescriptorSet() {
 		destroy();
 	}
@@ -481,8 +482,8 @@ public:
 		destroy();
 	}
 
-	VkResult create(const std::vector<VkDescriptorSetLayout>& setLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges = {});
-	VkResult create(const std::vector<VkPushConstantRange>& pushConstantRanges);
+	VkResult create(std::vector<VkDescriptorSetLayout> setLayouts, std::vector<VkPushConstantRange> pushConstantRanges = {});
+	VkResult create(std::vector<VkPushConstantRange> pushConstantRanges);
 	VkResult destroy();
 
 	inline VkPipelineLayout getHandle() const {
@@ -634,7 +635,7 @@ public:
 		destroy();
 	}
 
-	VkResult create(const RenderPass& renderPass, const std::vector<std::shared_ptr<ImageView>>& attachments,
+	VkResult create(const RenderPass& renderPass, std::vector<std::shared_ptr<ImageView>> attachments,
 	                VkExtent2D extent, uint32_t layers = 1);
 	VkResult destroy();
 
