@@ -451,12 +451,6 @@ VkResult CommandBufferPool::destroy()
 	return result;
 }
 
-CommandBuffer::CommandBuffer(std::shared_ptr<CommandBufferPool> commandBufferPool)
-	:m_pCommandBufferPool(commandBufferPool)
-{
-	m_device = commandBufferPool->getDevice();
-}
-
 VkResult CommandBuffer::create(VkCommandBufferLevel commandBufferLevel)
 {
 	m_createInfo.commandPool = m_pCommandBufferPool->getHandle();;
@@ -729,14 +723,14 @@ VkResult RenderPass::destroy()
 	return result;
 }
 
-VkResult FrameBuffer::create(const RenderPass& renderPass, const std::vector<std::shared_ptr<ImageView>>& attachments,
+VkResult FrameBuffer::create(const RenderPass& renderPass, std::vector<std::shared_ptr<ImageView>> attachments,
                              VkExtent2D extent, uint32_t layers /*=1*/ )
 {
 	const auto& attachmentDescriptions = renderPass.getAttachmentDescriptions();
 	assert(attachments.size() == attachmentDescriptions.size());
-	m_attachmentImageViews = attachments;
-	m_attachments.resize(attachments.size());
-	for (size_t i = 0; i < attachments.size(); ++i)
+	m_attachmentImageViews = std::move(attachments);
+	m_attachments.resize(m_attachmentImageViews.size());
+	for (size_t i = 0; i < m_attachmentImageViews.size(); ++i)
 	{
 		assert(m_attachmentImageViews[i]);
 		assert(m_attachmentImageViews[i]->m_pImage);
@@ -777,7 +771,7 @@ VkResult FrameBuffer::destroy()
 }
 
 ShaderPipelineState::ShaderPipelineState(VkShaderStageFlagBits shaderStage, std::shared_ptr<Shader>shader, const std::string& entry /*="main"*/)
-	: m_pShader(shader)
+	: m_pShader(std::move(shader))
 	, m_entry(entry)
 {
 	m_createInfo.flags = 0;
@@ -1055,9 +1049,9 @@ void DescriptorSetLayout::insertNext<VkMutableDescriptorTypeCreateInfoEXT>(const
 	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
 }
 
-VkResult DescriptorSetPool::create(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags /*=0*/)
+VkResult DescriptorSetPool::create(uint32_t maxSets, std::vector<VkDescriptorPoolSize> poolSizes, VkDescriptorPoolCreateFlags flags /*=0*/)
 {
-	m_poolSizes = { poolSizes.begin(), poolSizes.end() };
+	m_poolSizes = std::move(poolSizes);
 	m_createInfo.flags = flags;
 	m_createInfo.poolSizeCount = static_cast<uint32_t>(m_poolSizes.size());
 	m_createInfo.pPoolSizes = m_poolSizes.data();
@@ -1354,15 +1348,15 @@ VkResult DescriptorSet::destroy()
 	return result;
 }
 
-VkResult PipelineLayout::create(const std::vector<VkDescriptorSetLayout>& setLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges/*={}*/)
+VkResult PipelineLayout::create(std::vector<VkDescriptorSetLayout> setLayouts, std::vector<VkPushConstantRange> pushConstantRanges/*={}*/)
 {
-	m_descriptorSetLayouts = {setLayouts.begin(), setLayouts.end()};
-	m_pushConstantRanges   = {pushConstantRanges.begin(), pushConstantRanges.end()};
+	m_descriptorSetLayouts = std::move(setLayouts);
+	m_pushConstantRanges   = std::move(pushConstantRanges);
 	return create();
 }
-VkResult PipelineLayout::create(const std::vector<VkPushConstantRange>& pushConstantRanges)
+VkResult PipelineLayout::create(std::vector<VkPushConstantRange> pushConstantRanges)
 {
-	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
+	m_pushConstantRanges = std::move(pushConstantRanges);
 	return create();
 }
 

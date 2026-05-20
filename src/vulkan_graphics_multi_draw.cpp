@@ -438,7 +438,7 @@ int main(int argc, char** argv)
 	pipelineState.setColorBlendAttachment(color.m_location, colorBlendAttachment);
 
 	auto framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	framebuffer->create(*renderpass, {colorImageView, depthImageView}, {p_benchmark->width, p_benchmark->height});
+	framebuffer->create(*renderpass, {std::move(colorImageView), std::move(depthImageView)}, {p_benchmark->width, p_benchmark->height});
 
 	ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, std::move(vertShader));
 	ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, std::move(fragShader));
