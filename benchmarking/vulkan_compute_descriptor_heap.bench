@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_compute_descriptor_heap",
+	"description": "Compute test using VK_EXT_descriptor_heap"
+}

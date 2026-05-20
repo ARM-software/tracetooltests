@@ -281,6 +281,7 @@ vulkan_test_extra(compute_bda_sc_shader_object_multi_create_info compute_bda_sc_
 vulkan_test(compute_shader_module_identifier)
 
 vulkan_test(compute_descriptor_buffer)
+vulkan_test(compute_descriptor_heap)
 vulkan_test(descriptor_buffer_double_copy)
 vulkan_test(descriptor_heap_1)
 vulkan_test(descriptor_buffer_mutable_type)
@@ -343,6 +344,7 @@ endif()
 
 vulkan_test(demo_bloom_minimal)
 vulkan_test(demo_descriptor_buffer_minimal)
+vulkan_test(demo_descriptor_heap_minimal)
 vulkan_test(demo_descriptor_indexing)
 vulkan_test(demo_graphics_pipeline_library)
 
