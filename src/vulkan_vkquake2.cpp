@@ -232,8 +232,7 @@ public:
 		sampler = nullptr;
 		samplerLayout = nullptr;
 		uboLayout = nullptr;
-		samplerPool = nullptr;
-		uboPool = nullptr;
+		descriptorPool = nullptr;
 
 		ds_base = nullptr;
 		ds_lightmap = nullptr;
@@ -320,8 +319,7 @@ public:
 	std::unique_ptr<Sampler> sampler;
 	std::shared_ptr<DescriptorSetLayout> samplerLayout;
 	std::shared_ptr<DescriptorSetLayout> uboLayout;
-	std::shared_ptr<DescriptorSetPool> samplerPool;
-	std::shared_ptr<DescriptorSetPool> uboPool;
+	std::shared_ptr<DescriptorSetPool> descriptorPool;
 
 	std::unique_ptr<DescriptorSet> ds_base;
 	std::unique_ptr<DescriptorSet> ds_lightmap;
@@ -683,13 +681,13 @@ int main(int argc, char** argv)
 
 	// Render passes
 	{
-		AttachmentInfo worldColor(0, ctx->worldColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		AttachmentInfo worldColor(0, *ctx->worldColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		worldColor.m_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		worldColor.m_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		worldColor.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		worldColor.m_clear.color = { {0.1f, 0.1f, 0.2f, 1.0f} };
 
-		AttachmentInfo worldDepth(1, ctx->worldDepthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+		AttachmentInfo worldDepth(1, *ctx->worldDepthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		worldDepth.m_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		worldDepth.m_description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		worldDepth.m_description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -702,11 +700,11 @@ int main(int argc, char** argv)
 		ctx->worldPass = std::make_shared<RenderPass>(vulkan.device);
 		ctx->worldPass->create({worldColor, worldDepth}, {subpass});
 		ctx->worldFB = std::make_shared<FrameBuffer>(vulkan.device);
-		ctx->worldFB->create(*ctx->worldPass, {ctx->width, ctx->height});
+		ctx->worldFB->create(*ctx->worldPass, {ctx->worldColor.view, ctx->worldDepthView}, {ctx->width, ctx->height});
 	}
 
 	{
-		AttachmentInfo warpColor(0, ctx->warpColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		AttachmentInfo warpColor(0, *ctx->warpColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		warpColor.m_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		warpColor.m_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		warpColor.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -718,11 +716,11 @@ int main(int argc, char** argv)
 		ctx->warpPass = std::make_shared<RenderPass>(vulkan.device);
 		ctx->warpPass->create({warpColor}, {subpass});
 		ctx->warpFB = std::make_shared<FrameBuffer>(vulkan.device);
-		ctx->warpFB->create(*ctx->warpPass, {ctx->width, ctx->height});
+		ctx->warpFB->create(*ctx->warpPass, {ctx->warpColor.view}, {ctx->width, ctx->height});
 	}
 
 	{
-		AttachmentInfo uiColor(0, ctx->uiColor.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		AttachmentInfo uiColor(0, *ctx->uiColor.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		uiColor.m_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		uiColor.m_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		uiColor.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -734,7 +732,7 @@ int main(int argc, char** argv)
 		ctx->uiPass = std::make_shared<RenderPass>(vulkan.device);
 		ctx->uiPass->create({uiColor}, {subpass});
 		ctx->uiFB = std::make_shared<FrameBuffer>(vulkan.device);
-		ctx->uiFB->create(*ctx->uiPass, {ctx->width, ctx->height});
+		ctx->uiFB->create(*ctx->uiPass, {ctx->uiColor.view}, {ctx->width, ctx->height});
 
 		ctx->m_renderPass = ctx->uiPass;
 		ctx->m_framebuffer = ctx->uiFB;
@@ -754,40 +752,40 @@ int main(int argc, char** argv)
 	ctx->uboLayout->insertBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS);
 	ctx->uboLayout->create();
 
-	ctx->samplerPool = std::make_shared<DescriptorSetPool>(ctx->samplerLayout);
-	ctx->samplerPool->create(16);
-	ctx->uboPool = std::make_shared<DescriptorSetPool>(ctx->uboLayout);
-	ctx->uboPool->create(16);
+	ctx->descriptorPool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	ctx->descriptorPool->create(16,
+	                           {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16},
+	                            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 16}});
 
 	// Descriptor sets for textures
-	ctx->ds_base = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_base->create();
-	ctx->ds_base->setCombinedImageSampler(0, *ctx->baseTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_base = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_base->create(*ctx->samplerLayout);
+	ctx->ds_base->setCombinedImageSampler(0, 0, *ctx->baseTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_base->update();
 
-	ctx->ds_lightmap = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_lightmap->create();
-	ctx->ds_lightmap->setCombinedImageSampler(0, *ctx->lightmapTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_lightmap = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_lightmap->create(*ctx->samplerLayout);
+	ctx->ds_lightmap->setCombinedImageSampler(0, 0, *ctx->lightmapTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_lightmap->update();
 
-	ctx->ds_sky = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_sky->create();
-	ctx->ds_sky->setCombinedImageSampler(0, *ctx->skyTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_sky = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_sky->create(*ctx->samplerLayout);
+	ctx->ds_sky->setCombinedImageSampler(0, 0, *ctx->skyTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_sky->update();
 
-	ctx->ds_ui = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_ui->create();
-	ctx->ds_ui->setCombinedImageSampler(0, *ctx->uiTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_ui = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ui->create(*ctx->samplerLayout);
+	ctx->ds_ui->setCombinedImageSampler(0, 0, *ctx->uiTex.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_ui->update();
 
-	ctx->ds_worldColor = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_worldColor->create();
-	ctx->ds_worldColor->setCombinedImageSampler(0, *ctx->worldColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_worldColor = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_worldColor->create(*ctx->samplerLayout);
+	ctx->ds_worldColor->setCombinedImageSampler(0, 0, *ctx->worldColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_worldColor->update();
 
-	ctx->ds_warpColor = std::make_unique<DescriptorSet>(ctx->samplerPool);
-	ctx->ds_warpColor->create();
-	ctx->ds_warpColor->setCombinedImageSampler(0, *ctx->warpColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
+	ctx->ds_warpColor = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_warpColor->create(*ctx->samplerLayout);
+	ctx->ds_warpColor->setCombinedImageSampler(0, 0, *ctx->warpColor.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *ctx->sampler);
 	ctx->ds_warpColor->update();
 
 	// Vertex buffers
@@ -944,49 +942,49 @@ int main(int argc, char** argv)
 	ctx->ubo_colorquad->map();
 
 	// Descriptor sets for UBOs
-	ctx->ds_ubo_world = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_world->create();
-	ctx->ds_ubo_world->setBuffer(0, *ctx->ubo_world);
+	ctx->ds_ubo_world = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_world->create(*ctx->uboLayout);
+	ctx->ds_ubo_world->setBuffer(0, 0, *ctx->ubo_world);
 	ctx->ds_ubo_world->update();
 
-	ctx->ds_ubo_water = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_water->create();
-	ctx->ds_ubo_water->setBuffer(0, *ctx->ubo_water);
+	ctx->ds_ubo_water = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_water->create(*ctx->uboLayout);
+	ctx->ds_ubo_water->setBuffer(0, 0, *ctx->ubo_water);
 	ctx->ds_ubo_water->update();
 
-	ctx->ds_ubo_model = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_model->create();
-	ctx->ds_ubo_model->setBuffer(0, *ctx->ubo_model);
+	ctx->ds_ubo_model = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_model->create(*ctx->uboLayout);
+	ctx->ds_ubo_model->setBuffer(0, 0, *ctx->ubo_model);
 	ctx->ds_ubo_model->update();
 
-	ctx->ds_ubo_sprite = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_sprite->create();
-	ctx->ds_ubo_sprite->setBuffer(0, *ctx->ubo_sprite);
+	ctx->ds_ubo_sprite = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_sprite->create(*ctx->uboLayout);
+	ctx->ds_ubo_sprite->setBuffer(0, 0, *ctx->ubo_sprite);
 	ctx->ds_ubo_sprite->update();
 
-	ctx->ds_ubo_sky = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_sky->create();
-	ctx->ds_ubo_sky->setBuffer(0, *ctx->ubo_sky);
+	ctx->ds_ubo_sky = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_sky->create(*ctx->uboLayout);
+	ctx->ds_ubo_sky->setBuffer(0, 0, *ctx->ubo_sky);
 	ctx->ds_ubo_sky->update();
 
-	ctx->ds_ubo_basic = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_basic->create();
-	ctx->ds_ubo_basic->setBuffer(0, *ctx->ubo_basic);
+	ctx->ds_ubo_basic = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_basic->create(*ctx->uboLayout);
+	ctx->ds_ubo_basic->setBuffer(0, 0, *ctx->ubo_basic);
 	ctx->ds_ubo_basic->update();
 
-	ctx->ds_ubo_beam = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_beam->create();
-	ctx->ds_ubo_beam->setBuffer(0, *ctx->ubo_beam);
+	ctx->ds_ubo_beam = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_beam->create(*ctx->uboLayout);
+	ctx->ds_ubo_beam->setBuffer(0, 0, *ctx->ubo_beam);
 	ctx->ds_ubo_beam->update();
 
-	ctx->ds_ubo_dlight = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_dlight->create();
-	ctx->ds_ubo_dlight->setBuffer(0, *ctx->ubo_dlight);
+	ctx->ds_ubo_dlight = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_dlight->create(*ctx->uboLayout);
+	ctx->ds_ubo_dlight->setBuffer(0, 0, *ctx->ubo_dlight);
 	ctx->ds_ubo_dlight->update();
 
-	ctx->ds_ubo_colorquad = std::make_unique<DescriptorSet>(ctx->uboPool);
-	ctx->ds_ubo_colorquad->create();
-	ctx->ds_ubo_colorquad->setBuffer(0, *ctx->ubo_colorquad);
+	ctx->ds_ubo_colorquad = std::make_unique<DescriptorSet>(ctx->descriptorPool);
+	ctx->ds_ubo_colorquad->create(*ctx->uboLayout);
+	ctx->ds_ubo_colorquad->setBuffer(0, 0, *ctx->ubo_colorquad);
 	ctx->ds_ubo_colorquad->update();
 
 	// Fill UBO data
@@ -1066,25 +1064,25 @@ int main(int argc, char** argv)
 		pc_frag.offset = 0;
 		pc_frag.size = sizeof(float) * 4;
 
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> sampler_ubo = {{0, ctx->samplerLayout}, {1, ctx->uboLayout}};
+		std::vector<VkDescriptorSetLayout> sampler_ubo = {ctx->samplerLayout->getHandle(), ctx->uboLayout->getHandle()};
 		ctx->layout_sampler_ubo_pc = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_sampler_ubo_pc->create(sampler_ubo, {pc_mat});
 
 		ctx->layout_sampler_ubo = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_sampler_ubo->create(sampler_ubo);
 
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> sampler_ubo_lmap = {{0, ctx->samplerLayout}, {1, ctx->uboLayout}, {2, ctx->samplerLayout}};
+		std::vector<VkDescriptorSetLayout> sampler_ubo_lmap = {ctx->samplerLayout->getHandle(), ctx->uboLayout->getHandle(), ctx->samplerLayout->getHandle()};
 		ctx->layout_sampler_ubo_lmap_pc = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_sampler_ubo_lmap_pc->create(sampler_ubo_lmap, {pc_mat});
 
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> sampler_only = {{0, ctx->samplerLayout}};
+		std::vector<VkDescriptorSetLayout> sampler_only = {ctx->samplerLayout->getHandle()};
 		ctx->layout_sampler_pc = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_sampler_pc->create(sampler_only, {pc_mat});
 
 		ctx->layout_sampler_frag_pc = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_sampler_frag_pc->create(sampler_only, {pc_frag});
 
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> ubo_only = {{0, ctx->uboLayout}};
+		std::vector<VkDescriptorSetLayout> ubo_only = {ctx->uboLayout->getHandle()};
 		ctx->layout_ubo_pc = std::make_shared<PipelineLayout>(vulkan.device);
 		ctx->layout_ubo_pc->create(ubo_only, {pc_mat});
 
@@ -1155,8 +1153,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState lmapVS(VK_SHADER_STAGE_VERTEX_BIT, sh_lmap_vert);
 		ShaderPipelineState lmapFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_lmap_frag);
-		ctx->pipe_world_lmap = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo_lmap_pc);
-		ctx->pipe_world_lmap->create({lmapVS, lmapFS}, lmapState, *ctx->worldPass);
+		ctx->pipe_world_lmap = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_world_lmap->create(ctx->layout_sampler_ubo_lmap_pc->getHandle(), {lmapVS, lmapFS}, lmapState, *ctx->worldPass);
 	}
 
 	{
@@ -1172,8 +1170,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState waterVS(VK_SHADER_STAGE_VERTEX_BIT, sh_warp_vert);
 		ShaderPipelineState waterFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_frag);
-		ctx->pipe_water = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo_pc);
-		ctx->pipe_water->create({waterVS, waterFS}, waterState, *ctx->worldPass);
+		ctx->pipe_water = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_water->create(ctx->layout_sampler_ubo_pc->getHandle(), {waterVS, waterFS}, waterState, *ctx->worldPass);
 	}
 
 	{
@@ -1189,8 +1187,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState modelVS(VK_SHADER_STAGE_VERTEX_BIT, sh_model_vert);
 		ShaderPipelineState modelFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_model_frag);
-		ctx->pipe_model = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo_pc);
-		ctx->pipe_model->create({modelVS, modelFS}, modelState, *ctx->worldPass);
+		ctx->pipe_model = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_model->create(ctx->layout_sampler_ubo_pc->getHandle(), {modelVS, modelFS}, modelState, *ctx->worldPass);
 	}
 
 	{
@@ -1206,8 +1204,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState spriteVS(VK_SHADER_STAGE_VERTEX_BIT, sh_sprite_vert);
 		ShaderPipelineState spriteFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_frag);
-		ctx->pipe_sprite = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo_pc);
-		ctx->pipe_sprite->create({spriteVS, spriteFS}, spriteState, *ctx->worldPass);
+		ctx->pipe_sprite = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_sprite->create(ctx->layout_sampler_ubo_pc->getHandle(), {spriteVS, spriteFS}, spriteState, *ctx->worldPass);
 	}
 
 	{
@@ -1224,8 +1222,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState particleVS(VK_SHADER_STAGE_VERTEX_BIT, sh_particle_vert);
 		ShaderPipelineState particleFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_frag);
-		ctx->pipe_particle = std::make_unique<GraphicPipeline>(ctx->layout_sampler_pc);
-		ctx->pipe_particle->create({particleVS, particleFS}, particleState, *ctx->worldPass);
+		ctx->pipe_particle = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_particle->create(ctx->layout_sampler_pc->getHandle(), {particleVS, particleFS}, particleState, *ctx->worldPass);
 	}
 
 	{
@@ -1242,8 +1240,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState skyVS(VK_SHADER_STAGE_VERTEX_BIT, sh_sky_vert);
 		ShaderPipelineState skyFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_frag);
-		ctx->pipe_sky = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo_pc);
-		ctx->pipe_sky->create({skyVS, skyFS}, skyState, *ctx->worldPass);
+		ctx->pipe_sky = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_sky->create(ctx->layout_sampler_ubo_pc->getHandle(), {skyVS, skyFS}, skyState, *ctx->worldPass);
 	}
 
 	{
@@ -1259,8 +1257,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState beamVS(VK_SHADER_STAGE_VERTEX_BIT, sh_beam_vert);
 		ShaderPipelineState beamFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_color_frag);
-		ctx->pipe_beam = std::make_unique<GraphicPipeline>(ctx->layout_ubo_pc);
-		ctx->pipe_beam->create({beamVS, beamFS}, beamState, *ctx->worldPass);
+		ctx->pipe_beam = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_beam->create(ctx->layout_ubo_pc->getHandle(), {beamVS, beamFS}, beamState, *ctx->worldPass);
 	}
 
 	{
@@ -1276,8 +1274,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState dlightVS(VK_SHADER_STAGE_VERTEX_BIT, sh_dlight_vert);
 		ShaderPipelineState dlightFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_color_frag);
-		ctx->pipe_dlight = std::make_unique<GraphicPipeline>(ctx->layout_ubo);
-		ctx->pipe_dlight->create({dlightVS, dlightFS}, dlightState, *ctx->worldPass);
+		ctx->pipe_dlight = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_dlight->create(ctx->layout_ubo->getHandle(), {dlightVS, dlightFS}, dlightState, *ctx->worldPass);
 	}
 
 	{
@@ -1291,8 +1289,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState warpVS(VK_SHADER_STAGE_VERTEX_BIT, sh_worldwarp_vert);
 		ShaderPipelineState warpFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_worldwarp_frag);
-		ctx->pipe_worldwarp = std::make_unique<GraphicPipeline>(ctx->layout_sampler_frag_pc);
-		ctx->pipe_worldwarp->create({warpVS, warpFS}, warpState, *ctx->warpPass);
+		ctx->pipe_worldwarp = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_worldwarp->create(ctx->layout_sampler_frag_pc->getHandle(), {warpVS, warpFS}, warpState, *ctx->warpPass);
 	}
 
 	{
@@ -1306,8 +1304,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState postVS(VK_SHADER_STAGE_VERTEX_BIT, sh_post_vert);
 		ShaderPipelineState postFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_post_frag);
-		ctx->pipe_postprocess = std::make_unique<GraphicPipeline>(ctx->layout_sampler_frag_pc);
-		ctx->pipe_postprocess->create({postVS, postFS}, postState, *ctx->uiPass);
+		ctx->pipe_postprocess = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_postprocess->create(ctx->layout_sampler_frag_pc->getHandle(), {postVS, postFS}, postState, *ctx->uiPass);
 	}
 
 	{
@@ -1324,8 +1322,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState basicVS(VK_SHADER_STAGE_VERTEX_BIT, sh_basic_vert);
 		ShaderPipelineState basicFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_frag);
-		ctx->pipe_basic = std::make_unique<GraphicPipeline>(ctx->layout_sampler_ubo);
-		ctx->pipe_basic->create({basicVS, basicFS}, basicState, *ctx->uiPass);
+		ctx->pipe_basic = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_basic->create(ctx->layout_sampler_ubo->getHandle(), {basicVS, basicFS}, basicState, *ctx->uiPass);
 	}
 
 	{
@@ -1341,8 +1339,8 @@ int main(int argc, char** argv)
 
 		ShaderPipelineState colorVS(VK_SHADER_STAGE_VERTEX_BIT, sh_basic_color_vert);
 		ShaderPipelineState colorFS(VK_SHADER_STAGE_FRAGMENT_BIT, sh_basic_color_frag);
-		ctx->pipe_colorquad = std::make_unique<GraphicPipeline>(ctx->layout_ubo);
-		ctx->pipe_colorquad->create({colorVS, colorFS}, colorState, *ctx->uiPass);
+		ctx->pipe_colorquad = std::make_unique<GraphicPipeline>(vulkan.device);
+		ctx->pipe_colorquad->create(ctx->layout_ubo->getHandle(), {colorVS, colorFS}, colorState, *ctx->uiPass);
 	}
 
 	// Release local shader refs (pipelines hold the shared_ptrs).

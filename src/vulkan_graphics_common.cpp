@@ -205,7 +205,7 @@ VkResult TexelBufferView::create(VkFormat format, VkDeviceSize offsetInBytes/*= 
 	m_createInfo.offset                 = offsetInBytes;
 	m_createInfo.range                  = sizeInBytes;
 
-	VkResult result = vkCreateBufferView(m_pBuffer->m_device, &m_createInfo, nullptr, &m_handle);
+	VkResult result = vkCreateBufferView(m_pBuffer->getDevice(), &m_createInfo, nullptr, &m_handle);
 	check(result);
 	return result;
 }
@@ -356,7 +356,7 @@ VkResult ImageView::create(VkImageViewType viewType, VkImageAspectFlags aspect /
 	m_createInfo.subresourceRange.baseArrayLayer = 0;
 	m_createInfo.subresourceRange.layerCount = 1;
 
-	VkResult result = vkCreateImageView(m_pImage->m_device, &m_createInfo, nullptr, &m_handle);
+	VkResult result = vkCreateImageView(m_pImage->getDevice(), &m_createInfo, nullptr, &m_handle);
 	check(result);
 
 	return result;
@@ -367,7 +367,7 @@ VkResult ImageView::destroy()
 	VkResult result = VK_SUCCESS;
 	DLOG3("MEM detection: imageView destroy().");
 
-	vkDestroyImageView(m_pImage->m_device, m_handle, nullptr);
+	vkDestroyImageView(m_pImage->getDevice(), m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 	m_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr };
 
@@ -454,7 +454,7 @@ VkResult CommandBufferPool::destroy()
 CommandBuffer::CommandBuffer(std::shared_ptr<CommandBufferPool> commandBufferPool)
 	:m_pCommandBufferPool(commandBufferPool)
 {
-	m_device = commandBufferPool->m_device;
+	m_device = commandBufferPool->getDevice();
 }
 
 VkResult CommandBuffer::create(VkCommandBufferLevel commandBufferLevel)
@@ -518,16 +518,8 @@ void CommandBuffer::beginRenderPass(const RenderPass& renderPass, const FrameBuf
 	renderPassInfo.framebuffer = frameBuffer.getHandle();
 	renderPassInfo.renderArea.offset = {0, 0};
 	renderPassInfo.renderArea.extent = { frameBuffer.getCreateInfo().width, frameBuffer.getCreateInfo().height };
-
-	std::vector<VkClearValue> clearValues(renderPass.m_attachmentInfos.size());
-
-	for (auto& attachment : renderPass.m_attachmentInfos)
-	{
-		clearValues[attachment.m_location] = attachment.m_clear;
-	}
-
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
-	renderPassInfo.pClearValues = clearValues.data();
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(renderPass.getAttachmentClears().size());
+	renderPassInfo.pClearValues = renderPass.getAttachmentClears().data();
 
 	vkCmdBeginRenderPass(m_handle, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -678,14 +670,17 @@ VkResult RenderPass::create(const std::vector<AttachmentInfo>& attachments, cons
 
 VkResult RenderPass::create(uint32_t attachmentCount, const std::vector<AttachmentInfo>& attachments, uint32_t subpassCount, const std::vector<SubpassInfo>& subpasses)
 {
-	m_attachmentInfos = attachments;
-
-	m_attachmentDescriptions.resize(attachments.size());
-	for (auto& attachment : attachments)
+	m_attachmentDescriptions.assign(attachmentCount, VkAttachmentDescription{});
+	m_attachmentClears.assign(attachmentCount, VkClearValue{});
+	m_subpassDescriptions.clear();
+	m_subpassDescriptions.reserve(subpasses.size());
+	for (const auto& attachment : attachments)
+	{
 		m_attachmentDescriptions[attachment.m_location] = attachment.m_description;
+		m_attachmentClears[attachment.m_location] = attachment.m_clear;
+	}
 
-
-	for (auto& subpass : subpasses)
+	for (const auto& subpass : subpasses)
 	{
 		VkSubpassDescription subDescription{};
 
@@ -693,7 +688,7 @@ VkResult RenderPass::create(uint32_t attachmentCount, const std::vector<Attachme
 		subDescription.pipelineBindPoint = subpass.m_pipelineBindPoint;
 		subDescription.inputAttachmentCount = static_cast<uint32_t>(subpass.m_inputAttachments.size());
 		subDescription.pInputAttachments = subpass.m_inputAttachments.data();
-		subDescription.colorAttachmentCount = static_cast<uint32_t>(subpass.m_colorAttachments.size());;
+		subDescription.colorAttachmentCount = static_cast<uint32_t>(subpass.m_colorAttachments.size());
 		subDescription.pColorAttachments = subpass.m_colorAttachments.data();
 		subDescription.pResolveAttachments = subpass.m_resolveAttachments.data();
 		subDescription.pDepthStencilAttachment =
@@ -726,24 +721,36 @@ VkResult RenderPass::destroy()
 	m_handle = VK_NULL_HANDLE;
 
 	m_attachmentDescriptions.clear();
+	m_attachmentClears.clear();
 	m_subpassDescriptions.clear();
 	m_subpassDependencies.clear();
-
-	m_attachmentInfos.clear();
 
 	m_createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, nullptr };
 	return result;
 }
 
-VkResult FrameBuffer::create(const RenderPass& renderPass, VkExtent2D extent, uint32_t layers /*=1*/ )
+VkResult FrameBuffer::create(const RenderPass& renderPass, const std::vector<std::shared_ptr<ImageView>>& attachments,
+                             VkExtent2D extent, uint32_t layers /*=1*/ )
 {
-	uint32_t count = static_cast<uint32_t>(renderPass.m_attachmentInfos.size());
-	m_attachments.resize(count);
-	for (auto& attachment : renderPass.m_attachmentInfos)
-		m_attachments[attachment.m_location] = attachment.m_pImageView->getHandle();
+	const auto& attachmentDescriptions = renderPass.getAttachmentDescriptions();
+	assert(attachments.size() == attachmentDescriptions.size());
+	m_attachmentImageViews = attachments;
+	m_attachments.resize(attachments.size());
+	for (size_t i = 0; i < attachments.size(); ++i)
+	{
+		assert(m_attachmentImageViews[i]);
+		assert(m_attachmentImageViews[i]->m_pImage);
+		const auto imageCreateInfo = m_attachmentImageViews[i]->m_pImage->getCreateInfo();
+		assert(imageCreateInfo.format == attachmentDescriptions[i].format);
+		assert(imageCreateInfo.samples == attachmentDescriptions[i].samples);
+		assert(imageCreateInfo.extent.width >= extent.width);
+		assert(imageCreateInfo.extent.height >= extent.height);
+		assert(imageCreateInfo.arrayLayers >= layers);
+		m_attachments[i] = m_attachmentImageViews[i]->getHandle();
+	}
 
 	m_createInfo.renderPass = renderPass.getHandle();
-	m_createInfo.attachmentCount = count;
+	m_createInfo.attachmentCount = static_cast<uint32_t>(m_attachments.size());
 	m_createInfo.pAttachments = m_attachments.data();
 	m_createInfo.width = extent.width;
 	m_createInfo.height = extent.height;
@@ -763,6 +770,7 @@ VkResult FrameBuffer::destroy()
 	vkDestroyFramebuffer(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 
+	m_attachmentImageViews.clear();
 	m_attachments.clear();
 	m_createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, nullptr };
 	return result;
@@ -1047,18 +1055,13 @@ void DescriptorSetLayout::insertNext<VkMutableDescriptorTypeCreateInfoEXT>(const
 	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
 }
 
-VkResult DescriptorSetPool::create(uint32_t maxSets, VkDescriptorPoolCreateFlags flags /*=0*/)
+VkResult DescriptorSetPool::create(uint32_t maxSets, const std::vector<VkDescriptorPoolSize>& poolSizes, VkDescriptorPoolCreateFlags flags /*=0*/)
 {
-	std::vector<VkDescriptorSetLayoutBinding> bindings = m_pDescriptorSetLayout->getBindings();
-	for (auto& binding : bindings)
-	{
-		m_poolSizes.push_back({binding.descriptorType, binding.descriptorCount * maxSets});
-	}
-
+	m_poolSizes = { poolSizes.begin(), poolSizes.end() };
 	m_createInfo.flags = flags;
 	m_createInfo.poolSizeCount = static_cast<uint32_t>(m_poolSizes.size());
-	m_createInfo.pPoolSizes    = m_poolSizes.data();
-	m_createInfo.maxSets       = maxSets;
+	m_createInfo.pPoolSizes = m_poolSizes.data();
+	m_createInfo.maxSets = maxSets;
 	return create();
 }
 
@@ -1070,7 +1073,7 @@ VkResult DescriptorSetPool::create(const DescriptorPoolCreateFuncType& createFun
 
 VkResult DescriptorSetPool::create()
 {
-	VkResult result = vkCreateDescriptorPool(m_pDescriptorSetLayout->m_device, &m_createInfo, nullptr, &m_handle);
+	VkResult result = vkCreateDescriptorPool(m_device, &m_createInfo, nullptr, &m_handle);
 	check(result);
 	return result;
 }
@@ -1080,27 +1083,38 @@ VkResult DescriptorSetPool::destroy()
 	VkResult result = VK_SUCCESS;
 	DLOG3("MEM detection: descriptorSetPool destroy().");
 
-	vkDestroyDescriptorPool(m_pDescriptorSetLayout->m_device, m_handle, nullptr);
+	vkDestroyDescriptorPool(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 
 	m_poolSizes.clear();
 	m_createInfo =  { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr };
-
-	m_pDescriptorSetLayout = nullptr;
 	return result;
 }
 
-VkResult DescriptorSet::create()
+VkResult DescriptorSet::create(VkDescriptorSetLayout layout, const std::vector<VkDescriptorSetLayoutBinding>& bindings)
 {
 	m_createInfo.pNext = m_pCreateInfoNext;
 	m_createInfo.descriptorPool = m_pDescriptorSetPool->getHandle();
 	m_createInfo.descriptorSetCount = 1;
-	std::vector<VkDescriptorSetLayout> setLayouts = {m_pDescriptorSetPool->m_pDescriptorSetLayout->getHandle()};
-	m_createInfo.pSetLayouts = setLayouts.data();
+	VkDescriptorSetAllocateInfo createInfo = m_createInfo;
+	createInfo.pSetLayouts = &layout;
 
-	VkResult result = vkAllocateDescriptorSets(m_pDescriptorSetPool->m_pDescriptorSetLayout->m_device, &m_createInfo, &m_handle);
+	m_bindings.clear();
+	for (const auto& binding : bindings)
+	{
+		auto [iter, inserted] = m_bindings.insert({ binding.binding, binding });
+		assert(inserted);
+		(void)iter;
+	}
+
+	VkResult result = vkAllocateDescriptorSets(m_device, &createInfo, &m_handle);
 	check(result);
 	return result;
+}
+
+VkResult DescriptorSet::create(const DescriptorSetLayout& layout)
+{
+	return create(layout.getHandle(), layout.getBindings());
 }
 
 void DescriptorSet::insertNext(const VkDescriptorSetVariableDescriptorCountAllocateInfo& next)
@@ -1120,127 +1134,200 @@ void DescriptorSet::insertNext(const VkDescriptorSetVariableDescriptorCountAlloc
 	m_createInfoNexts.push_back((VkBaseInStructure*)pInfo);
 }
 
-void DescriptorSet::setBuffer(uint32_t binding, const Buffer& buffer, VkDeviceSize offsetInBytes/*= 0*/, VkDeviceSize sizeInBytes/* = VK_WHOLE_SIZE*/)
+void DescriptorSet::setBuffer(uint32_t binding, uint32_t arrayElement, const Buffer& buffer, VkDeviceSize offsetInBytes/*= 0*/, VkDeviceSize sizeInBytes/* = VK_WHOLE_SIZE*/)
 {
 	VkDescriptorBufferInfo bufferInfo{};
 	bufferInfo.buffer = buffer.getHandle();
 	bufferInfo.offset = offsetInBytes;
 	bufferInfo.range = sizeInBytes;
 
-	m_setState.setBuffer(binding, bufferInfo);
+	m_writeData.setBuffer(binding, arrayElement, bufferInfo);
 }
 
-void DescriptorSet::setCombinedImageSampler(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler)
+void DescriptorSet::setBufferNullDescriptor(uint32_t binding, uint32_t arrayElement/*= 0*/)
 {
+	const auto& layout_binding = m_bindings.at(binding);
+	assert(layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
 
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = VK_NULL_HANDLE;
+	bufferInfo.offset = 0;
+	bufferInfo.range = VK_WHOLE_SIZE;
+
+	m_writeData.setBuffer(binding, arrayElement, bufferInfo);
+}
+
+void DescriptorSet::setCombinedImageSampler(uint32_t binding, uint32_t arrayElement, const ImageView& imageView, VkImageLayout imageLayout, const Sampler& sampler)
+{
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.sampler = sampler.getHandle();
 	imageInfo.imageView = imageView.getHandle();
 	imageInfo.imageLayout = imageLayout;
 
-	m_setState.setImage(binding, imageInfo);
+	m_writeData.setImage(binding, arrayElement, imageInfo);
 }
 
-void DescriptorSet::setImage(uint32_t binding, const ImageView& imageView, VkImageLayout imageLayout)
+void DescriptorSet::setCombinedImageSamplerNullDescriptor(uint32_t binding, uint32_t arrayElement, const Sampler& sampler, VkImageLayout imageLayout/*= VK_IMAGE_LAYOUT_UNDEFINED*/)
+{
+	const auto& layout_binding = m_bindings.at(binding);
+	assert(layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.sampler = sampler.getHandle();
+	imageInfo.imageView = VK_NULL_HANDLE;
+	imageInfo.imageLayout = imageLayout;
+
+	m_writeData.setImage(binding, arrayElement, imageInfo);
+}
+
+void DescriptorSet::setImage(uint32_t binding, uint32_t arrayElement, const ImageView& imageView, VkImageLayout imageLayout)
 {
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.sampler = VK_NULL_HANDLE;
 	imageInfo.imageView = imageView.getHandle();
 	imageInfo.imageLayout = imageLayout;
 
-	m_setState.setImage(binding, imageInfo);
+	m_writeData.setImage(binding, arrayElement, imageInfo);
 }
 
-void DescriptorSet::setSampler(uint32_t binding, const Sampler& sampler)
+void DescriptorSet::setImageNullDescriptor(uint32_t binding, uint32_t arrayElement/*= 0*/, VkImageLayout imageLayout/*= VK_IMAGE_LAYOUT_UNDEFINED*/)
+{
+	const auto& layout_binding = m_bindings.at(binding);
+	assert(layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.sampler = VK_NULL_HANDLE;
+	imageInfo.imageView = VK_NULL_HANDLE;
+	imageInfo.imageLayout = imageLayout;
+
+	m_writeData.setImage(binding, arrayElement, imageInfo);
+}
+
+void DescriptorSet::setSampler(uint32_t binding, uint32_t arrayElement, const Sampler& sampler)
 {
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.sampler = sampler.getHandle();
 	imageInfo.imageView = VK_NULL_HANDLE;
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	m_setState.setImage(binding, imageInfo);
+	m_writeData.setImage(binding, arrayElement, imageInfo);
 }
 
-void DescriptorSet::setTexelBufferView(uint32_t binding, const TexelBufferView& bufferView)
+void DescriptorSet::setTexelBufferView(uint32_t binding, uint32_t arrayElement, const TexelBufferView& bufferView)
 {
-	m_setState.setBufferView(binding, bufferView.getHandle());
+	m_writeData.setBufferView(binding, arrayElement, bufferView.getHandle());
+}
+
+void DescriptorSet::setTexelBufferViewNullDescriptor(uint32_t binding, uint32_t arrayElement/*= 0*/)
+{
+	const auto& layout_binding = m_bindings.at(binding);
+	assert(layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
+	       layout_binding.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
+	m_writeData.setBufferView(binding, arrayElement, VK_NULL_HANDLE);
 }
 
 void DescriptorSet::update()
 {
-	VkDescriptorType type;
-
-	for (auto& iter : m_setState.m_buffers)
+	std::vector<VkWriteDescriptorSet> writes;
+	size_t maxWriteCount = 0;
+	for (const auto& iter : m_writeData.m_buffers)
 	{
-		auto info = iter.second;
-		if (info.size() > 0)
-		{
-			if (info[0].buffer == VK_NULL_HANDLE) continue;
-
-			type = m_pDescriptorSetPool->m_pDescriptorSetLayout->getDescriptorType(iter.first);
-
-			VkWriteDescriptorSet writeDescriptor { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr };
-
-			writeDescriptor.dstSet = m_handle;
-			writeDescriptor.dstBinding = iter.first;
-			writeDescriptor.dstArrayElement = 0;
-			writeDescriptor.descriptorCount = static_cast<uint32_t>(info.size());
-			writeDescriptor.descriptorType = type;
-			writeDescriptor.pBufferInfo = info.data();
-			writeDescriptor.pImageInfo = nullptr;
-			writeDescriptor.pTexelBufferView = nullptr;
-
-			vkUpdateDescriptorSets(m_pDescriptorSetPool->m_pDescriptorSetLayout->m_device, 1, &writeDescriptor, 0, nullptr);
-		}
+		maxWriteCount += iter.second.size();
 	}
-
-	for (auto& iter : m_setState.m_images)
+	for (const auto& iter : m_writeData.m_images)
 	{
-		auto info = iter.second;
-		if (info.size() > 0)
-		{
-			if (info[0].sampler == VK_NULL_HANDLE && info[0].imageView == VK_NULL_HANDLE)
-				continue;
-
-			type = m_pDescriptorSetPool->m_pDescriptorSetLayout->getDescriptorType(iter.first);
-
-			VkWriteDescriptorSet writeDescriptor { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr };
-
-			writeDescriptor.dstSet = m_handle;
-			writeDescriptor.dstBinding = iter.first;
-			writeDescriptor.dstArrayElement = 0;
-			writeDescriptor.descriptorCount = static_cast<uint32_t>(info.size());
-			writeDescriptor.descriptorType = type;
-			writeDescriptor.pBufferInfo = nullptr;
-			writeDescriptor.pImageInfo = info.data();
-			writeDescriptor.pTexelBufferView = nullptr;
-
-			vkUpdateDescriptorSets(m_pDescriptorSetPool->m_pDescriptorSetLayout->m_device, 1, &writeDescriptor, 0, nullptr);
-		}
+		maxWriteCount += iter.second.size();
 	}
-
-	for (auto& iter : m_setState.m_bufferViews)
+	for (const auto& iter : m_writeData.m_bufferViews)
 	{
-		if (iter.second == VK_NULL_HANDLE) continue;
+		maxWriteCount += iter.second.size();
+	}
+	writes.reserve(maxWriteCount);
 
-		type = m_pDescriptorSetPool->m_pDescriptorSetLayout->getDescriptorType(iter.first);
+	std::deque<std::vector<VkDescriptorBufferInfo>> bufferWriteStorage;
+	std::deque<std::vector<VkDescriptorImageInfo>> imageWriteStorage;
+	std::deque<std::vector<VkBufferView>> bufferViewWriteStorage;
 
-		VkWriteDescriptorSet writeDescriptor { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr };
+	collectDescriptorWrites(m_writeData.m_buffers, bufferWriteStorage, writes,
+	                      [](VkWriteDescriptorSet& writeDescriptor, const VkDescriptorBufferInfo* data)
+	                      {
+		                      writeDescriptor.pBufferInfo = data;
+	                      });
 
-		writeDescriptor.dstSet = m_handle;
-		writeDescriptor.dstBinding = iter.first;
-		writeDescriptor.dstArrayElement = 0;
-		writeDescriptor.descriptorCount = 1;
-		writeDescriptor.descriptorType = type;
-		writeDescriptor.pBufferInfo = nullptr;
-		writeDescriptor.pImageInfo = nullptr;
-		writeDescriptor.pTexelBufferView = &iter.second;
+	collectDescriptorWrites(m_writeData.m_images, imageWriteStorage, writes,
+	                      [](VkWriteDescriptorSet& writeDescriptor, const VkDescriptorImageInfo* data)
+	                      {
+		                      writeDescriptor.pImageInfo = data;
+	                      });
 
-		vkUpdateDescriptorSets(m_pDescriptorSetPool->m_pDescriptorSetLayout->m_device, 1, &writeDescriptor, 0, nullptr);
+	collectDescriptorWrites(m_writeData.m_bufferViews, bufferViewWriteStorage, writes,
+	                      [](VkWriteDescriptorSet& writeDescriptor, const VkBufferView* data)
+	                      {
+		                      writeDescriptor.pTexelBufferView = data;
+	                      });
+
+	if (!writes.empty())
+	{
+		vkUpdateDescriptorSets(m_device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 	}
 
 	// AS TBD
 }
+
+template <typename T, typename AssignWritePointer>
+void DescriptorSet::collectDescriptorWrites(
+    const tracetooltests::DescriptorSetWriteData::BindingWriteMap<T>& bindingWrites,
+    std::deque<std::vector<T>>& contiguousWriteStorage,
+    std::vector<VkWriteDescriptorSet>& writes,
+    AssignWritePointer assignWritePointer) const
+{
+	for (const auto& bindingWrite : bindingWrites)
+	{
+		if (bindingWrite.second.empty()) continue;
+		const uint32_t bindingIndex = bindingWrite.first;
+		const auto& binding = m_bindings.at(bindingIndex);
+
+		for (auto iter = bindingWrite.second.begin(); iter != bindingWrite.second.end();)
+		{
+			assert(iter->first < binding.descriptorCount);
+			auto runBegin = iter;
+			contiguousWriteStorage.emplace_back();
+			auto& runValues = contiguousWriteStorage.back();
+			runValues.push_back(iter->second);
+
+			// Merge consecutive array elements into one VkWriteDescriptorSet.
+			uint32_t previousArrayElement = iter->first;
+			++iter;
+			while (iter != bindingWrite.second.end())
+			{
+				assert(iter->first < binding.descriptorCount);
+				if (iter->first != previousArrayElement + 1) break;
+				runValues.push_back(iter->second);
+				previousArrayElement = iter->first;
+				++iter;
+			}
+
+			// std::map storage is not contiguous, so each merged run needs its own vector backing.
+			VkWriteDescriptorSet writeDescriptor{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr };
+			writeDescriptor.dstSet = m_handle;
+			writeDescriptor.dstBinding = bindingIndex;
+			writeDescriptor.dstArrayElement = runBegin->first;
+			writeDescriptor.descriptorCount = static_cast<uint32_t>(runValues.size());
+			writeDescriptor.descriptorType = binding.descriptorType;
+			writeDescriptor.pBufferInfo = nullptr;
+			writeDescriptor.pImageInfo = nullptr;
+			writeDescriptor.pTexelBufferView = nullptr;
+			assignWritePointer(writeDescriptor, runValues.data());
+			writes.push_back(writeDescriptor);
+		}
+	}
+}
+
 
 VkResult DescriptorSet::destroy()
 {
@@ -1251,9 +1338,9 @@ VkResult DescriptorSet::destroy()
 
 	m_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr };
 
-	m_setState.m_buffers.clear();
-	m_setState.m_images.clear();
-	m_setState.m_bufferViews.clear();
+	m_writeData.m_buffers.clear();
+	m_writeData.m_images.clear();
+	m_writeData.m_bufferViews.clear();
 
 	for (auto& next : m_createInfoNexts)
 	{
@@ -1262,48 +1349,28 @@ VkResult DescriptorSet::destroy()
 	m_createInfoNexts.clear();
 	m_pCreateInfoNext = nullptr;
 	m_variabledSizeDescriptorCount.clear();
+	m_bindings.clear();
 
 	return result;
 }
 
-VkResult PipelineLayout::create(const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, const std::vector<VkPushConstantRange>& pushConstantRanges/*={}*/)
+VkResult PipelineLayout::create(const std::vector<VkDescriptorSetLayout>& setLayouts, const std::vector<VkPushConstantRange>& pushConstantRanges/*={}*/)
 {
-	return create(setLayoutMap.size(), setLayoutMap, pushConstantRanges.size(), pushConstantRanges);
+	m_descriptorSetLayouts = {setLayouts.begin(), setLayouts.end()};
+	m_pushConstantRanges   = {pushConstantRanges.begin(), pushConstantRanges.end()};
+	return create();
 }
-
 VkResult PipelineLayout::create(const std::vector<VkPushConstantRange>& pushConstantRanges)
 {
 	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
-	return create(m_descriptorSetLayouts.size(), m_pushConstantRanges.size());
+	return create();
 }
 
-VkResult PipelineLayout::create(uint32_t setLayoutCount, const std::unordered_map<uint32_t,std::shared_ptr<DescriptorSetLayout>>& setLayoutMap, uint32_t pushConstantRangeCount, const std::vector<VkPushConstantRange>& pushConstantRanges)
+VkResult PipelineLayout::create()
 {
-	m_pDescriptorSetLayouts.clear();
-	m_descriptorSetLayouts.clear();
-
-	uint32_t layoutCount = setLayoutCount;
-	if (layoutCount == 0) layoutCount = setLayoutMap.size();
-	for (const auto& setLayout : setLayoutMap)
-	{
-		if (setLayout.first + 1 > layoutCount) layoutCount = setLayout.first + 1;
-	}
-	m_descriptorSetLayouts.assign(layoutCount, VK_NULL_HANDLE);
-	for (const auto& setLayout: setLayoutMap)
-	{
-		m_pDescriptorSetLayouts[setLayout.first] = setLayout.second;
-		m_descriptorSetLayouts[setLayout.first] = setLayout.second->getHandle();
-	}
-	m_pushConstantRanges = {pushConstantRanges.begin(), pushConstantRanges.end()};
-
-	return create(static_cast<uint32_t>(m_descriptorSetLayouts.size()), pushConstantRangeCount);
-}
-
-VkResult PipelineLayout::create(uint32_t layoutCount, uint32_t constantCount)
-{
-	m_createInfo.setLayoutCount = layoutCount;
+	m_createInfo.setLayoutCount = static_cast<uint32_t>(m_descriptorSetLayouts.size());
 	m_createInfo.pSetLayouts = m_descriptorSetLayouts.data();
-	m_createInfo.pushConstantRangeCount = constantCount;
+	m_createInfo.pushConstantRangeCount = static_cast<uint32_t>(m_pushConstantRanges.size());
 	m_createInfo.pPushConstantRanges = m_pushConstantRanges.data();
 
 	VkResult result = vkCreatePipelineLayout(m_device, &m_createInfo, nullptr, &m_handle);
@@ -1316,8 +1383,6 @@ VkResult PipelineLayout::destroy()
 	VkResult result = VK_SUCCESS;
 	DLOG3("MEM detection: pipelineLayout destroy().");
 
-	m_pDescriptorSetLayouts.clear();
-
 	vkDestroyPipelineLayout(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 
@@ -1328,9 +1393,11 @@ VkResult PipelineLayout::destroy()
 	return result;
 }
 
-VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags/* = 0*/, uint32_t subpassIndex /*=0*/)
+VkResult GraphicPipeline::create(VkPipelineLayout layout, const std::vector<ShaderPipelineState>& shaderStages, const GraphicPipelineState& graphicPipelineState, const RenderPass& renderPass, VkPipelineCreateFlags flags/* = 0*/, uint32_t subpassIndex /*=0*/)
 {
 	/* store resources to local storage, so that the objects in param list could be released */
+	assert(m_device != VK_NULL_HANDLE);
+	assert(layout != VK_NULL_HANDLE);
 
 	// shader stage
 	uint32_t count = static_cast<uint32_t>(shaderStages.size());
@@ -1364,7 +1431,6 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 
 			m_shaderStageCreateInfos[index].pSpecializationInfo = &m_specializationInfos[index];
 		}
-		m_shaders[info.stage] = shaderStages[index].m_pShader;
 	}
 
 	// vertex input
@@ -1449,13 +1515,13 @@ VkResult GraphicPipeline::create(const std::vector<ShaderPipelineState>& shaderS
 	m_createInfo.pColorBlendState = &m_colorBlendStateCreateInfo;
 	m_createInfo.pViewportState = &m_viewportStateCreateInfo;
 
-	m_createInfo.layout = m_pipelineLayout->getHandle();
+	m_createInfo.layout = layout;
 	m_createInfo.renderPass = renderPass.getHandle();
 	m_createInfo.subpass = subpassIndex;
 	m_createInfo.basePipelineHandle = VK_NULL_HANDLE;
 	m_createInfo.basePipelineIndex = -1;
 
-	VkResult result = vkCreateGraphicsPipelines(m_pipelineLayout->m_device, VK_NULL_HANDLE, 1, &m_createInfo, nullptr, &m_handle);
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &m_createInfo, nullptr, &m_handle);
 
 	check(result);
 	return result;
@@ -1466,7 +1532,7 @@ VkResult GraphicPipeline::destroy()
 	VkResult result = VK_SUCCESS;
 	DLOG3("MEM detection: graphicPipeline destroy().");
 
-	vkDestroyPipeline(m_pipelineLayout->m_device, m_handle, nullptr);
+	vkDestroyPipeline(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 
 	m_specializationData.clear();
@@ -1494,8 +1560,6 @@ VkResult GraphicPipeline::destroy()
 	m_dynamicStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, nullptr };
 	m_createInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, nullptr };
 
-	m_shaders.clear();
-	m_pipelineLayout = nullptr;
 
 	return result;
 }
@@ -1505,9 +1569,11 @@ bool GraphicPipeline::hasDynamicState(VkDynamicState dynamic) const
 	return std::binary_search(m_dynamicStates.begin(), m_dynamicStates.end(), dynamic);
 }
 
-VkResult ComputePipeline::create(const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags/* = 0*/)
+VkResult ComputePipeline::create(VkPipelineLayout layout, const ShaderPipelineState& shaderStage, VkPipelineCreateFlags flags/* = 0*/)
 {
 	/* store resources to local storage, so that the objects in param list could be released */
+	assert(m_device != VK_NULL_HANDLE);
+	assert(layout != VK_NULL_HANDLE);
 
 	// shader stage
 	m_shaderStageCreateInfo = shaderStage.getCreateInfo();
@@ -1530,15 +1596,13 @@ VkResult ComputePipeline::create(const ShaderPipelineState& shaderStage, VkPipel
 
 		m_shaderStageCreateInfo.pSpecializationInfo = &m_specializationInfo;
 	}
-	m_shader = shaderStage.m_pShader;
-
 	m_createInfo.flags = flags;
 	m_createInfo.stage = m_shaderStageCreateInfo;
-	m_createInfo.layout = m_pipelineLayout->getHandle();
+	m_createInfo.layout = layout;
 	m_createInfo.basePipelineHandle = VK_NULL_HANDLE;
 	m_createInfo.basePipelineIndex = -1;
 
-	VkResult result = vkCreateComputePipelines(m_pipelineLayout->m_device, VK_NULL_HANDLE, 1, &m_createInfo, nullptr, &m_handle);
+	VkResult result = vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &m_createInfo, nullptr, &m_handle);
 
 	check(result);
 	return result;
@@ -1549,15 +1613,12 @@ VkResult ComputePipeline::destroy()
 	VkResult result = VK_SUCCESS;
 	DLOG3("MEM detection: computePipeline destroy().");
 
-	vkDestroyPipeline(m_pipelineLayout->m_device, m_handle, nullptr);
+	vkDestroyPipeline(m_device, m_handle, nullptr);
 	m_handle = VK_NULL_HANDLE;
 
 	m_createInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
 	m_specializationMapEntries.clear();
 	m_specializationData.clear();
-
-	m_shader = nullptr;
-	m_pipelineLayout = nullptr;
 
 	return result;
 }
@@ -1715,31 +1776,33 @@ bool GraphicContext::saveImageOutput()
 	{
 		return false;
 	}
-	assert(m_renderPass);
-	assert(!m_renderPass->m_attachmentInfos.empty());
+	assert(m_framebuffer);
+	assert(!m_framebuffer->getAttachmentImageViews().empty());
 
-	AttachmentInfo* colorAttachment = nullptr;
-	for (auto& attachment : m_renderPass->m_attachmentInfos)
+	const ImageView* colorAttachmentImageView = nullptr;
+	uint32_t colorAttachmentIndex = VK_ATTACHMENT_UNUSED;
+	for (uint32_t i = 0; i < m_framebuffer->getAttachmentImageViews().size(); ++i)
 	{
-		if (!attachment.m_pImageView || !attachment.m_pImageView->m_pImage)
+		const auto& attachmentImageView = m_framebuffer->getAttachmentImageViews()[i];
+		if (!attachmentImageView || !attachmentImageView->m_pImage)
 		{
 			continue;
 		}
-		if (attachment.m_pImageView->m_pImage->m_aspect & VK_IMAGE_ASPECT_COLOR_BIT)
+		if (attachmentImageView->m_pImage->m_aspect & VK_IMAGE_ASPECT_COLOR_BIT)
 		{
-			colorAttachment = &attachment;
+			colorAttachmentImageView = attachmentImageView.get();
+			colorAttachmentIndex = i;
 			break;
 		}
 	}
-	assert(colorAttachment);
-	assert(colorAttachment->m_pImageView);
-	assert(colorAttachment->m_pImageView->m_pImage);
-	if (!colorAttachment || !colorAttachment->m_pImageView || !colorAttachment->m_pImageView->m_pImage)
+	assert(colorAttachmentImageView);
+	assert(colorAttachmentImageView->m_pImage);
+	if (!colorAttachmentImageView || !colorAttachmentImageView->m_pImage)
 	{
 		return false;
 	}
 
-	Image& image = *colorAttachment->m_pImageView->m_pImage;
+	Image& image = *colorAttachmentImageView->m_pImage;
 	assert(image.m_aspect & VK_IMAGE_ASPECT_COLOR_BIT);
 	VkFormat format = image.m_format;
 	const bool format_ok = format == VK_FORMAT_R8G8B8A8_UNORM || format == VK_FORMAT_R8G8B8A8_SRGB ||
@@ -1773,10 +1836,14 @@ bool GraphicContext::saveImageOutput()
 		m_secondCommandBuffer->create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 	}
 
-	VkImageLayout originalLayout = colorAttachment->m_description.finalLayout;
-	if (originalLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+	VkImageLayout originalLayout = image.m_imageLayout;
+	if (m_renderPass && colorAttachmentIndex < m_renderPass->getAttachmentDescriptions().size())
 	{
-		originalLayout = image.m_imageLayout;
+		const VkImageLayout finalLayout = m_renderPass->getAttachmentDescriptions()[colorAttachmentIndex].finalLayout;
+		if (finalLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+		{
+			originalLayout = finalLayout;
+		}
 	}
 	assert(originalLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 	if (originalLayout == VK_IMAGE_LAYOUT_UNDEFINED)

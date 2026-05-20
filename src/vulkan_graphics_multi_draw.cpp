@@ -243,6 +243,7 @@ public:
 		m_bgImageView = nullptr;
 		m_descriptor = nullptr;
 		m_pipeline = nullptr;
+		m_pipelineLayout = nullptr;
 
 		if (m_frameFence != VK_NULL_HANDLE)
 		{
@@ -259,6 +260,7 @@ public:
 	std::unique_ptr<ImageView> m_bgImageView;
 
 	std::unique_ptr<GraphicPipeline> m_pipeline;
+	std::shared_ptr<PipelineLayout> m_pipelineLayout;
 	std::unique_ptr<DescriptorSet> m_descriptor;
 
 	VkFence m_frameFence = VK_NULL_HANDLE;
@@ -378,19 +380,20 @@ int main(int argc, char** argv)
 	mainDescSetLayout->create();
 
 #define MAX_DESCRIPTOR_SET_SIZE 4
-	auto mainDescSetPool = std::make_shared<DescriptorSetPool>(mainDescSetLayout);
-	mainDescSetPool->create(MAX_DESCRIPTOR_SET_SIZE);
+	auto mainDescSetPool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	mainDescSetPool->create(MAX_DESCRIPTOR_SET_SIZE,
+	                        {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_DESCRIPTOR_SET_SIZE},
+	                         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_DESCRIPTOR_SET_SIZE}});
 
 	auto descriptor = std::make_unique<DescriptorSet>(std::move(mainDescSetPool));
-	descriptor->create();
-	descriptor->setBuffer(0, *transformUniformBuffer);
-	descriptor->setCombinedImageSampler(1, *bgImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *bgSampler);
+	descriptor->create(*mainDescSetLayout);
+	descriptor->setBuffer(0, 0, *transformUniformBuffer);
+	descriptor->setCombinedImageSampler(1, 0, *bgImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *bgSampler);
 	descriptor->update();
 
-	std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> layoutMap = { {0, mainDescSetLayout} };
+	std::vector<VkDescriptorSetLayout> setLayouts = { mainDescSetLayout->getHandle() };
 	auto pipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
-	pipelineLayout->create(layoutMap);
-	layoutMap[0] = nullptr;
+	pipelineLayout->create(setLayouts);
 
 	GraphicPipelineState pipelineState;
 	pipelineState.setVertexBinding(0, *vertexBuffer, sizeof(Vertex));
@@ -413,8 +416,8 @@ int main(int argc, char** argv)
 	auto depthImageView = std::make_shared<ImageView>(std::move(depthImage));
 	depthImageView->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-	AttachmentInfo color{ 0, std::move(colorImageView), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	AttachmentInfo depth{ 1, std::move(depthImageView), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+	AttachmentInfo color{ 0, *colorImageView, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	AttachmentInfo depth{ 1, *depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
 
 	SubpassInfo subpass{};
 	subpass.addColorAttachment(color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -435,13 +438,13 @@ int main(int argc, char** argv)
 	pipelineState.setColorBlendAttachment(color.m_location, colorBlendAttachment);
 
 	auto framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	framebuffer->create(*renderpass, {p_benchmark->width, p_benchmark->height});
+	framebuffer->create(*renderpass, {colorImageView, depthImageView}, {p_benchmark->width, p_benchmark->height});
 
 	ShaderPipelineState vertShaderState(VK_SHADER_STAGE_VERTEX_BIT, std::move(vertShader));
 	ShaderPipelineState fragShaderState(VK_SHADER_STAGE_FRAGMENT_BIT, std::move(fragShader));
 
-	auto pipeline = std::make_unique<GraphicPipeline>(std::move(pipelineLayout));
-	pipeline->create({vertShaderState, fragShaderState}, pipelineState, *renderpass);
+	auto pipeline = std::make_unique<GraphicPipeline>(vulkan.device);
+	pipeline->create(pipelineLayout->getHandle(), {vertShaderState, fragShaderState}, pipelineState, *renderpass);
 
 	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)vertexBuffer->getHandle(), "graphics_multi_draw_vertex");
 	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)indexBuffer->getHandle(), "graphics_multi_draw_index");
@@ -454,6 +457,7 @@ int main(int argc, char** argv)
 	p_benchmark->m_bgSampler = std::move(bgSampler);
 	p_benchmark->m_bgImageView = std::move(bgImageView);
 	p_benchmark->m_descriptor = std::move(descriptor);
+	p_benchmark->m_pipelineLayout = std::move(pipelineLayout);
 	p_benchmark->m_pipeline = std::move(pipeline);
 	p_benchmark->m_renderPass = std::move(renderpass);
 	p_benchmark->m_framebuffer = std::move(framebuffer);
@@ -665,7 +669,7 @@ static void render(const vulkan_setup_t& vulkan)
 		vkCmdBindIndexBuffer(defaultCmd, p_benchmark->m_indexBuffer->getHandle(), 0, VK_INDEX_TYPE_UINT16);
 
 		VkDescriptorSet descriptor = p_benchmark->m_descriptor->getHandle();
-		vkCmdBindDescriptorSets(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p_benchmark->m_pipeline->m_pipelineLayout->getHandle(), 0, 1, &descriptor, 0, nullptr);
+		vkCmdBindDescriptorSets(defaultCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p_benchmark->m_pipelineLayout->getHandle(), 0, 1, &descriptor, 0, nullptr);
 
 		VkViewport viewport{};
 		viewport.x = 0.0f;

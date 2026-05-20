@@ -132,7 +132,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.view = std::make_shared<ImageView>(target.image);
 	target.view->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	AttachmentInfo color{0, target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+	AttachmentInfo color{0, *target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 	color.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	color.m_description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -143,7 +143,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.renderPass->create({color}, {subpass});
 
 	target.framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	target.framebuffer->create(*target.renderPass, extent);
+	target.framebuffer->create(*target.renderPass, {target.view}, extent);
 
 	return target;
 }
@@ -485,13 +485,13 @@ int main(int argc, char** argv)
 	p_benchmark->imageDesc.address = p_benchmark->imageDesc.buffer->getBufferDeviceAddress();
 
 	{
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> layout_map = {
-			{0, uniformLayout},
-			{1, uniformLayout},
-			{2, samplerLayout},
+		std::vector<VkDescriptorSetLayout> set_layouts = {
+			uniformLayout->getHandle(),
+			uniformLayout->getHandle(),
+			samplerLayout->getHandle(),
 		};
 		p_benchmark->pipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
-		p_benchmark->pipelineLayout->create(layout_map);
+		p_benchmark->pipelineLayout->create(set_layouts);
 	}
 
 	{
@@ -523,8 +523,8 @@ int main(int argc, char** argv)
 		ShaderPipelineState vertStage(VK_SHADER_STAGE_VERTEX_BIT, vertShader);
 		ShaderPipelineState fragStage(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader);
 
-		p_benchmark->pipeline = std::make_unique<GraphicPipeline>(p_benchmark->pipelineLayout);
-		p_benchmark->pipeline->create({vertStage, fragStage}, pipelineState, *p_benchmark->colorTarget.renderPass,
+		p_benchmark->pipeline = std::make_unique<GraphicPipeline>(vulkan.device);
+		p_benchmark->pipeline->create(p_benchmark->pipelineLayout->getHandle(), {vertStage, fragStage}, pipelineState, *p_benchmark->colorTarget.renderPass,
 		                              VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 	}
 

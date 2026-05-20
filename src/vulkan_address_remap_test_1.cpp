@@ -124,31 +124,30 @@ int main(int argc, char** argv)
 	set_layout->insertBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	set_layout->create();
 
-	auto set_pool = std::make_shared<DescriptorSetPool>(set_layout);
-	set_pool->create(1);
+	auto set_pool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	set_pool->create(1, {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}});
 
 	auto descriptor_set = std::make_shared<DescriptorSet>(set_pool);
-	descriptor_set->create();
-	descriptor_set->setBuffer(0, offsets_buffer);
+	descriptor_set->create(*set_layout);
+	descriptor_set->setBuffer(0, 0, offsets_buffer);
 	descriptor_set->update();
 
-	std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> layout_map = {{0, set_layout}};
+	std::vector<VkDescriptorSetLayout> set_layouts = { set_layout->getHandle() };
 	VkPushConstantRange push_range{};
 	push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	push_range.offset = 0;
 	push_range.size = sizeof(PushConstants);
 
 	auto pipeline_layout = std::make_shared<PipelineLayout>(vulkan.device);
-	pipeline_layout->create(layout_map, {push_range});
+	pipeline_layout->create(set_layouts, {push_range});
 
 	auto shader = std::make_shared<Shader>(vulkan.device);
 	shader->create(vulkan_address_remap_test_1_spirv, vulkan_address_remap_test_1_spirv_len);
 	ShaderPipelineState shader_stage(VK_SHADER_STAGE_COMPUTE_BIT, shader);
 
-	auto pipeline = std::make_shared<ComputePipeline>(pipeline_layout);
-	pipeline->create(shader_stage);
+	auto pipeline = std::make_shared<ComputePipeline>(vulkan.device);
+	pipeline->create(pipeline_layout->getHandle(), shader_stage);
 	shader_stage.destroy();
-	shader_stage.m_pShader.reset();
 
 	auto command_pool = std::make_shared<CommandBufferPool>(vulkan.device);
 	command_pool->create(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, 0);
@@ -224,7 +223,6 @@ int main(int argc, char** argv)
 	set_pool.reset();
 	pipeline.reset();
 	shader.reset();
-	layout_map.clear(); // drop shared_ptr ref before destroying device
 	pipeline_layout.reset();
 	set_layout.reset();
 	command_buffer.reset();

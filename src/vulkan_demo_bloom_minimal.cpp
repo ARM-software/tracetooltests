@@ -84,7 +84,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.view = std::make_shared<ImageView>(target.image);
 	target.view->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	AttachmentInfo color{0, target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+	AttachmentInfo color{0, *target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 	color.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	color.m_description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -95,7 +95,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.renderPass->create({color}, {subpass});
 
 	target.framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	target.framebuffer->create(*target.renderPass, extent);
+	target.framebuffer->create(*target.renderPass, {target.view}, extent);
 
 	return target;
 }
@@ -358,13 +358,15 @@ int main(int argc, char** argv)
 	sceneDescLayout->insertBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	sceneDescLayout->create();
 
-	auto sceneDescPool = std::make_shared<DescriptorSetPool>(sceneDescLayout);
-	sceneDescPool->create(1);
+	auto sceneDescPool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	sceneDescPool->create(1,
+	                      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+	                       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}});
 
 	auto sceneDescriptor = std::make_unique<DescriptorSet>(sceneDescPool);
-	sceneDescriptor->create();
-	sceneDescriptor->setBuffer(0, *sceneUbo);
-	sceneDescriptor->setCombinedImageSampler(1, *dummyImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
+	sceneDescriptor->create(*sceneDescLayout);
+	sceneDescriptor->setBuffer(0, 0, *sceneUbo);
+	sceneDescriptor->setCombinedImageSampler(1, 0, *dummyImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
 	sceneDescriptor->update();
 
 	auto blurDescLayout = std::make_shared<DescriptorSetLayout>(vulkan.device);
@@ -372,27 +374,29 @@ int main(int argc, char** argv)
 	blurDescLayout->insertBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	blurDescLayout->create();
 
-	auto blurDescPool = std::make_shared<DescriptorSetPool>(blurDescLayout);
-	blurDescPool->create(2);
+	auto blurDescPool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	blurDescPool->create(2,
+	                     {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
+	                      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}});
 
 	auto blurDescriptorH = std::make_unique<DescriptorSet>(blurDescPool);
-	blurDescriptorH->create();
-	blurDescriptorH->setBuffer(0, *blurUbo);
-	blurDescriptorH->setCombinedImageSampler(1, *p_benchmark->sceneTarget.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
+	blurDescriptorH->create(*blurDescLayout);
+	blurDescriptorH->setBuffer(0, 0, *blurUbo);
+	blurDescriptorH->setCombinedImageSampler(1, 0, *p_benchmark->sceneTarget.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
 	blurDescriptorH->update();
 
 	auto blurDescriptorV = std::make_unique<DescriptorSet>(blurDescPool);
-	blurDescriptorV->create();
-	blurDescriptorV->setBuffer(0, *blurUbo);
-	blurDescriptorV->setCombinedImageSampler(1, *p_benchmark->blurTargetH.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
+	blurDescriptorV->create(*blurDescLayout);
+	blurDescriptorV->setBuffer(0, 0, *blurUbo);
+	blurDescriptorV->setCombinedImageSampler(1, 0, *p_benchmark->blurTargetH.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
 	blurDescriptorV->update();
 
 	{
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> scene_layouts = {{0, sceneDescLayout}};
+		std::vector<VkDescriptorSetLayout> scene_layouts = { sceneDescLayout->getHandle() };
 		p_benchmark->scenePipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
 		p_benchmark->scenePipelineLayout->create(scene_layouts);
 
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> blur_layouts = {{0, blurDescLayout}};
+		std::vector<VkDescriptorSetLayout> blur_layouts = { blurDescLayout->getHandle() };
 		p_benchmark->blurPipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
 		p_benchmark->blurPipelineLayout->create(blur_layouts);
 	}
@@ -454,14 +458,14 @@ int main(int argc, char** argv)
 		blur_dir = 0;
 		blurFragStageV.setSpecialization(blur_entries, sizeof(blur_dir), &blur_dir);
 
-		p_benchmark->scenePipeline = std::make_unique<GraphicPipeline>(p_benchmark->scenePipelineLayout);
-		p_benchmark->scenePipeline->create({colorVertStage, colorFragStage}, sceneState, *p_benchmark->sceneTarget.renderPass);
+		p_benchmark->scenePipeline = std::make_unique<GraphicPipeline>(vulkan.device);
+		p_benchmark->scenePipeline->create(p_benchmark->scenePipelineLayout->getHandle(), {colorVertStage, colorFragStage}, sceneState, *p_benchmark->sceneTarget.renderPass);
 
-		p_benchmark->blurPipelineH = std::make_unique<GraphicPipeline>(p_benchmark->blurPipelineLayout);
-		p_benchmark->blurPipelineH->create({blurVertStage, blurFragStageH}, blurState, *p_benchmark->blurTargetH.renderPass);
+		p_benchmark->blurPipelineH = std::make_unique<GraphicPipeline>(vulkan.device);
+		p_benchmark->blurPipelineH->create(p_benchmark->blurPipelineLayout->getHandle(), {blurVertStage, blurFragStageH}, blurState, *p_benchmark->blurTargetH.renderPass);
 
-		p_benchmark->blurPipelineV = std::make_unique<GraphicPipeline>(p_benchmark->blurPipelineLayout);
-		p_benchmark->blurPipelineV->create({blurVertStage, blurFragStageV}, blurState, *p_benchmark->blurTargetV.renderPass);
+		p_benchmark->blurPipelineV = std::make_unique<GraphicPipeline>(vulkan.device);
+		p_benchmark->blurPipelineV->create(p_benchmark->blurPipelineLayout->getHandle(), {blurVertStage, blurFragStageV}, blurState, *p_benchmark->blurTargetV.renderPass);
 	}
 
 	p_benchmark->vertexBuffer = std::move(vertexBuffer);

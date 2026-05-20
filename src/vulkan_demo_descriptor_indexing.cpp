@@ -77,7 +77,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.view = std::make_shared<ImageView>(target.image);
 	target.view->create(VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 
-	AttachmentInfo color{0, target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+	AttachmentInfo color{0, *target.view, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 	color.m_description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	color.m_description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -88,7 +88,7 @@ static ColorTarget create_color_target(const vulkan_setup_t& vulkan, VkExtent2D 
 	target.renderPass->create({color}, {subpass});
 
 	target.framebuffer = std::make_shared<FrameBuffer>(vulkan.device);
-	target.framebuffer->create(*target.renderPass, extent);
+	target.framebuffer->create(*target.renderPass, {target.view}, extent);
 
 	return target;
 }
@@ -320,8 +320,10 @@ int main(int argc, char** argv)
 	descriptorLayout->insertNext(binding_flags_info);
 	descriptorLayout->create(static_cast<uint32_t>(descriptorLayout->getBindings().size()), 0);
 
-	auto descriptorPool = std::make_shared<DescriptorSetPool>(descriptorLayout);
-	descriptorPool->create(1);
+	auto descriptorPool = std::make_shared<DescriptorSetPool>(vulkan.device);
+	descriptorPool->create(1,
+	                       {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+	                        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texture_count}});
 
 	auto descriptor = std::make_unique<DescriptorSet>(descriptorPool);
 	VkDescriptorSetVariableDescriptorCountAllocateInfo var_count_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT, nullptr};
@@ -329,20 +331,19 @@ int main(int argc, char** argv)
 	var_count_info.descriptorSetCount = 1;
 	var_count_info.pDescriptorCounts = &variable_count;
 	descriptor->insertNext(var_count_info);
-	descriptor->create();
-	descriptor->setBuffer(0, *uniformBuffer);
-	for (auto& view : p_benchmark->textureViews)
+	descriptor->create(*descriptorLayout);
+	descriptor->setBuffer(0, 0, *uniformBuffer);
+	assert(p_benchmark->textureViews.size() == texture_count);
+	for (uint32_t i = 0; i < texture_count; ++i)
 	{
-		descriptor->setCombinedImageSampler(1, *view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
+		descriptor->setCombinedImageSampler(1, i, *p_benchmark->textureViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, *sampler);
 	}
 	descriptor->update();
 
 	{
-		std::unordered_map<uint32_t, std::shared_ptr<DescriptorSetLayout>> layout_map = {
-			{0, descriptorLayout},
-		};
+		std::vector<VkDescriptorSetLayout> set_layouts = { descriptorLayout->getHandle() };
 		p_benchmark->pipelineLayout = std::make_shared<PipelineLayout>(vulkan.device);
-		p_benchmark->pipelineLayout->create(layout_map);
+		p_benchmark->pipelineLayout->create(set_layouts);
 	}
 
 	{
@@ -373,8 +374,8 @@ int main(int argc, char** argv)
 		ShaderPipelineState vertStage(VK_SHADER_STAGE_VERTEX_BIT, vertShader);
 		ShaderPipelineState fragStage(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader);
 
-		p_benchmark->pipeline = std::make_unique<GraphicPipeline>(p_benchmark->pipelineLayout);
-		p_benchmark->pipeline->create({vertStage, fragStage}, pipelineState, *p_benchmark->colorTarget.renderPass);
+		p_benchmark->pipeline = std::make_unique<GraphicPipeline>(vulkan.device);
+		p_benchmark->pipeline->create(p_benchmark->pipelineLayout->getHandle(), {vertStage, fragStage}, pipelineState, *p_benchmark->colorTarget.renderPass);
 	}
 
 	p_benchmark->vertexBuffer = std::move(vertexBuffer);
