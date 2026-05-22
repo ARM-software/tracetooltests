@@ -27,6 +27,11 @@ static constexpr uint32_t chameleon_api_version = VK_HEADER_VERSION_COMPLETE;
 static constexpr uint32_t chameleon_min_icd_interface_version = 5;
 static constexpr uint32_t chameleon_max_icd_interface_version = CURRENT_LOADER_ICD_INTERFACE_VERSION;
 
+static bool fence_is_signalled(const cVkFence* fence)
+{
+	return fence->importedFence ? fence_is_signalled(fence->importedFence) : fence->signalled;
+}
+
 // -- Extensions
 // extension name, and last checked extension update version from the extension registry
 
@@ -471,6 +476,16 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 			reinterpret_cast<VkPhysicalDeviceDriverProperties*>(malloc(property_size));
 		readVkPhysicalDeviceDriverProperties(root, *property);
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceVulkan11Properties"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceVulkan11Properties"];
+		size_t property_size = sizeof(VkPhysicalDeviceVulkan11Properties);
+		VkPhysicalDeviceVulkan11Properties* property =
+			reinterpret_cast<VkPhysicalDeviceVulkan11Properties*>(malloc(property_size));
+		readVkPhysicalDeviceVulkan11Properties(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES] = { property, property_size };
 	}
 
 	if (propertiesRoot.isMember("VkPhysicalDeviceVulkan12Properties"))
@@ -1152,7 +1167,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(
 	cVkDeviceMemory memory;
 	memory.allocationSize = pAllocateInfo->allocationSize;
 	memory.memoryTypeIndex = pAllocateInfo->memoryTypeIndex;
-	const int ret = posix_memalign((void**)&memory.ptr, sizeof(void*), memory.allocationSize);
+	const int ret = posix_memalign((void**)&memory.ptr, 4096, memory.allocationSize);
 	if (ret != 0)
 	{
 		memory.ptr = nullptr;
@@ -1426,6 +1441,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateFence(
 	cVkDevice* dev = device_cast(device);
 	cVkFence& p = owner_create<cVkFence, VkFence>(dev->fences, pFence, pAllocator);
 	p.flags = pCreateInfo->flags;
+	VkExportFenceCreateInfo* export_info = (VkExportFenceCreateInfo*)find_extension(pCreateInfo, VK_STRUCTURE_TYPE_EXPORT_FENCE_CREATE_INFO);
+	if (export_info)
+	{
+		p.exportHandleTypes = export_info->handleTypes;
+	}
 	if (p.flags & VK_FENCE_CREATE_SIGNALED_BIT)
 	{
 		p.signalled = true;
@@ -1458,6 +1478,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkResetFences(
 	{
 		cVkFence* fence = fence_cast(pFences[i]);
 		fence->signalled = false;
+		fence->importedFence = nullptr;
 	}
 
 	return VK_SUCCESS;
@@ -1473,7 +1494,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetFenceStatus(
 	cVkDevice* dev = device_cast(device);
 	cVkFence* f = fence_cast(fence);
 
-	if (!f->signalled)
+	if (!fence_is_signalled(f))
 	{
 		return VK_NOT_READY;
 	}
@@ -1496,11 +1517,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkWaitForFences(
 	{
 		cVkFence* fence = fence_cast(pFences[i]);
 
-		while (!fence->signalled && timeout)
+		while (!fence_is_signalled(fence) && timeout)
 		{
 			timeout--;
 		}
-		if (!fence->signalled)
+		if (!fence_is_signalled(fence))
 		{
 			return VK_TIMEOUT;
 		}
@@ -1591,7 +1612,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetEventStatus(
 
 	cVkDevice* dev = device_cast(device);
 	cVkEvent* evt = event_cast(event);
-	return VK_EVENT_SET; // or VK_EVENT_RESET
+	return evt->signalled ? VK_EVENT_SET : VK_EVENT_RESET;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkSetEvent(
@@ -1603,6 +1624,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSetEvent(
 
 	cVkDevice* dev = device_cast(device);
 	cVkEvent* evt = event_cast(event);
+	evt->signalled = true;
 	return VK_SUCCESS;
 }
 
@@ -1615,6 +1637,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkResetEvent(
 
 	cVkDevice* dev = device_cast(device);
 	cVkEvent* evt = event_cast(event);
+	evt->signalled = false;
 	return VK_SUCCESS;
 }
 
@@ -3089,8 +3112,15 @@ VKAPI_ATTR void VKAPI_CALL vkCmdCopyBuffer(
 	       commandBuffer, srcBuffer, dstBuffer, regionCount, pRegions);
 
 	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyBuffer, commandBuffer, MetricUnit(1, regionCount));
-	p->commands.back().bindings.push_back(buffer_cast(srcBuffer));
-	p->commands.back().bindings.push_back(buffer_cast(dstBuffer));
+	cVkBuffer* src = buffer_cast(srcBuffer);
+	cVkBuffer* dst = buffer_cast(dstBuffer);
+	p->commands.back().bindings.push_back(src);
+	p->commands.back().bindings.push_back(dst);
+	cVkPayloadCopyBuffer* payload = new cVkPayloadCopyBuffer;
+	payload->srcBuffer = src;
+	payload->dstBuffer = dst;
+	payload->regions.assign(pRegions, pRegions + regionCount);
+	p->commands.back().payload = payload;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdCopyImage(
@@ -3398,7 +3428,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWriteTimestamp(
 	CMDLOG("commandBuffer=%p, pipelineStage=%u, queryPool=" NHANDLE ", query=%u", commandBuffer, pipelineStage, queryPool, query);
 
 	cVkCommandBuffer* p = commandbuffer_command(vkCmdWriteTimestamp, commandBuffer, MetricUnit(1));
-	p->commands.back().bindings.push_back(querypool_cast(queryPool));
+	cVkQueryPool* qp = querypool_cast(queryPool);
+	p->commands.back().bindings.push_back(qp);
+	cVkPayloadQuery* payload = new cVkPayloadQuery;
+	payload->queryPool = qp;
+	payload->query = query;
+	p->commands.back().payload = payload;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdCopyQueryPoolResults(
@@ -5708,8 +5743,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkImportFenceFdKHR(
     const VkImportFenceFdInfoKHR*               pImportFenceFdInfo)
 {
 	ENTRY(vkImportFenceFdKHR);
-	TBD_UNSUPPORTED;
 	cVkDevice* dev = device_cast(device);
+	assert(pImportFenceFdInfo->sType == VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR);
+	assert(pImportFenceFdInfo->handleType == VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT);
+	cVkFence* fence = fence_cast(pImportFenceFdInfo->fence);
+	cVkFence* imported_fence = nullptr;
+	const ssize_t bytes = read(pImportFenceFdInfo->fd, &imported_fence, sizeof(imported_fence));
+	close(pImportFenceFdInfo->fd);
+	assert(bytes == sizeof(imported_fence));
+	assert(imported_fence);
+	fence->importedFence = imported_fence;
 	return VK_SUCCESS;
 }
 
@@ -5719,8 +5762,24 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetFenceFdKHR(
     int*                                        pFd)
 {
 	ENTRY(vkGetFenceFdKHR);
-	TBD_UNSUPPORTED;
 	cVkDevice* dev = device_cast(device);
+	assert(pGetFdInfo->sType == VK_STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR);
+	assert(pGetFdInfo->handleType == VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT);
+	cVkFence* fence = fence_cast(pGetFdInfo->fence);
+	assert(fence->exportHandleTypes & VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT);
+	int fds[2] = { -1, -1 };
+	if (pipe(fds) != 0)
+	{
+		return VK_ERROR_TOO_MANY_OBJECTS;
+	}
+	const ssize_t bytes = write(fds[1], &fence, sizeof(fence));
+	close(fds[1]);
+	if (bytes != sizeof(fence))
+	{
+		close(fds[0]);
+		return VK_ERROR_UNKNOWN;
+	}
+	*pFd = fds[0];
 	return VK_SUCCESS;
 }
 
@@ -5916,8 +5975,13 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSetDebugUtilsObjectNameEXT(
     const VkDebugUtilsObjectNameInfoEXT*        pNameInfo)
 {
 	ENTRY(vkSetDebugUtilsObjectNameEXT);
-	TBD_UNSUPPORTED;
+	CLOG("device=%p, pNameInfo=%p[pObjectName=%s, object=%p]", device, pNameInfo, pNameInfo->pObjectName, (void*)pNameInfo->objectHandle);
+
 	cVkDevice* dev = device_cast(device);
+	assert(pNameInfo->sType == VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT);
+	cVkBase* object = ccast<cVkBase, uint64_t>(pNameInfo->objectHandle);
+	assert(pNameInfo->objectType == object->object_type);
+	object->marker_name = pNameInfo->pObjectName ? pNameInfo->pObjectName : "";
 	return VK_SUCCESS;
 }
 
@@ -5926,8 +5990,15 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSetDebugUtilsObjectTagEXT(
     const VkDebugUtilsObjectTagInfoEXT*         pTagInfo)
 {
 	ENTRY(vkSetDebugUtilsObjectTagEXT);
-	TBD_UNSUPPORTED;
+	CLOG("device=%p, pTagInfo=%p[object=%p]", device, pTagInfo, (void*)pTagInfo->objectHandle);
+
 	cVkDevice* dev = device_cast(device);
+	assert(pTagInfo->sType == VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT);
+	cVkBase* object = ccast<cVkBase, uint64_t>(pTagInfo->objectHandle);
+	assert(pTagInfo->objectType == object->object_type);
+	object->pTag = pTagInfo->pTag;
+	object->tagSize = pTagInfo->tagSize;
+	object->tagName = pTagInfo->tagName;
 	return VK_SUCCESS;
 }
 
@@ -7034,7 +7105,20 @@ VKAPI_ATTR void VKAPI_CALL vkCmdCopyBuffer2KHR(
     const VkCopyBufferInfo2KHR*                 pCopyBufferInfo)
 {
 	ENTRY(vkCmdCopyBuffer2KHR);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyBuffer2KHR, commandBuffer, MetricUnit(1, pCopyBufferInfo->regionCount));
+	cVkBuffer* src = buffer_cast(pCopyBufferInfo->srcBuffer);
+	cVkBuffer* dst = buffer_cast(pCopyBufferInfo->dstBuffer);
+	p->commands.back().bindings.push_back(src);
+	p->commands.back().bindings.push_back(dst);
+	cVkPayloadCopyBuffer* payload = new cVkPayloadCopyBuffer;
+	payload->srcBuffer = src;
+	payload->dstBuffer = dst;
+	payload->regions.reserve(pCopyBufferInfo->regionCount);
+	for (uint32_t i = 0; i < pCopyBufferInfo->regionCount; i++)
+	{
+		payload->regions.push_back({ pCopyBufferInfo->pRegions[i].srcOffset, pCopyBufferInfo->pRegions[i].dstOffset, pCopyBufferInfo->pRegions[i].size });
+	}
+	p->commands.back().payload = payload;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdCopyImage2KHR(
@@ -7230,13 +7314,34 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceToolPropertiesEXT(
 
 // VK_KHR_synchronization2
 
+static void update_dependency_info_stage_flags(cVkCommandBuffer* p, const VkDependencyInfoKHR* pDependencyInfo)
+{
+	for (uint32_t i = 0; i < pDependencyInfo->memoryBarrierCount; i++)
+	{
+		p->maxStageFlags |= pDependencyInfo->pMemoryBarriers[i].srcStageMask;
+		p->maxStageFlags |= pDependencyInfo->pMemoryBarriers[i].dstStageMask;
+	}
+	for (uint32_t i = 0; i < pDependencyInfo->bufferMemoryBarrierCount; i++)
+	{
+		p->maxStageFlags |= pDependencyInfo->pBufferMemoryBarriers[i].srcStageMask;
+		p->maxStageFlags |= pDependencyInfo->pBufferMemoryBarriers[i].dstStageMask;
+	}
+	for (uint32_t i = 0; i < pDependencyInfo->imageMemoryBarrierCount; i++)
+	{
+		p->maxStageFlags |= pDependencyInfo->pImageMemoryBarriers[i].srcStageMask;
+		p->maxStageFlags |= pDependencyInfo->pImageMemoryBarriers[i].dstStageMask;
+	}
+}
+
 VKAPI_ATTR void VKAPI_CALL vkCmdSetEvent2KHR(
     VkCommandBuffer                             commandBuffer,
     VkEvent                                     event,
     const VkDependencyInfoKHR*                  pDependencyInfo)
 {
 	ENTRY(vkCmdSetEvent2KHR);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdSetEvent2KHR, commandBuffer, MetricUnit(1, pDependencyInfo->memoryBarrierCount + pDependencyInfo->bufferMemoryBarrierCount + pDependencyInfo->imageMemoryBarrierCount));
+	p->commands.back().bindings.push_back(event_cast(event));
+	update_dependency_info_stage_flags(p, pDependencyInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdResetEvent2KHR(
@@ -7245,8 +7350,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdResetEvent2KHR(
     VkPipelineStageFlags2KHR                    stageMask)
 {
 	ENTRY(vkCmdResetEvent2KHR);
-	TBD_UNSUPPORTED;
-	//p->maxStageFlags |= dstStageMask;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdResetEvent2KHR, commandBuffer, MetricUnit(1));
+	p->commands.back().bindings.push_back(event_cast(event));
+	p->maxStageFlags |= stageMask;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdWaitEvents2KHR(
@@ -7256,7 +7362,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWaitEvents2KHR(
     const VkDependencyInfoKHR*                  pDependencyInfos)
 {
 	ENTRY(vkCmdWaitEvents2KHR);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdWaitEvents2KHR, commandBuffer, MetricUnit(1, eventCount));
+	for (uint32_t i = 0; i < eventCount; i++)
+	{
+		p->commands.back().bindings.push_back(event_cast(pEvents[i]));
+		update_dependency_info_stage_flags(p, &pDependencyInfos[i]);
+	}
 }
 
 static void internalCmdPipelineBarrier2KHR(
@@ -7296,8 +7407,14 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWriteTimestamp2KHR(
     uint32_t                                    query)
 {
 	ENTRY(vkCmdWriteTimestamp2KHR);
-	TBD_UNSUPPORTED;
-	//p->maxStageFlags |= stage;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdWriteTimestamp2KHR, commandBuffer, MetricUnit(1));
+	cVkQueryPool* qp = querypool_cast(queryPool);
+	p->commands.back().bindings.push_back(qp);
+	cVkPayloadQuery* payload = new cVkPayloadQuery;
+	payload->queryPool = qp;
+	payload->query = query;
+	p->commands.back().payload = payload;
+	p->maxStageFlags |= stage;
 }
 
 VkResult internalQueueSubmit2(
@@ -7594,7 +7711,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdSetEvent2(
     const VkDependencyInfo*                     pDependencyInfo)
 {
 	ENTRY(vkCmdSetEvent2);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdSetEvent2, commandBuffer, MetricUnit(1, pDependencyInfo->memoryBarrierCount + pDependencyInfo->bufferMemoryBarrierCount + pDependencyInfo->imageMemoryBarrierCount));
+	p->commands.back().bindings.push_back(event_cast(event));
+	update_dependency_info_stage_flags(p, pDependencyInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdResetEvent2(
@@ -7603,8 +7722,9 @@ VKAPI_ATTR void VKAPI_CALL vkCmdResetEvent2(
     VkPipelineStageFlags2                       stageMask)
 {
 	ENTRY(vkCmdResetEvent2);
-	TBD_UNSUPPORTED;
-	//p->maxStageFlags |= stageMask;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdResetEvent2, commandBuffer, MetricUnit(1));
+	p->commands.back().bindings.push_back(event_cast(event));
+	p->maxStageFlags |= stageMask;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdWaitEvents2(
@@ -7614,7 +7734,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWaitEvents2(
     const VkDependencyInfo*                     pDependencyInfos)
 {
 	ENTRY(vkCmdWaitEvents2);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdWaitEvents2, commandBuffer, MetricUnit(1, eventCount));
+	for (uint32_t i = 0; i < eventCount; i++)
+	{
+		p->commands.back().bindings.push_back(event_cast(pEvents[i]));
+		update_dependency_info_stage_flags(p, &pDependencyInfos[i]);
+	}
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdPipelineBarrier2(
@@ -7632,8 +7757,14 @@ VKAPI_ATTR void VKAPI_CALL vkCmdWriteTimestamp2(
     uint32_t                                    query)
 {
 	ENTRY(vkCmdWriteTimestamp2);
-	TBD_UNSUPPORTED;
-	//p->maxStageFlags |= stage;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdWriteTimestamp2, commandBuffer, MetricUnit(1));
+	cVkQueryPool* qp = querypool_cast(queryPool);
+	p->commands.back().bindings.push_back(qp);
+	cVkPayloadQuery* payload = new cVkPayloadQuery;
+	payload->queryPool = qp;
+	payload->query = query;
+	p->commands.back().payload = payload;
+	p->maxStageFlags |= stage;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit2(
@@ -7651,7 +7782,20 @@ VKAPI_ATTR void VKAPI_CALL vkCmdCopyBuffer2(
     const VkCopyBufferInfo2*                    pCopyBufferInfo)
 {
 	ENTRY(vkCmdCopyBuffer2);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdCopyBuffer2, commandBuffer, MetricUnit(1, pCopyBufferInfo->regionCount));
+	cVkBuffer* src = buffer_cast(pCopyBufferInfo->srcBuffer);
+	cVkBuffer* dst = buffer_cast(pCopyBufferInfo->dstBuffer);
+	p->commands.back().bindings.push_back(src);
+	p->commands.back().bindings.push_back(dst);
+	cVkPayloadCopyBuffer* payload = new cVkPayloadCopyBuffer;
+	payload->srcBuffer = src;
+	payload->dstBuffer = dst;
+	payload->regions.reserve(pCopyBufferInfo->regionCount);
+	for (uint32_t i = 0; i < pCopyBufferInfo->regionCount; i++)
+	{
+		payload->regions.push_back({ pCopyBufferInfo->pRegions[i].srcOffset, pCopyBufferInfo->pRegions[i].dstOffset, pCopyBufferInfo->pRegions[i].size });
+	}
+	p->commands.back().payload = payload;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdCopyImage2(

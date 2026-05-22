@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
 	reqs.device_extensions.push_back("VK_KHR_cooperative_matrix");
-	reqs.apiVersion = VK_API_VERSION_1_2;
+	reqs.apiVersion = VK_API_VERSION_1_3;
 	reqs.reqfeat12.vulkanMemoryModel = VK_TRUE;    // Enable Vulkan memory model for GL_KHR_memory_scope_semantics
 	reqs.reqfeat12.shaderFloat16 = VK_TRUE;    // Half precision types are used by the shader
 	VkPhysicalDeviceCooperativeMatrixFeaturesKHR coopFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR, nullptr };
@@ -312,23 +312,30 @@ int main(int argc, char** argv)
 	r = vkMapMemory(vk.device, memory, 0, buffer_size, 0, &mapped);
 	check(r);
 	const float* values = reinterpret_cast<const float*>(mapped);
-	const float expected = static_cast<float>(variant->k);
 	bool ok = true;
-	for (uint32_t i = 0; i < variant->m * variant->n; ++i)
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0))
 	{
-		if (fabsf(values[i] - expected) > 0.001f)
+		printf("  skipping coop-matrix output verification for null run\n");
+	}
+	else
+	{
+		const float expected = static_cast<float>(variant->k);
+		for (uint32_t i = 0; i < variant->m * variant->n; ++i)
 		{
-			printf("  coop-matrix mismatch at %u: got %f expected %f\n", i, values[i], expected);
-			ok = false;
-			break;
+			if (fabsf(values[i] - expected) > 0.001f)
+			{
+				printf("  coop-matrix mismatch at %u: got %f expected %f\n", i, values[i], expected);
+				ok = false;
+				break;
+			}
+		}
+		if (ok)
+		{
+			printf("  coop-matrix compute verified: all %u values == %f\n", variant->m * variant->n, expected);
 		}
 	}
 	vkUnmapMemory(vk.device, memory);
-	if (ok)
-	{
-		printf("  coop-matrix compute verified: all %u values == %f\n", variant->m * variant->n, expected);
-	}
-	else
+	if (!ok)
 	{
 		ret = 1;
 	}

@@ -180,7 +180,7 @@ void execute_command_buffer_command(const cVkCommand& cmd, cVkCmdState& cmdstate
 	case ENUM_vkCmdCopyQueryPoolResults:
 	{
 		cVkPayloadCopyQuery* q = (cVkPayloadCopyQuery*)cmd.payload;
-		void* pData = q->dstBuffer->memory->ptr;
+		void* pData = q->dstBuffer->memory->ptr + q->dstBuffer->memoryOffset + q->dstOffset;
 		size_t dataSize = q->dstBuffer->memory->allocationSize;
 		write_queries(q->queryPool, q->firstQuery, q->queryCount, dataSize, q->stride, pData, q->flags);
 		break;
@@ -189,11 +189,62 @@ void execute_command_buffer_command(const cVkCommand& cmd, cVkCmdState& cmdstate
 	{
 		cVkQueryPool* qp = (cVkQueryPool*)cmd.bindings[0];
 		const cVkPayloadQueryReset* payload = (cVkPayloadQueryReset*)cmd.payload;
-		for (unsigned i = payload->firstQuery; i < payload->queryCount; i++)
+		assert(payload->firstQuery + payload->queryCount <= qp->data.size());
+		for (unsigned i = payload->firstQuery; i < payload->firstQuery + payload->queryCount; i++)
 		{
-			memset(qp->data.data(), 0, qp->data.size());
+			qp->data[i] = 0;
 			qp->availability[i] = false;
 		}
+		break;
+	}
+	case ENUM_vkCmdCopyBuffer:
+	case ENUM_vkCmdCopyBuffer2:
+	case ENUM_vkCmdCopyBuffer2KHR:
+	{
+		const cVkPayloadCopyBuffer* payload = (const cVkPayloadCopyBuffer*)cmd.payload;
+		assert(payload);
+		assert(payload->srcBuffer);
+		assert(payload->dstBuffer);
+		assert(payload->srcBuffer->memory);
+		assert(payload->dstBuffer->memory);
+		for (const VkBufferCopy& region : payload->regions)
+		{
+			assert(region.srcOffset + region.size <= payload->srcBuffer->size);
+			assert(region.dstOffset + region.size <= payload->dstBuffer->size);
+			assert(payload->srcBuffer->memoryOffset + region.srcOffset + region.size <= payload->srcBuffer->memory->allocationSize);
+			assert(payload->dstBuffer->memoryOffset + region.dstOffset + region.size <= payload->dstBuffer->memory->allocationSize);
+			const char* src = payload->srcBuffer->memory->ptr + payload->srcBuffer->memoryOffset + region.srcOffset;
+			char* dst = payload->dstBuffer->memory->ptr + payload->dstBuffer->memoryOffset + region.dstOffset;
+			memmove(dst, src, region.size);
+		}
+		break;
+	}
+	case ENUM_vkCmdSetEvent:
+	case ENUM_vkCmdSetEvent2:
+	case ENUM_vkCmdSetEvent2KHR:
+	{
+		cVkEvent* event = (cVkEvent*)cmd.bindings[0];
+		event->signalled = true;
+		break;
+	}
+	case ENUM_vkCmdResetEvent:
+	case ENUM_vkCmdResetEvent2:
+	case ENUM_vkCmdResetEvent2KHR:
+	{
+		cVkEvent* event = (cVkEvent*)cmd.bindings[0];
+		event->signalled = false;
+		break;
+	}
+	case ENUM_vkCmdWriteTimestamp:
+	case ENUM_vkCmdWriteTimestamp2:
+	case ENUM_vkCmdWriteTimestamp2KHR:
+	{
+		cVkQueryPool* qp = (cVkQueryPool*)cmd.bindings[0];
+		const cVkPayloadQuery* payload = (const cVkPayloadQuery*)cmd.payload;
+		assert(payload);
+		assert(payload->query < qp->data.size());
+		qp->data[payload->query] = cVkBase::current_frame;
+		qp->availability[payload->query] = true;
 		break;
 	}
 	case ENUM_vkCmdExecuteCommands: // recurse

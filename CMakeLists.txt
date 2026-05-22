@@ -37,6 +37,12 @@ else()
 endif()
 set(IT_CFLAGS "-Wall -g -std=c++20 -Werror -Wshadow")
 
+set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G925" CACHE STRING "Default Chameleon GPU profile directory")
+set(CHAMELEON_VULKANCORE_1_4_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/VulkanCore-1.4")
+set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
+set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
+
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:
 	# export LSAN_OPTIONS='detect_leaks=0'
@@ -83,7 +89,36 @@ set_target_properties(vulkan_common PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 target_include_directories(vulkan_common PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 endif ()
 
+function(chameleon_icd_test_build test_source test_name)
+	add_executable(chameleon_icd_${ARGV1} src/vulkan_${ARGV0}.cpp)
+	add_dependencies(chameleon_icd_${ARGV1} chameleon_icd)
+	target_link_libraries(chameleon_icd_${ARGV1} PRIVATE vulkan_common)
+	target_compile_definitions(chameleon_icd_${ARGV1} PUBLIC ${IT_DEFINES})
+	set_target_properties(chameleon_icd_${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
+	target_link_directories(chameleon_icd_${ARGV1} PRIVATE ${LIB_DIRS})
+	target_include_directories(chameleon_icd_${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+endfunction()
+
+function(chameleon_icd_test test_source test_name)
+	add_test(NAME chameleon_icd_${ARGV1} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
+	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
+	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
+		SKIP_RETURN_CODE 77
+		ENVIRONMENT "TOOLSTEST_NULL_RUN=1;VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
+		LABELS "chameleon;icd")
+endfunction()
+
+function(chameleon_icd_window_test test_source test_name)
+	add_test(NAME chameleon_icd_${ARGV1} COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
+	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
+	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
+		SKIP_RETURN_CODE 77
+		ENVIRONMENT "TOOLSTEST_NULL_RUN=1;VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
+		LABELS "chameleon;icd")
+endfunction()
+
 function(vulkan_test_build test_name)
+	chameleon_icd_test_build(${ARGV0} ${ARGV0})
 	add_executable(vulkan_${ARGV0} src/vulkan_${ARGV0}.cpp)
 	target_link_libraries(vulkan_${ARGV0} PRIVATE vulkan_common)
 	target_compile_definitions(vulkan_${ARGV0} PUBLIC ${IT_DEFINES})
@@ -102,6 +137,7 @@ function(vulkan_test test_name)
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION tests)
 	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_${ARGV0}.bench ${SYMLINK_DIR}/vulkan_${ARGV0}.bench)")
 	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+	chameleon_icd_test(${ARGV0} ${ARGV0})
 endfunction()
 
 function(vulkan_window_test test_name)
@@ -113,6 +149,7 @@ function(vulkan_window_test test_name)
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION tests)
 	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_${ARGV0}.bench ${SYMLINK_DIR}/vulkan_${ARGV0}.bench)")
 	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+	chameleon_icd_window_test(${ARGV0} ${ARGV0})
 endfunction()
 
 function(vulkan_tensor_test test_name)
@@ -124,6 +161,7 @@ function(vulkan_tensor_test test_name)
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_${ARGV0}.bench DESTINATION tests)
 	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_${ARGV0}.bench ${SYMLINK_DIR}/vulkan_${ARGV0}.bench)")
 	target_include_directories(vulkan_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
+	#chameleon_icd_test(${ARGV0} ${ARGV0})
 endfunction()
 
 function(vulkan_test_extra test_name test_exe)
@@ -371,12 +409,6 @@ else()
 	find_program(CHAMELEON_NM_EXECUTABLE NAMES nm llvm-nm REQUIRED)
 endif()
 
-set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G925" CACHE STRING "Default Chameleon GPU profile directory")
-set(CHAMELEON_VULKANCORE_1_4_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/VulkanCore-1.4")
-set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
-set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
-
 file(STRINGS "${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include/vulkan/vulkan_core.h" VULKAN_HEADER_VERSION_LINE REGEX "^#define VK_HEADER_VERSION [0-9]+$")
 string(REGEX MATCH "[0-9]+$" CHAMELEON_VULKAN_HEADER_PATCH "${VULKAN_HEADER_VERSION_LINE}")
 set(CHAMELEON_ICD_API_VERSION "1.4.${CHAMELEON_VULKAN_HEADER_PATCH}")
@@ -484,40 +516,6 @@ target_compile_options(chameleon_loader_icd_smoketest PRIVATE -Wall -g -std=c++2
 add_test(NAME chameleon_loader_icd_smoke COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_loader_icd_smoketest)
 set_tests_properties(chameleon_loader_icd_smoke PROPERTIES ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}" LABELS "chameleon;icd")
 
-function(chameleon_icd_test_build test_source test_name)
-	add_executable(chameleon_icd_${ARGV1} src/vulkan_${ARGV0}.cpp)
-	add_dependencies(chameleon_icd_${ARGV1} chameleon_icd)
-	target_link_libraries(chameleon_icd_${ARGV1} PRIVATE vulkan_common)
-	target_compile_definitions(chameleon_icd_${ARGV1} PUBLIC ${IT_DEFINES})
-	set_target_properties(chameleon_icd_${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
-	target_link_directories(chameleon_icd_${ARGV1} PRIVATE ${LIB_DIRS})
-	target_include_directories(chameleon_icd_${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
-endfunction()
-
-function(chameleon_icd_test test_source test_name)
-	chameleon_icd_test_build(${ARGV0} ${ARGV1})
-	add_test(NAME chameleon_icd_${ARGV1} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
-	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
-	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
-		SKIP_RETURN_CODE 77
-		ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
-		LABELS "chameleon;icd")
-endfunction()
-
-function(chameleon_icd_window_test test_source test_name)
-	chameleon_icd_test_build(${ARGV0} ${ARGV1})
-	add_test(NAME chameleon_icd_${ARGV1} COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd_${ARGV1})
-	set(ENABLE_JSON "{\"target\": \"vulkan_${ARGV0}\"}")
-	set_tests_properties(chameleon_icd_${ARGV1} PROPERTIES
-		SKIP_RETURN_CODE 77
-		ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}"
-		LABELS "chameleon;icd")
-endfunction()
-
-chameleon_icd_test(init init)
-chameleon_icd_test(general general)
-chameleon_icd_test(multiinstance multiinstance)
-chameleon_icd_window_test(window_1 window_1)
 add_test(NAME chameleon_vulkancore_1_4_general COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_general --gpu)
 set(ENABLE_JSON "{\"target\": \"chameleon_vulkancore_1_4_general\"}")
 set_tests_properties(chameleon_vulkancore_1_4_general PROPERTIES

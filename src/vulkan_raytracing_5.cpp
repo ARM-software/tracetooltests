@@ -356,6 +356,11 @@ static void trace(const vulkan_setup_t& vulkan, Resources& resources)
 
 static void verify_output(const vulkan_setup_t& vulkan, const vulkan_req_t& reqs, Resources& resources)
 {
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0))
+	{
+		return;
+	}
+
 	const char* filename = nullptr;
 	if (reqs.options.count("image_output"))
 	{

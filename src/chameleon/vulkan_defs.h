@@ -174,6 +174,13 @@ struct cVkPayloadQueryReset : cVkPayload // _not_ based on VkBase
 	uint32_t queryCount = 0;
 };
 
+struct cVkPayloadCopyBuffer : cVkPayload
+{
+	cVkBuffer* srcBuffer = nullptr;
+	cVkBuffer* dstBuffer = nullptr;
+	std::vector<VkBufferCopy> regions;
+};
+
 struct cVkPayloadWriteAccelerationStructuresPropertiesKHR : cVkPayload
 {
 	uint32_t accelerationStructureCount = 0;
@@ -411,7 +418,8 @@ struct cVkSurfaceKHR : cVkBase
 
 struct cVkEvent : cVkBase
 {
-	VkEventCreateFlags flags;
+	VkEventCreateFlags flags = 0;
+	bool signalled = false;
 
 	cVkEvent()
 	{
@@ -423,7 +431,9 @@ struct cVkEvent : cVkBase
 struct cVkFence : cVkBase
 {
 	VkFenceCreateFlags flags = 0;
+	VkExternalFenceHandleTypeFlags exportHandleTypes = 0;
 	volatile bool signalled = false; // TBD this should be an atomic
+	cVkFence* importedFence = nullptr;
 
 	cVkFence()
 	{
