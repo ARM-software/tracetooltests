@@ -172,6 +172,7 @@ static bool find_candidate(
 int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
+	reqs.surface = true;
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 	reqs.instance_extensions.push_back(VK_KHR_DISPLAY_EXTENSION_NAME);
