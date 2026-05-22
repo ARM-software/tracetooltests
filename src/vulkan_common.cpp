@@ -340,18 +340,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			for (auto str : instance_required) printf("\t%s\n", str.c_str());
 			exit(77);
 		}
-		if (wsi && strcmp(wsi, "headless") == 0)
+		if (wsi && strcmp(wsi, "headless") == 0 && reqs.surface)
 		{
 			enabledExtensions.push_back(VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME);
 		}
 #ifdef VK_USE_PLATFORM_XCB_KHR
-		else if (wsi)
+		else if (wsi && reqs.surface)
 		{
 			enabledExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 		}
 #endif
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
-		enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+		if (reqs.surface) enabledExtensions.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 		const char *validationLayerNames[] = { "VK_LAYER_KHRONOS_validation" };
 		if (p__validation)
@@ -359,7 +359,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			pCreateInfo.enabledLayerCount = 1;
 			pCreateInfo.ppEnabledLayerNames = validationLayerNames;
 		}
-		enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+		if (reqs.surface) enabledExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 		if (enabledExtensions.size() > 0)
 		{
 			pCreateInfo.ppEnabledExtensionNames = enabledExtensions.data();

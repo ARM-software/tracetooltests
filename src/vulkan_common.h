@@ -73,6 +73,7 @@ struct vulkan_req_t // Vulkan context requirements
 	VkBaseInStructure* extension_features = nullptr;
 	uint32_t fence_delay = 0;
 	std::unordered_map<std::string, std::variant<int, bool, std::string>> options;
+	bool surface = false;
 };
 
 struct vulkan_setup_t

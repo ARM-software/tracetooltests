@@ -22,6 +22,7 @@ int main(int argc, char** argv)
 	const char* winsys = getenv("TOOLSTEST_WINSYS");
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
+	reqs.surface = true;
 	if (winsys && strcmp(winsys, "headless") == 0)
 	{
 		reqs.instance_extensions.push_back("VK_EXT_headless_surface");
