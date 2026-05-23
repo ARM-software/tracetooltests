@@ -25,7 +25,11 @@ int main(int argc, char** argv)
 
 	auto vk = test_init(argc, argv, "vulkan_push_descriptor", reqs);
 
+#ifdef VULKAN_1_4
 	const bool use_core_push_descriptor = vk.apiVersion >= VK_API_VERSION_1_4;
+#else
+	const bool use_core_push_descriptor = false;
+#endif
 	PFN_vkCmdPushDescriptorSetKHR pf_vkCmdPushDescriptorSetKHR = nullptr;
 	if (!use_core_push_descriptor)
 	{

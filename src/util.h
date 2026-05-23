@@ -28,7 +28,6 @@ extern int_fast8_t p__device;
 #ifdef ANDROID
 #include <sstream>
 #include <android/log.h>
-#include "android_utils.h"
 
 #define OURNAME "TOOLSTEST"
 #ifndef NDEBUG
@@ -60,29 +59,6 @@ int STOI(const std::string& value);
 
 #else // !ANDROID
 
-static __attribute__((pure)) inline uint32_t adler32(unsigned char *data, size_t len)
-{
-	const uint32_t MOD_ADLER = 65521;
-	uint32_t a = 1, b = 0;
-	for (size_t index = 0; index < len; ++index)
-	{
-		a = (a + data[index]) % MOD_ADLER;
-		b = (b + a) % MOD_ADLER;
-	}
-	return (b << 16) | a;
-}
-
-static __attribute__((pure)) inline uint64_t gettime()
-{
-	struct timespec t;
-	// CLOCK_MONOTONIC_COARSE is much more light-weight, but resolution is quite poor.
-	// CLOCK_PROCESS_CPUTIME_ID is another possibility, it ignores rest of system, but costs more,
-	// and also on some CPUs process migration between cores can screw up such measurements.
-	// CLOCK_MONOTONIC is therefore a reasonable and portable compromise.
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec);
-}
-
 #ifndef NDEBUG
 /// Using DLOGn() instead of DLOG(n,...) so that we can conditionally compile without some of them
 #define DLOG3(_format, ...) do { if (p__debug_level >= 3) { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } } while(0)
@@ -108,6 +84,29 @@ static __attribute__((pure)) inline uint64_t gettime()
 #if defined(ANDROID) && !defined(UINT32_MAX)
 #define UINT32_MAX (4294967295U)
 #endif
+
+static __attribute__((pure)) inline uint32_t adler32(unsigned char *data, size_t len)
+{
+	const uint32_t MOD_ADLER = 65521;
+	uint32_t a = 1, b = 0;
+	for (size_t index = 0; index < len; ++index)
+	{
+		a = (a + data[index]) % MOD_ADLER;
+		b = (b + a) % MOD_ADLER;
+	}
+	return (b << 16) | a;
+}
+
+static __attribute__((pure)) inline uint64_t gettime()
+{
+	struct timespec t;
+	// CLOCK_MONOTONIC_COARSE is much more light-weight, but resolution is quite poor.
+	// CLOCK_PROCESS_CPUTIME_ID is another possibility, it ignores rest of system, but costs more,
+	// and also on some CPUs process migration between cores can screw up such measurements.
+	// CLOCK_MONOTONIC is therefore a reasonable and portable compromise.
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return ((uint64_t)t.tv_sec * 1000000000ull + (uint64_t)t.tv_nsec);
+}
 
 /// Things needed for implementing benchmarking standard
 struct result_t

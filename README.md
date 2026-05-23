@@ -50,6 +50,24 @@ Then complete as normal with:
 make
 ```
 
+Android emulator cross-compile
+------------------------------
+
+```
+cmake --preset android-x86_64
+cd build-android-x86_64
+ninja
+```
+
+Android native cross-compile
+----------------------------
+
+```
+cmake --preset android-arm64
+cd build-android-arm64
+ninja
+```
+
 Building for another GLES backend
 ---------------------------------
 

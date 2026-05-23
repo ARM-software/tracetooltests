@@ -173,6 +173,7 @@ int main(int argc, char** argv)
 		mm.pOffsets = &markup_location;
 		mm.pSubTypes = &subType;
 		mm.pMarkingTypes = &markingType;
+#ifdef VULKAN_1_4
 		if (vulkan.apiVersion >= VK_API_VERSION_1_4)
 		{
 			VkPushConstantsInfo pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO, nullptr };
@@ -185,6 +186,7 @@ int main(int argc, char** argv)
 			vkCmdPushConstants2(r.commandBuffer, &pushinfo);
 		}
 		else
+#endif
 		{
 			VkPushConstantsInfoKHR pushinfo = { VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, nullptr };
 			pushinfo.layout = r.pipelineLayout;
