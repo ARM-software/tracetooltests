@@ -7,3 +7,6 @@
 [submodule "external/OpenCL-Headers"]
 	path = external/OpenCL-Headers
 	url = https://github.com/KhronosGroup/OpenCL-Headers.git
+[submodule "external/glm"]
+	path = external/glm
+	url = https://github.com/g-truc/glm.git

@@ -79,10 +79,12 @@ endfunction()
 
 if (NOT NO_VULKAN MATCHES "1")
 find_package(Vulkan REQUIRED)
+add_library(glm_headers INTERFACE)
+target_include_directories(glm_headers INTERFACE ${PROJECT_SOURCE_DIR}/external/glm)
 add_library(vulkan_common STATIC src/vulkan_common.cpp src/vulkan_common.h src/vulkan_compute_common.cpp src/vulkan_compute_common.h
 	src/vulkan_graphics_common.cpp src/vulkan_graphics_common.h src/vulkan_window_common.cpp src/vulkan_window_common.h
 	src/vulkan_raytracing_common.cpp src/vulkan_raytracing_common.h src/util.cpp src/util.h)
-target_link_libraries(vulkan_common PRIVATE ${Vulkan_LIBRARY} pthread ${IT_LIBS} ${XCB_LIBRARIES})
+target_link_libraries(vulkan_common PUBLIC glm_headers PRIVATE ${Vulkan_LIBRARY} pthread ${IT_LIBS} ${XCB_LIBRARIES})
 target_link_directories(vulkan_common PRIVATE ${LIB_DIRS})
 target_compile_definitions(vulkan_common PUBLIC ${IT_DEFINES})
 set_target_properties(vulkan_common PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
