@@ -44,6 +44,7 @@ static void push_address_constants(const vulkan_setup_t& vulkan, VkCommandBuffer
 	markings.pMarkingTypes = &marking_type;
 	markings.pSubTypes = &subtype;
 
+#ifdef VULKAN_1_4
 	if (vulkan.apiVersion >= VK_API_VERSION_1_4)
 	{
 		VkPushConstantsInfo push_info{VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO, &markings};
@@ -55,6 +56,7 @@ static void push_address_constants(const vulkan_setup_t& vulkan, VkCommandBuffer
 		vkCmdPushConstants2(cmd, &push_info);
 	}
 	else
+#endif
 	{
 		assert(vulkan.vkCmdPushConstants2);
 		VkPushConstantsInfoKHR push_info{VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO_KHR, &markings};

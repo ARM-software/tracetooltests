@@ -178,6 +178,7 @@ static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* 
 			else if (api == "1.1") reqs.apiVersion = VK_API_VERSION_1_1;
 			else if (api == "1.2") reqs.apiVersion = VK_API_VERSION_1_2;
 			else if (api == "1.3") reqs.apiVersion = VK_API_VERSION_1_3;
+			else if (api == "1.4") reqs.apiVersion = VK_API_VERSION_1_4;
 			else { printf("Bad vulkan_variant: %s\n", api.c_str()); return false; }
 		}
 
@@ -204,6 +205,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	case VK_API_VERSION_1_1: api = "1.1"; break;
 	case VK_API_VERSION_1_2: api = "1.2"; break;
 	case VK_API_VERSION_1_3: api = "1.3"; break;
+	case VK_API_VERSION_1_4: api = "1.4"; break;
 	default: api = "(unrecognized version)"; break;
 	}
 
@@ -1168,6 +1170,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 		const VkDeviceSize offset = dedicated ? 0 : i * aligned_size;
 		uint8_t* data = nullptr;
 		VkDeviceMemory mem = memory.at(dedicated ? i : 0);
+#ifdef VULKAN_1_4
 		if (use_core_map_memory2)
 		{
 			VkMemoryMapInfo map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO, nullptr };
@@ -1178,7 +1181,9 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			VkResult result = vkMapMemory2(vulkan.device, &map_info, (void**)&data);
 			check(result);
 		}
-		else if (use_khr_map_memory2)
+		else
+#endif
+		if (use_khr_map_memory2)
 		{
 			VkMemoryMapInfoKHR map_info = { VK_STRUCTURE_TYPE_MEMORY_MAP_INFO_KHR, nullptr };
 			map_info.flags = 0;
@@ -1205,6 +1210,7 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			mmr.size = VK_WHOLE_SIZE;
 			vkFlushMappedMemoryRanges(vulkan.device, 1, &mmr);
 		}
+#ifdef VULKAN_1_4
 		if (use_core_map_memory2)
 		{
 			VkMemoryUnmapInfo unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO, nullptr };
@@ -1213,7 +1219,9 @@ uint32_t testAllocateBufferMemory(const vulkan_setup_t& vulkan, const std::vecto
 			VkResult result = vkUnmapMemory2(vulkan.device, &unmap_info);
 			check(result);
 		}
-		else if (use_khr_map_memory2)
+		else
+#endif
+		if (use_khr_map_memory2)
 		{
 			VkMemoryUnmapInfoKHR unmap_info = { VK_STRUCTURE_TYPE_MEMORY_UNMAP_INFO_KHR, nullptr };
 			unmap_info.flags = 0;
