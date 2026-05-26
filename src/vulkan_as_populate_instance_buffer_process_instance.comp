@@ -1,0 +1,112 @@
+#version 460
+#extension GL_KHR_shader_subgroup_ballot : require
+#extension GL_KHR_shader_subgroup_basic  : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+ 
+struct FRayTracingInstanceDescriptor
+{
+    // 3 rows * 4 floats each = 12 floats (std430-compatible 3*4 matrix)
+    mat3x4 objectToWorld;
+    uint   instanceIdAndMask;                    // [0-23] InstanceId | [24-31] Mask
+    uint   hitGroupIndexAndFlags;                // [0-23] HitGroupIx | [24-31] Flags
+    uvec2  blasDeviceAddress;                    // 64-bit BLAS pointer split into two uints
+};
+ 
+struct FRayTracingInstanceDescriptorInput
+{
+    uint gpuSceneTransformIndex;                 // index into InstanceTransforms (row-triplet)
+    uint outputDescriptorIndex;                  // where the final descriptor is written
+    uint accelerationStructureIndex;             // index into AccelerationStructureAddresses
+    uint instanceId;
+    uint instanceMaskAndFlags;                   // [0-7] Mask | [8-15] Flag bits
+    uint hitGroupContribution;
+    uint applyLocalBoundsTransform;              // unused by this shader
+};
+ 
+//   Bindings / UBOs
+layout(set = 0, binding = 0, std140)
+uniform Globals
+{
+    uint numInstances;       // total number of input descriptors to process
+    uint inputDescOffset;    // first descriptor to look at (allows batching)
+} g;
+ 
+layout(set = 0, binding = 1, std430)
+buffer RWInstanceDescriptors        { FRayTracingInstanceDescriptor descriptors []; } outDescs;
+ 
+layout(set = 0, binding = 3, std430)
+readonly buffer InstanceDescInputs  { FRayTracingInstanceDescriptorInput inputs []; } inDescs;
+ 
+layout(set = 0, binding = 4, std430)
+readonly buffer BlasAddresses       { uint blasAddrWords []; } blasU32;
+ 
+layout(set = 0, binding = 5, std430)
+readonly buffer InstanceTransforms  { vec4 transforms []; } sceneTransforms;
+ 
+//   Main routine
+ 
+void main ()
+{
+    uint instanceIdx = gl_GlobalInvocationID.x;
+    if (instanceIdx >= g.numInstances)
+        return;                               // nothing to do for this invocation
+ 
+    // Gather input descriptor and base indices into the source arrays
+    uint inputIdx        = g.inputDescOffset + instanceIdx;
+    FRayTracingInstanceDescriptorInput inDesc = inDescs.inputs[inputIdx];
+ 
+    //  Assemble the 3*4 object-to-world matrix for the BLAS
+    uint row0 = inDesc.gpuSceneTransformIndex * 3u;      // each transform is 3 vec4 rows
+    mat3x4 objectToWorld = mat3x4(
+        sceneTransforms.transforms[row0 + 0u],
+        sceneTransforms.transforms[row0 + 1u],
+        sceneTransforms.transforms[row0 + 2u]);
+ 
+    //   Resolve BLAS GPU address (64 bit) if an index is specified
+    uvec2 blasAddress = uvec2(0u);                       // default = null BLAS
+    const uint INVALID_INDEX = 0xFFFFFFFFu;
+    if (inDesc.accelerationStructureIndex != INVALID_INDEX)
+    {
+        // Every BLAS address is 8 bytes; convert to 32 bit word offset
+        uint dwordOffset = (inDesc.accelerationStructureIndex * 8u) >> 2u;
+        blasAddress = uvec2(blasU32.blasAddrWords[dwordOffset + 0u],
+                            blasU32.blasAddrWords[dwordOffset + 1u]);
+    }
+ 
+    /* ----------------------------------------------------
+       Decode mask + per-instance flags from the input field
+       ---------------------------------------------------- */
+    uint instanceMask  =  inDesc.instanceMaskAndFlags & 0xFFu;      // low 8 bits
+    uint rawFlagBits   = (inDesc.instanceMaskAndFlags >> 8u) & 0xFFu;// next 8 bits
+ 
+    // Flag semantics (matched to DXR / Vulkan KHR spec)
+    //   bit 1 (0x02): FORCE_OPAQUE
+    //   bit 2 (0x04): FORCE_NON_OPAQUE
+    //   bit 3 (0x08): TRIANGLE_CULL_DISABLE
+    //   bit 4 (0x10): TRIANGLE_FRONT_COUNTERCLOCKWISE
+    //   We translate them into the 4 bit field that Vulkan stores
+    //   in bits 24-27 of hitGroupIndexAndFlags.
+    uint packedFlags = 0u;
+    if ((rawFlagBits & 0x02u) != 0u) packedFlags |= 0x1u;   // bit0 = FORCE_OPAQUE
+    if ((rawFlagBits & 0x04u) == 0u) packedFlags |= 0x2u; // bit1 = NOT FORCE_NON_OPAQUE
+    if ((rawFlagBits & 0x08u) != 0u) packedFlags |= 0x4u;   // bit2 = CULL_DISABLE
+    if ((rawFlagBits & 0x10u) != 0u) packedFlags |= 0x8u;   // bit3 = FRONT_COUNTERCLOCKWISE
+ 
+    //   Pack fields exactly like the original SPIRV-Crossed version
+    uint instanceIdAndMask =
+           (instanceMask << 24) |               // bits 24-31
+           (inDesc.instanceId & 0xFFFFFFu);     // bits 0-23
+ 
+    uint hitGroupIndexAndFlags =
+           (packedFlags << 24) |                // bits 24-31
+           (inDesc.hitGroupContribution & 0xFFFFFFu);
+ 
+    //   Write the final descriptor to the output SSBO
+    FRayTracingInstanceDescriptor outDesc = FRayTracingInstanceDescriptor(
+        objectToWorld,
+        instanceIdAndMask,
+        hitGroupIndexAndFlags,
+        blasAddress);
+ 
+    outDescs.descriptors[inDesc.outputDescriptorIndex] = outDesc;
+}

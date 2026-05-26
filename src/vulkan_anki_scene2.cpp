@@ -136,21 +136,6 @@ static void upload_host_visible_struct(const vulkan_setup_t& vulkan, const accel
 	vkUnmapMemory(vulkan.device, buffer.memory);
 }
 
-static void destroy_buffer(const vulkan_setup_t& vulkan, acceleration_structures::Buffer& buffer)
-{
-	if (buffer.memory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
-		buffer.memory = VK_NULL_HANDLE;
-	}
-	if (buffer.handle != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
-		buffer.handle = VK_NULL_HANDLE;
-	}
-	buffer.address.deviceAddress = 0;
-}
-
 static void create_color_target(const vulkan_setup_t& vulkan, Resources& resources)
 {
 	VkImageCreateInfo image_info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr};
@@ -300,7 +285,7 @@ static void create_mock_texture(const vulkan_setup_t& vulkan, Resources& resourc
 	check(vkQueueSubmit(resources.context.queue, 1, &submit_info, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.context.queue));
 
-	destroy_buffer(vulkan, staging);
+	acceleration_structures::destroy_buffer(vulkan, staging);
 }
 
 static void create_render_pass(const vulkan_setup_t& vulkan, Resources& resources)
@@ -861,14 +846,14 @@ static void cleanup(const vulkan_setup_t& vulkan, Resources& resources)
 	vkDestroyImage(vulkan.device, resources.albedo.image, nullptr);
 	vkFreeMemory(vulkan.device, resources.albedo.memory, nullptr);
 
-	destroy_buffer(vulkan, resources.vertex_buffer);
-	destroy_buffer(vulkan, resources.index_buffer);
-	destroy_buffer(vulkan, resources.camera_buffer);
-	destroy_buffer(vulkan, resources.material_buffer);
-	destroy_buffer(vulkan, resources.highlight_buffer);
-	destroy_buffer(vulkan, resources.scene_pointers_buffer);
-	destroy_buffer(vulkan, resources.frame_config_buffer);
-	destroy_buffer(vulkan, resources.readback_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.vertex_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.index_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.camera_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.material_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.highlight_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.scene_pointers_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.frame_config_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.readback_buffer);
 
 	ray_tracing_common::destroy_simple_triangle_as(vulkan, resources.context, resources.accel);
 	ray_tracing_common::destroy_context(vulkan, resources.context);

@@ -50,24 +50,6 @@ struct Resources
 	VkStridedDeviceAddressRegionKHR hit_region{};
 	VkStridedDeviceAddressRegionKHR callable_region{};
 };
-
-static void destroy_buffer(const vulkan_setup_t& vulkan, acceleration_structures::Buffer& buffer)
-{
-	if (buffer.memory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
-		buffer.memory = VK_NULL_HANDLE;
-	}
-
-	if (buffer.handle != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
-		buffer.handle = VK_NULL_HANDLE;
-	}
-
-	buffer.address.deviceAddress = 0;
-	buffer.address.hostAddress = nullptr;
-}
 } // namespace
 
 static void show_usage()
@@ -413,7 +395,7 @@ static void cleanup(const vulkan_setup_t& vulkan, Resources& resources)
 	vkDestroyImage(vulkan.device, resources.storage_image, nullptr);
 	vkFreeMemory(vulkan.device, resources.storage_memory, nullptr);
 
-	destroy_buffer(vulkan, resources.sbt_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.sbt_buffer);
 	ray_tracing_common::destroy_simple_aabb_as(vulkan, resources.context, resources.accel);
 	ray_tracing_common::destroy_context(vulkan, resources.context);
 }
