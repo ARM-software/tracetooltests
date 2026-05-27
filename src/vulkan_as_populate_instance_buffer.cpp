@@ -26,35 +26,6 @@ struct Vertex
     float pos[3];
 };
 
-struct CopyGlobals
-{
-    uint32_t size;
-    uint32_t src_offset;
-    uint32_t dst_offset;
-    uint32_t reserved;
-};
-
-struct ProcessInstanceGlobals
-{
-    uint32_t num_instances;
-    uint32_t input_desc_offset;
-    uint32_t reserved0;
-    uint32_t reserved1;
-};
-static_assert(sizeof(ProcessInstanceGlobals) == 4 * sizeof(uint32_t));
-
-struct ProcessInstanceDescriptorInput
-{
-    uint32_t gpu_scene_transform_index;
-    uint32_t output_descriptor_index;
-    uint32_t acceleration_structure_index;
-    uint32_t instance_id;
-    uint32_t instance_mask_and_flags;
-    uint32_t hit_group_contribution;
-    uint32_t apply_local_bounds_transform;
-};
-static_assert(sizeof(ProcessInstanceDescriptorInput) == 7 * sizeof(uint32_t));
-
 struct TransformRow
 {
     float values[4];
@@ -105,12 +76,9 @@ public:
         process_instance_descriptor_set = nullptr;
         process_instance_descriptor_set_layout = nullptr;
 
-        copy_address_globals_buffer = nullptr;
         copy_address_source_blas_address_words_buffer = nullptr;
         blas_address_words_buffer = nullptr;
         instance_buffer = nullptr;
-        process_instance_globals_buffer = nullptr;
-        process_instance_input_descriptors_buffer = nullptr;
         process_instance_transforms_buffer = nullptr;
 
         if (m_vulkanSetup.device != VK_NULL_HANDLE)
@@ -129,13 +97,10 @@ public:
     std::vector<BackedAccelerationStructure> backed_bl_acc_structures;
     BackedAccelerationStructure backed_tl_acc_structure;
 
-    std::unique_ptr<Buffer> copy_address_globals_buffer;
     std::unique_ptr<Buffer> copy_address_source_blas_address_words_buffer;
     std::unique_ptr<Buffer> blas_address_words_buffer;
 
     std::unique_ptr<Buffer> instance_buffer;
-    std::unique_ptr<Buffer> process_instance_globals_buffer;
-    std::unique_ptr<Buffer> process_instance_input_descriptors_buffer;
     std::unique_ptr<Buffer> process_instance_transforms_buffer;
 
     std::unique_ptr<DescriptorSetLayout> copy_address_descriptor_set_layout;
@@ -153,7 +118,7 @@ static std::unique_ptr<AsPopulateInstanceBufferContext> p_test = nullptr;
 
 static void show_usage()
 {
-    printf("Create N bottom level acceleration structures, populate a buffer with their addresses, and copy them with a compute shader.\n");
+    printf("Validate building a top level acceleration structure from shader-populated device addresses of N built bottom level acceleration structures.\n");
     printf("-cb/--count-bottom N   Create N bottom level acceleration structures, default is %u\n", bl_as_create_count);
 }
 
@@ -190,30 +155,29 @@ static void print_acceleration_structure_features(const vulkan_setup_t& vulkan)
 static void prepare_copy_address_descriptor_resources(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
     context.copy_address_descriptor_set_layout = std::make_unique<DescriptorSetLayout>(vulkan.device);
-    context.copy_address_descriptor_set_layout->insertBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    context.copy_address_descriptor_set_layout->insertBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
     context.copy_address_descriptor_set_layout->insertBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    context.copy_address_descriptor_set_layout->insertBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
     check(context.copy_address_descriptor_set_layout->create());
 
     auto descriptor_pool = std::make_unique<DescriptorSetPool>(vulkan.device);
-    check(descriptor_pool->create(1,
-                                  {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-                                   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2}}));
+    check(descriptor_pool->create(1, {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2}}));
 
     context.copy_address_descriptor_set = std::make_unique<DescriptorSet>(std::move(descriptor_pool));
     check(context.copy_address_descriptor_set->create(*context.copy_address_descriptor_set_layout));
-    context.copy_address_descriptor_set->setBuffer(0, 0, *context.copy_address_globals_buffer);
+    context.copy_address_descriptor_set->setBuffer(0, 0, *context.copy_address_source_blas_address_words_buffer);
     context.copy_address_descriptor_set->setBuffer(1, 0, *context.blas_address_words_buffer);
-    context.copy_address_descriptor_set->setBuffer(2, 0, *context.copy_address_source_blas_address_words_buffer);
     context.copy_address_descriptor_set->update();
 }
 
 static void prepare_copy_address_pipeline(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
     std::vector<VkDescriptorSetLayout> set_layouts = { context.copy_address_descriptor_set_layout->getHandle() };
+    std::vector<VkPushConstantRange> push_constant_ranges = {
+        {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t)}
+    };
 
     context.copy_address_pipeline_layout = std::make_unique<PipelineLayout>(vulkan.device);
-    check(context.copy_address_pipeline_layout->create(set_layouts));
+    check(context.copy_address_pipeline_layout->create(set_layouts, push_constant_ranges));
 
     auto shader = std::make_unique<Shader>(vulkan.device);
     check(shader->create(
@@ -229,34 +193,31 @@ static void prepare_copy_address_pipeline(const vulkan_setup_t& vulkan, AsPopula
 static void prepare_process_instance_descriptor_resources(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
     context.process_instance_descriptor_set_layout = std::make_unique<DescriptorSetLayout>(vulkan.device);
-    context.process_instance_descriptor_set_layout->insertBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    context.process_instance_descriptor_set_layout->insertBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
     context.process_instance_descriptor_set_layout->insertBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    context.process_instance_descriptor_set_layout->insertBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    context.process_instance_descriptor_set_layout->insertBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    context.process_instance_descriptor_set_layout->insertBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    context.process_instance_descriptor_set_layout->insertBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
     check(context.process_instance_descriptor_set_layout->create());
 
     auto descriptor_pool = std::make_unique<DescriptorSetPool>(vulkan.device);
-    check(descriptor_pool->create(1,
-                                  {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-                                   {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4}}));
+    check(descriptor_pool->create(1, {{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3}}));
 
     context.process_instance_descriptor_set = std::make_unique<DescriptorSet>(std::move(descriptor_pool));
     check(context.process_instance_descriptor_set->create(*context.process_instance_descriptor_set_layout));
-    context.process_instance_descriptor_set->setBuffer(0, 0, *context.process_instance_globals_buffer);
-    context.process_instance_descriptor_set->setBuffer(1, 0, *context.instance_buffer);
-    context.process_instance_descriptor_set->setBuffer(3, 0, *context.process_instance_input_descriptors_buffer);
-    context.process_instance_descriptor_set->setBuffer(4, 0, *context.blas_address_words_buffer);
-    context.process_instance_descriptor_set->setBuffer(5, 0, *context.process_instance_transforms_buffer);
+    context.process_instance_descriptor_set->setBuffer(0, 0, *context.instance_buffer);
+    context.process_instance_descriptor_set->setBuffer(1, 0, *context.blas_address_words_buffer);
+    context.process_instance_descriptor_set->setBuffer(2, 0, *context.process_instance_transforms_buffer);
     context.process_instance_descriptor_set->update();
 }
 
 static void prepare_process_instance_pipeline(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
     std::vector<VkDescriptorSetLayout> set_layouts = { context.process_instance_descriptor_set_layout->getHandle() };
+    std::vector<VkPushConstantRange> push_constant_ranges = {
+        {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t)}
+    };
 
     context.process_instance_pipeline_layout = std::make_unique<PipelineLayout>(vulkan.device);
-    check(context.process_instance_pipeline_layout->create(set_layouts));
+    check(context.process_instance_pipeline_layout->create(set_layouts, push_constant_ranges));
 
     auto shader = std::make_unique<Shader>(vulkan.device);
     check(shader->create(
@@ -274,13 +235,6 @@ static void prepare_test_resources(const vulkan_setup_t& vulkan, AsPopulateInsta
     assert(bl_as_create_count > 0);
     context.functions = acceleration_structures::query_acceleration_structure_functions(vulkan);
     context.backed_bl_acc_structures = std::vector<BackedAccelerationStructure>(bl_as_create_count);
-
-    context.copy_address_globals_buffer = std::make_unique<Buffer>(vulkan);
-    check(context.copy_address_globals_buffer->create(
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        sizeof(CopyGlobals),
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    ));
 
     const VkDeviceSize copy_buffer_size = sizeof(PackedAddressPair) * get_copy_address_element_count();
 
@@ -304,20 +258,6 @@ static void prepare_test_resources(const vulkan_setup_t& vulkan, AsPopulateInsta
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         sizeof(VkAccelerationStructureInstanceKHR) * bl_as_create_count,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    ));
-
-    context.process_instance_globals_buffer = std::make_unique<Buffer>(vulkan);
-    check(context.process_instance_globals_buffer->create(
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        sizeof(ProcessInstanceGlobals),
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    ));
-
-    context.process_instance_input_descriptors_buffer = std::make_unique<Buffer>(vulkan);
-    check(context.process_instance_input_descriptors_buffer->create(
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        sizeof(ProcessInstanceDescriptorInput) * bl_as_create_count,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     ));
 
@@ -467,15 +407,6 @@ static void create_build_bottom_level_acceleration_structures(const vulkan_setup
 
 static void populate_copy_address_shader_inputs(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
-    const CopyGlobals globals{get_copy_address_element_count(), 0, 0, 0};
-    check(context.copy_address_globals_buffer->map(0, sizeof(globals)));
-    std::memcpy(context.copy_address_globals_buffer->m_mappedAddress, &globals, sizeof(globals));
-    if (vulkan.has_explicit_host_updates)
-    {
-        context.copy_address_globals_buffer->flush(true);
-    }
-    context.copy_address_globals_buffer->unmap();
-
     const VkDeviceSize buffer_size = context.copy_address_source_blas_address_words_buffer->getSize();
     check(context.copy_address_source_blas_address_words_buffer->map(0, buffer_size));
 
@@ -516,7 +447,8 @@ static void populate_copy_address_shader_inputs(const vulkan_setup_t& vulkan, As
 
 static void dispatch_copy_address_pipeline(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
-    const uint32_t group_count_x = (get_copy_address_element_count() + local_size_x - 1) / local_size_x;
+    const uint32_t element_count = get_copy_address_element_count();
+    const uint32_t group_count_x = (element_count + local_size_x - 1) / local_size_x;
     assert(group_count_x > 0);
 
     VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
@@ -535,6 +467,14 @@ static void dispatch_copy_address_pipeline(const vulkan_setup_t& vulkan, AsPopul
         0,
         nullptr
     );
+    vkCmdPushConstants(
+        command_buffer,
+        context.copy_address_pipeline_layout->getHandle(),
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(element_count),
+        &element_count
+    );
     vkCmdDispatch(command_buffer, group_count_x, 1, 1);
 
     check(context.m_defaultCommandBuffer->end());
@@ -544,35 +484,6 @@ static void dispatch_copy_address_pipeline(const vulkan_setup_t& vulkan, AsPopul
 
 static void populate_process_instance_shader_inputs(const vulkan_setup_t& vulkan, AsPopulateInstanceBufferContext& context)
 {
-    const ProcessInstanceGlobals globals{bl_as_create_count, 0, 0, 0};
-    check(context.process_instance_globals_buffer->map(0, sizeof(globals)));
-    std::memcpy(context.process_instance_globals_buffer->m_mappedAddress, &globals, sizeof(globals));
-    if (vulkan.has_explicit_host_updates)
-    {
-        context.process_instance_globals_buffer->flush(true);
-    }
-    context.process_instance_globals_buffer->unmap();
-
-    const VkDeviceSize inputs_size = context.process_instance_input_descriptors_buffer->getSize();
-    check(context.process_instance_input_descriptors_buffer->map(0, inputs_size));
-    auto* inputs = static_cast<ProcessInstanceDescriptorInput*>(context.process_instance_input_descriptors_buffer->m_mappedAddress);
-    for (uint32_t as_index = 0; as_index < bl_as_create_count; ++as_index)
-    {
-        inputs[as_index] = {};
-        inputs[as_index].gpu_scene_transform_index = as_index;
-        inputs[as_index].output_descriptor_index = as_index;
-        inputs[as_index].acceleration_structure_index = as_index;
-        inputs[as_index].instance_id = as_index;
-        inputs[as_index].instance_mask_and_flags = 0xFFu;
-        inputs[as_index].hit_group_contribution = 0;
-        inputs[as_index].apply_local_bounds_transform = 0;
-    }
-    if (vulkan.has_explicit_host_updates)
-    {
-        context.process_instance_input_descriptors_buffer->flush(true);
-    }
-    context.process_instance_input_descriptors_buffer->unmap();
-
     const VkDeviceSize transforms_size = context.process_instance_transforms_buffer->getSize();
     check(context.process_instance_transforms_buffer->map(0, transforms_size));
     auto* transforms = static_cast<TransformRow*>(context.process_instance_transforms_buffer->m_mappedAddress);
@@ -595,7 +506,8 @@ static void dispatch_process_instance_pipeline(const vulkan_setup_t& vulkan, AsP
     assert(context.process_instance_descriptor_set);
     assert(context.instance_buffer);
 
-    const uint32_t group_count_x = (bl_as_create_count + local_size_x - 1) / local_size_x;
+    const uint32_t num_instances = bl_as_create_count;
+    const uint32_t group_count_x = (num_instances + local_size_x - 1) / local_size_x;
     assert(group_count_x > 0);
 
     VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
@@ -621,6 +533,14 @@ static void dispatch_process_instance_pipeline(const vulkan_setup_t& vulkan, AsP
         &descriptor_set,
         0,
         nullptr
+    );
+    vkCmdPushConstants(
+        command_buffer,
+        context.process_instance_pipeline_layout->getHandle(),
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(num_instances),
+        &num_instances
     );
     vkCmdDispatch(command_buffer, group_count_x, 1, 1);
     check(context.m_defaultCommandBuffer->end());
