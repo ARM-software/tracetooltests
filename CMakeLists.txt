@@ -340,6 +340,7 @@ vulkan_test(compute_descriptor_heap)
 vulkan_test(descriptor_buffer_double_copy)
 vulkan_test(descriptor_heap_1)
 vulkan_test(descriptor_buffer_mutable_type)
+vulkan_test(aztec_simulator_slow_compute)
 
 vulkan_test(compute_aliasing)
 vulkan_test(compute_bda_sc) # buffer device address through specialization constants
