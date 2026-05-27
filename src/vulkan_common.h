@@ -144,7 +144,8 @@ namespace acceleration_structures
 		VkDeviceOrHostAddressConstKHR address{};
 	};
 
-	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties, VkMarkedOffsetsARM* markings = nullptr);
+	Buffer prepare_buffer(const vulkan_setup_t& vulkan, VkDeviceSize size, const void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_properties, VkMarkedOffsetsARM* markings = nullptr);
+	void destroy_buffer(const vulkan_setup_t& vulkan, Buffer& buffer);
 	VkDeviceAddress get_buffer_device_address(const vulkan_setup_t& vulkan, VkBuffer buffer);
 
 	VkPipelineShaderStageCreateInfo prepare_shader_stage_create_info(const vulkan_setup_t & vulkan, const uint8_t * spirv, uint32_t spirv_length, VkShaderStageFlagBits shader_stage);
@@ -154,6 +155,19 @@ namespace acceleration_structures
 		VkAccelerationStructureKHR handle{ VK_NULL_HANDLE};
 		VkDeviceOrHostAddressConstKHR address{};
 	};
+
+	struct BackedAccelerationStructure
+	{
+		AccelerationStructure as{};
+		Buffer storage{};
+	};
+
+	void destroy_acceleration_structure(const vulkan_setup_t& vulkan, const functions& funcs, AccelerationStructure& acceleration_structure);
+	void destroy_backed_acceleration_structure(const vulkan_setup_t& vulkan, const functions& funcs, BackedAccelerationStructure& acceleration_structure);
+	BackedAccelerationStructure create_acceleration_structure(const vulkan_setup_t& vulkan, const functions& funcs,
+		VkAccelerationStructureTypeKHR type, VkDeviceSize size);
+	VkDeviceAddress get_acceleration_structure_device_address(const vulkan_setup_t& vulkan, const functions& funcs,
+		VkAccelerationStructureKHR acceleration_structure);
 };
 
 /// Consistent top header for any extension struct. Used to iterate them and handle the ones we recognize.

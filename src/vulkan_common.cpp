@@ -795,7 +795,7 @@ acceleration_structures::functions acceleration_structures::query_acceleration_s
 	return functions;
 }
 
-acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_props, VkMarkedOffsetsARM* markings)
+acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, const void *data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memory_props, VkMarkedOffsetsARM* markings)
 {
 	VkBufferCreateInfo create_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	create_info.usage = usage;
@@ -822,10 +822,19 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	check(vkAllocateMemory(vulkan.device, &memory_allocate_info, nullptr, &buffer.memory));
 	check(vkBindBufferMemory(vulkan.device, buffer.handle, buffer.memory, 0));
 
+	if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+	{
+		buffer.address.deviceAddress = get_buffer_device_address(vulkan, buffer.handle);
+		assert(buffer.address.deviceAddress != 0);
+	}
+
 	if (data)
 	{
-		void *mapped;
+		assert((memory_props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0);
+		assert((memory_props & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0);
+		void *mapped = nullptr;
 		check(vkMapMemory(vulkan.device, buffer.memory, 0, size, 0, &mapped));
+		assert(mapped != nullptr);
 		memcpy(mapped, data, size);
 		if ((markings && vulkan.has_trace_helpers) || vulkan.has_explicit_host_updates)
 		{
@@ -836,11 +845,85 @@ acceleration_structures::Buffer acceleration_structures::prepare_buffer(const vu
 	return buffer;
 }
 
+void acceleration_structures::destroy_buffer(const vulkan_setup_t& vulkan, Buffer& buffer)
+{
+	if (buffer.handle != VK_NULL_HANDLE)
+	{
+		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
+		buffer.handle = VK_NULL_HANDLE;
+	}
+
+	if (buffer.memory != VK_NULL_HANDLE)
+	{
+		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
+		buffer.memory = VK_NULL_HANDLE;
+	}
+
+	buffer.address = {};
+}
+
 VkDeviceAddress acceleration_structures::get_buffer_device_address(const vulkan_setup_t &vulkan, VkBuffer buffer)
 {
 	VkBufferDeviceAddressInfo buffer_device_adress_info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	buffer_device_adress_info.buffer = buffer;
 	return vulkan.vkGetBufferDeviceAddress(vulkan.device, &buffer_device_adress_info);
+}
+
+void acceleration_structures::destroy_acceleration_structure(const vulkan_setup_t& vulkan, const functions& funcs, AccelerationStructure& acceleration_structure)
+{
+	if (acceleration_structure.handle != VK_NULL_HANDLE)
+	{
+		assert(funcs.vkDestroyAccelerationStructureKHR);
+		funcs.vkDestroyAccelerationStructureKHR(vulkan.device, acceleration_structure.handle, nullptr);
+		acceleration_structure.handle = VK_NULL_HANDLE;
+	}
+
+	acceleration_structure.address = {};
+}
+
+void acceleration_structures::destroy_backed_acceleration_structure(const vulkan_setup_t& vulkan, const functions& funcs, BackedAccelerationStructure& acceleration_structure)
+{
+	destroy_acceleration_structure(vulkan, funcs, acceleration_structure.as);
+	destroy_buffer(vulkan, acceleration_structure.storage);
+}
+
+acceleration_structures::BackedAccelerationStructure acceleration_structures::create_acceleration_structure(
+	const vulkan_setup_t& vulkan,
+	const functions& funcs,
+	VkAccelerationStructureTypeKHR type,
+	VkDeviceSize size)
+{
+	assert(funcs.vkCreateAccelerationStructureKHR);
+
+	BackedAccelerationStructure acceleration_structure{};
+	acceleration_structure.storage = prepare_buffer(
+		vulkan,
+		size,
+		nullptr,
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	VkAccelerationStructureCreateInfoKHR create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
+	create_info.buffer = acceleration_structure.storage.handle;
+	create_info.offset = 0;
+	create_info.size = size;
+	create_info.type = type;
+	check(funcs.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &acceleration_structure.as.handle));
+
+	return acceleration_structure;
+}
+
+VkDeviceAddress acceleration_structures::get_acceleration_structure_device_address(
+	const vulkan_setup_t& vulkan,
+	const functions& funcs,
+	VkAccelerationStructureKHR acceleration_structure)
+{
+	assert(funcs.vkGetAccelerationStructureDeviceAddressKHR);
+	assert(acceleration_structure != VK_NULL_HANDLE);
+	VkAccelerationStructureDeviceAddressInfoKHR address_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
+	address_info.accelerationStructure = acceleration_structure;
+	return funcs.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &address_info);
 }
 
 VkPipelineShaderStageCreateInfo acceleration_structures::prepare_shader_stage_create_info(const vulkan_setup_t &vulkan, const uint8_t *spirv, uint32_t spirv_length, VkShaderStageFlagBits stage)
