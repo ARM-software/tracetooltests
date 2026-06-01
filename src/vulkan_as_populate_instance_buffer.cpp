@@ -691,6 +691,12 @@ static void create_build_top_level_acceleration_structure(const vulkan_setup_t& 
 
 static void verify_blas_address_words_buffer(AsPopulateInstanceBufferContext& context)
 {
+    if (get_env_int("TOOLSTEST_NULL_RUN", 0))
+    {
+        printf("  skipping BLAS address buffer output verification for null run\n");
+        return;
+    }
+
     VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
     check(vkResetCommandBuffer(command_buffer, 0));
     check(context.m_defaultCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
@@ -724,6 +730,12 @@ static void verify_blas_address_words_buffer(AsPopulateInstanceBufferContext& co
 
 static void verify_instance_buffer_acceleration_structure_references(AsPopulateInstanceBufferContext& context)
 {
+    if (get_env_int("TOOLSTEST_NULL_RUN", 0))
+    {
+        printf("  skipping instance buffer output verification for null run\n");
+        return;
+    }
+
     VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
     check(vkResetCommandBuffer(command_buffer, 0));
     check(context.m_defaultCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));

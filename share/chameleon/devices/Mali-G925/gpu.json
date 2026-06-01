@@ -3912,7 +3912,8 @@
                         "bufferFeatures": [
                             "VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT",
                             "VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT",
-                            "VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT"
+                            "VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT",
+                            "VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR"
                         ]
                     }
                 },
