@@ -5,17 +5,22 @@
 #include "vulkan_common.h"
 #include "vulkan_compute_common.h"
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
+#include <string>
 #include <thread>
 #include <vector>
+#include <unistd.h>
 
 #include "vulkan_compute_1.inc"
 
 constexpr uint32_t kDefaultWidth = 1024;
 constexpr uint32_t kDefaultHeight = 1024;
 constexpr uint32_t kDefaultPayloadBytes = 1024 * 1024;
-constexpr uint64_t kEventTimeoutSeconds = 5;
+constexpr uint64_t kWaitTimeoutSeconds = 5;
+constexpr uint32_t kWaitSleepMicroseconds = 100;
+constexpr const char* kDefaultWaitType = "completion-event";
 
 struct Color
 {
@@ -54,6 +59,7 @@ struct WaitResources
 	BufferResource target;
 	ImageResource frameImage;
 	VkEvent completionEvent = VK_NULL_HANDLE;
+	VkQueryPool completionQueryPool = VK_NULL_HANDLE;
 	VkFence fence = VK_NULL_HANDLE;
 	uint64_t frameID = 0;
 };
@@ -61,13 +67,63 @@ struct WaitResources
 enum class WaitMode
 {
 	None,
-	CompletionEvent
+	CompletionEvent,
+	FenceStatus,
+	WaitForFences,
+	WaitSemaphores,
+	QueryPoolResults
 };
+
+static bool parse_wait_mode(const std::string& name, WaitMode& mode)
+{
+	if (name == "completion-event" || name == "vkGetEventStatus")
+	{
+		mode = WaitMode::CompletionEvent;
+		return true;
+	}
+	if (name == "fence-status" || name == "vkGetFenceStatus")
+	{
+		mode = WaitMode::FenceStatus;
+		return true;
+	}
+	if (name == "wait-fences" || name == "vkWaitForFences")
+	{
+		mode = WaitMode::WaitForFences;
+		return true;
+	}
+	if (name == "wait-semaphores" || name == "vkWaitSemaphores")
+	{
+		mode = WaitMode::WaitSemaphores;
+		return true;
+	}
+	if (name == "query-pool" || name == "vkGetQueryPoolResults")
+	{
+		mode = WaitMode::QueryPoolResults;
+		return true;
+	}
+	return false;
+}
+
+static const char* wait_mode_label(WaitMode mode)
+{
+	switch (mode)
+	{
+	case WaitMode::CompletionEvent: return "completion_event_wait";
+	case WaitMode::FenceStatus: return "fence_status_wait";
+	case WaitMode::WaitForFences: return "wait_for_fences_wait";
+	case WaitMode::WaitSemaphores: return "wait_semaphores_wait";
+	case WaitMode::QueryPoolResults: return "query_pool_results_wait";
+	case WaitMode::None: return "no_completion_wait";
+	default: assert(false); return "unknown_wait";
+	}
+}
 
 static void show_usage()
 {
 	compute_usage();
 	printf("-pb/--payload-bytes N  Bytes copied from source to target (default %u)\n", kDefaultPayloadBytes);
+	printf("-wt/--wait-type TYPE   completion-event, fence-status, wait-fences, wait-semaphores, query-pool, or Vulkan API name (default %s)\n",
+	       kDefaultWaitType);
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -76,6 +132,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-pb", "--payload-bytes"))
 	{
 		reqs.options["payload_bytes"] = get_arg(argv, ++i, argc);
+		return true;
+	}
+	if (match(argv[i], "-wt", "--wait-type"))
+	{
+		reqs.options["wait_type"] = std::string(get_string_arg(argv, ++i, argc));
 		return true;
 	}
 	return false;
@@ -226,6 +287,19 @@ static bool verify_color(const vulkan_setup_t& vulkan, const BufferResource& buf
 	return true;
 }
 
+static bool assert_final_green_buffer(const vulkan_setup_t& vulkan, const BufferResource& buffer)
+{
+	if (!vulkan.vkAssertBuffer) return true;
+
+	uint32_t checksum = 0;
+	const VkUpdateBufferInfoARM assert_info = {
+		VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, buffer.buffer, 0, buffer.size, nullptr
+	};
+	VkResult result = vulkan.vkAssertBuffer(vulkan.device, &assert_info, &checksum, "compute_wait final green target buffer");
+	check(result);
+	return true;
+}
+
 static void setup_compute_pipeline(vulkan_setup_t& vulkan, vulkan_req_t& reqs, compute_resources& compute)
 {
 	VkResult result;
@@ -297,12 +371,14 @@ static void record_compute_command_buffer(const vulkan_setup_t& vulkan, const vu
 }
 
 static void record_copy_command_buffer(VkCommandBuffer command_buffer, const BufferResource& source, const BufferResource& target,
-                                       VkEvent completion_event)
+                                       VkEvent completion_event, VkQueryPool completion_query_pool, uint32_t completion_query_index)
 {
 	assert(source.size == target.size);
 	VkCommandBufferBeginInfo begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
 	VkResult result = vkBeginCommandBuffer(command_buffer, &begin_info);
 	check(result);
+
+	if (completion_query_pool) vkCmdResetQueryPool(command_buffer, completion_query_pool, completion_query_index, 1);
 
 	VkBufferMemoryBarrier source_barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr };
 	source_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
@@ -319,12 +395,119 @@ static void record_copy_command_buffer(VkCommandBuffer command_buffer, const Buf
 	VkBufferCopy copy_region = { 0, 0, source.size };
 	vkCmdCopyBuffer(command_buffer, source.buffer, target.buffer, 1, &copy_region);
 	vkCmdSetEvent(command_buffer, completion_event, VK_PIPELINE_STAGE_TRANSFER_BIT);
+	if (completion_query_pool)
+	{
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 0,
+		                     nullptr);
+		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, completion_query_pool, completion_query_index);
+	}
 
 	result = vkEndCommandBuffer(command_buffer);
 	check(result);
 }
 
-static void submit_frame_boundary(vulkan_setup_t& vulkan, WaitResources& resources)
+static bool wait_timed_out(std::chrono::steady_clock::time_point start, const char* label)
+{
+	const auto now = std::chrono::steady_clock::now();
+	const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+	if (seconds < static_cast<int64_t>(kWaitTimeoutSeconds)) return false;
+	printf("Timed out waiting for %s after %lu seconds\n", label, (unsigned long)kWaitTimeoutSeconds);
+	return true;
+}
+
+static bool wait_for_completion_event(const vulkan_setup_t& vulkan, VkEvent event)
+{
+	const auto start = std::chrono::steady_clock::now();
+	while (true)
+	{
+		VkResult result = vkGetEventStatus(vulkan.device, event);
+		if (result == VK_EVENT_SET) return true;
+		if (result != VK_EVENT_RESET)
+		{
+			check(result);
+			return false;
+		}
+		if (wait_timed_out(start, "completion event")) return false;
+		usleep(kWaitSleepMicroseconds);
+	}
+}
+
+static bool wait_for_fence_status(const vulkan_setup_t& vulkan, VkFence fence)
+{
+	const auto start = std::chrono::steady_clock::now();
+	while (true)
+	{
+		VkResult result = vkGetFenceStatus(vulkan.device, fence);
+		if (result == VK_SUCCESS) return true;
+		if (result != VK_NOT_READY)
+		{
+			check(result);
+			return false;
+		}
+		if (wait_timed_out(start, "fence status")) return false;
+		usleep(kWaitSleepMicroseconds);
+	}
+}
+
+static bool wait_for_fences_loop(const vulkan_setup_t& vulkan, VkFence fence, const char* label)
+{
+	const auto start = std::chrono::steady_clock::now();
+	while (true)
+	{
+		VkResult result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, 0);
+		if (result == VK_SUCCESS) return true;
+		if (result != VK_TIMEOUT)
+		{
+			check(result);
+			return false;
+		}
+		if (wait_timed_out(start, label)) return false;
+		usleep(kWaitSleepMicroseconds);
+	}
+}
+
+static bool wait_for_timeline_semaphore(const vulkan_setup_t& vulkan, VkSemaphore semaphore, uint64_t value)
+{
+	VkSemaphoreWaitInfo wait_info = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, nullptr };
+	wait_info.semaphoreCount = 1;
+	wait_info.pSemaphores = &semaphore;
+	wait_info.pValues = &value;
+
+	const auto start = std::chrono::steady_clock::now();
+	while (true)
+	{
+		VkResult result = vkWaitSemaphores(vulkan.device, &wait_info, 0);
+		if (result == VK_SUCCESS) return true;
+		if (result != VK_TIMEOUT)
+		{
+			check(result);
+			return false;
+		}
+		if (wait_timed_out(start, "timeline semaphore")) return false;
+		usleep(kWaitSleepMicroseconds);
+	}
+}
+
+static bool wait_for_query_pool_results(const vulkan_setup_t& vulkan, VkQueryPool query_pool, uint32_t query_index)
+{
+	uint64_t timestamp = 0;
+	const auto start = std::chrono::steady_clock::now();
+	while (true)
+	{
+		VkResult result = vkGetQueryPoolResults(vulkan.device, query_pool, query_index, 1, sizeof(timestamp), &timestamp, sizeof(timestamp),
+		                                        VK_QUERY_RESULT_64_BIT);
+		if (result == VK_SUCCESS) return true;
+		if (result != VK_NOT_READY)
+		{
+			check(result);
+			return false;
+		}
+		if (wait_timed_out(start, "query pool results")) return false;
+		usleep(kWaitSleepMicroseconds);
+	}
+}
+
+static bool submit_frame_boundary(vulkan_setup_t& vulkan, WaitResources& resources)
 {
 	VkResult result = vkResetCommandBuffer(resources.frameBoundaryCommandBuffer, 0);
 	check(result);
@@ -404,36 +587,13 @@ static void submit_frame_boundary(vulkan_setup_t& vulkan, WaitResources& resourc
 	submit_info.pCommandBuffers = &resources.frameBoundaryCommandBuffer;
 	result = vkQueueSubmit(resources.compute.queue, 1, &submit_info, fence);
 	check(result);
-	result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
-	check(result);
+	bool success = wait_for_fences_loop(vulkan, fence, "frame boundary fence");
 	vkDestroyFence(vulkan.device, fence, nullptr);
-	resources.frameImage.initialized = true;
+	if (success) resources.frameImage.initialized = true;
+	return success;
 }
 
-static bool wait_for_completion_event(const vulkan_setup_t& vulkan, VkEvent event)
-{
-	const auto start = std::chrono::steady_clock::now();
-	while (true)
-	{
-		VkResult result = vkGetEventStatus(vulkan.device, event);
-		if (result == VK_EVENT_SET) return true;
-		if (result != VK_EVENT_RESET)
-		{
-			check(result);
-			return false;
-		}
-		const auto now = std::chrono::steady_clock::now();
-		const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-		if (seconds >= static_cast<int64_t>(kEventTimeoutSeconds))
-		{
-			printf("Timed out waiting for completion event after %lu seconds\n", (unsigned long)kEventTimeoutSeconds);
-			return false;
-		}
-		usleep(100);
-	}
-}
-
-static VkSemaphore create_timeline_semaphore(const vulkan_setup_t& vulkan)
+static VkSemaphore create_timeline_semaphore(const vulkan_setup_t& vulkan, const char* name)
 {
 	VkSemaphoreTypeCreateInfo type_info = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO, nullptr };
 	type_info.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
@@ -444,7 +604,7 @@ static VkSemaphore create_timeline_semaphore(const vulkan_setup_t& vulkan)
 	VkResult result = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr, &semaphore);
 	check(result);
 	assert(semaphore != VK_NULL_HANDLE);
-	test_set_name(vulkan, VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)semaphore, "compute_wait_timeline_gate");
+	test_set_name(vulkan, VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)semaphore, name);
 	return semaphore;
 }
 
@@ -457,7 +617,29 @@ static void signal_timeline_semaphore(const vulkan_setup_t& vulkan, VkSemaphore 
 	check(result);
 }
 
+static bool wait_for_selected_completion(const vulkan_setup_t& vulkan, const WaitResources& resources, WaitMode wait_mode,
+                                         VkSemaphore completion_timeline_semaphore, uint32_t completion_query_index)
+{
+	switch (wait_mode)
+	{
+	case WaitMode::None: return true;
+	case WaitMode::CompletionEvent: return wait_for_completion_event(vulkan, resources.completionEvent);
+	case WaitMode::FenceStatus: return wait_for_fence_status(vulkan, resources.fence);
+	case WaitMode::WaitForFences: return wait_for_fences_loop(vulkan, resources.fence, "fence");
+	case WaitMode::WaitSemaphores:
+		assert(completion_timeline_semaphore != VK_NULL_HANDLE);
+		return wait_for_timeline_semaphore(vulkan, completion_timeline_semaphore, 1);
+	case WaitMode::QueryPoolResults:
+		assert(resources.completionQueryPool != VK_NULL_HANDLE);
+		return wait_for_query_pool_results(vulkan, resources.completionQueryPool, completion_query_index);
+	default:
+		assert(false);
+		return false;
+	}
+}
+
 static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, WaitResources& resources, WaitMode wait_mode,
+                          uint32_t completion_query_index,
                           bool use_timeline_gate, Color expected, const char* label)
 {
 	fill_buffer(vulkan, resources.source, kGreen);
@@ -468,13 +650,21 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 	result = vkResetFences(vulkan.device, 1, &resources.fence);
 	check(result);
 
+	result = vkResetCommandBuffer(resources.copyCommandBuffer, 0);
+	check(result);
+	record_copy_command_buffer(resources.copyCommandBuffer, resources.source, resources.target, resources.completionEvent,
+	                           resources.completionQueryPool, completion_query_index);
+
 	VkSemaphoreCreateInfo semaphore_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, nullptr };
 	VkSemaphore semaphore = VK_NULL_HANDLE;
 	result = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr, &semaphore);
 	check(result);
 	assert(semaphore != VK_NULL_HANDLE);
 	test_set_name(vulkan, VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)semaphore, "compute_wait_semaphore");
-	VkSemaphore timeline_semaphore = use_timeline_gate ? create_timeline_semaphore(vulkan) : VK_NULL_HANDLE;
+	VkSemaphore timeline_semaphore = use_timeline_gate ? create_timeline_semaphore(vulkan, "compute_wait_timeline_gate") : VK_NULL_HANDLE;
+	VkSemaphore completion_timeline_semaphore = wait_mode == WaitMode::WaitSemaphores
+		? create_timeline_semaphore(vulkan, "compute_wait_completion_timeline")
+		: VK_NULL_HANDLE;
 
 	VkSubmitInfo compute_submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
 	compute_submit.commandBufferCount = 1;
@@ -486,9 +676,12 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 	VkSemaphore wait_semaphores[] = { semaphore, timeline_semaphore };
 	VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT };
 	uint64_t timeline_values[] = { 0, 1 };
+	uint64_t completion_timeline_value = 1;
 	VkTimelineSemaphoreSubmitInfo timeline_submit = { VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO, nullptr };
-	timeline_submit.waitSemaphoreValueCount = 2;
+	timeline_submit.waitSemaphoreValueCount = use_timeline_gate || completion_timeline_semaphore ? (use_timeline_gate ? 2 : 1) : 0;
 	timeline_submit.pWaitSemaphoreValues = timeline_values;
+	timeline_submit.signalSemaphoreValueCount = completion_timeline_semaphore ? 1 : 0;
+	timeline_submit.pSignalSemaphoreValues = completion_timeline_semaphore ? &completion_timeline_value : nullptr;
 
 	VkSubmitInfo copy_submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
 	copy_submit.waitSemaphoreCount = use_timeline_gate ? 2 : 1;
@@ -496,7 +689,9 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 	copy_submit.pWaitDstStageMask = use_timeline_gate ? wait_stages : &wait_stage;
 	copy_submit.commandBufferCount = 1;
 	copy_submit.pCommandBuffers = &resources.copyCommandBuffer;
-	if (use_timeline_gate)
+	copy_submit.signalSemaphoreCount = completion_timeline_semaphore ? 1 : 0;
+	copy_submit.pSignalSemaphores = completion_timeline_semaphore ? &completion_timeline_semaphore : nullptr;
+	if (use_timeline_gate || completion_timeline_semaphore)
 	{
 		copy_submit.pNext = &timeline_submit;
 	}
@@ -508,10 +703,7 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 	check(result);
 
 	bool success = true;
-	if (wait_mode == WaitMode::CompletionEvent)
-	{
-		success = wait_for_completion_event(vulkan, resources.completionEvent);
-	}
+	success = wait_for_selected_completion(vulkan, resources, wait_mode, completion_timeline_semaphore, completion_query_index);
 
 	fill_buffer(vulkan, resources.source, kRed);
 	if (use_timeline_gate)
@@ -519,17 +711,28 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 		signal_timeline_semaphore(vulkan, timeline_semaphore, 1);
 	}
 
-	result = vkWaitForFences(vulkan.device, 1, &resources.fence, VK_TRUE, UINT64_MAX);
-	check(result);
+	if (!wait_for_fences_loop(vulkan, resources.fence, "completion fence")) success = false;
 
-	if (reqs.options.count("frame_boundary")) submit_frame_boundary(vulkan, resources);
+	if (reqs.options.count("frame_boundary") && !submit_frame_boundary(vulkan, resources)) success = false;
+	if (success && same_color(expected, kGreen)) success = assert_final_green_buffer(vulkan, resources.target);
 	if (success) success = verify_color(vulkan, resources.target, expected, label);
+	if (completion_timeline_semaphore) vkDestroySemaphore(vulkan.device, completion_timeline_semaphore, nullptr);
 	if (timeline_semaphore) vkDestroySemaphore(vulkan.device, timeline_semaphore, nullptr);
 	vkDestroySemaphore(vulkan.device, semaphore, nullptr);
 	return success;
 }
 
-static bool setup_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, WaitResources& resources)
+static bool queue_family_supports_timestamps(const vulkan_setup_t& vulkan)
+{
+	uint32_t family_count = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, nullptr);
+	std::vector<VkQueueFamilyProperties> family_properties(family_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(vulkan.physical, &family_count, family_properties.data());
+	assert(vulkan.queue_family_index < family_count);
+	return family_properties[vulkan.queue_family_index].timestampValidBits > 0;
+}
+
+static bool setup_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, WaitResources& resources, WaitMode wait_mode)
 {
 	resources.compute = compute_init(vulkan, reqs);
 	setup_compute_pipeline(vulkan, reqs, resources.compute);
@@ -556,6 +759,17 @@ static bool setup_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, Wai
 	assert(resources.completionEvent != VK_NULL_HANDLE);
 	test_set_name(vulkan, VK_OBJECT_TYPE_EVENT, (uint64_t)resources.completionEvent, "compute_wait_completion_event");
 
+	if (wait_mode == WaitMode::QueryPoolResults)
+	{
+		VkQueryPoolCreateInfo query_pool_info = { VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr };
+		query_pool_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		query_pool_info.queryCount = 2;
+		result = vkCreateQueryPool(vulkan.device, &query_pool_info, nullptr, &resources.completionQueryPool);
+		check(result);
+		assert(resources.completionQueryPool != VK_NULL_HANDLE);
+		test_set_name(vulkan, VK_OBJECT_TYPE_QUERY_POOL, (uint64_t)resources.completionQueryPool, "compute_wait_completion_query_pool");
+	}
+
 	VkFenceCreateInfo fence_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
 	result = vkCreateFence(vulkan.device, &fence_info, nullptr, &resources.fence);
 	check(result);
@@ -577,13 +791,13 @@ static bool setup_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, Wai
 	test_set_name(vulkan, VK_OBJECT_TYPE_COMMAND_BUFFER, (uint64_t)resources.frameBoundaryCommandBuffer, "compute_wait_frame_boundary_command_buffer");
 
 	record_compute_command_buffer(vulkan, reqs, resources.compute);
-	record_copy_command_buffer(resources.copyCommandBuffer, resources.source, resources.target, resources.completionEvent);
 	return true;
 }
 
 static void destroy_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, WaitResources& resources)
 {
 	if (resources.fence) vkDestroyFence(vulkan.device, resources.fence, nullptr);
+	if (resources.completionQueryPool) vkDestroyQueryPool(vulkan.device, resources.completionQueryPool, nullptr);
 	if (resources.completionEvent) vkDestroyEvent(vulkan.device, resources.completionEvent, nullptr);
 	destroy_image(vulkan, resources.frameImage);
 	destroy_buffer(vulkan, resources.target);
@@ -602,11 +816,29 @@ int main(int argc, char** argv)
 	reqs.options["width"] = static_cast<int>(kDefaultWidth);
 	reqs.options["height"] = static_cast<int>(kDefaultHeight);
 	reqs.options["payload_bytes"] = static_cast<int>(kDefaultPayloadBytes);
+	reqs.options["wait_type"] = std::string(kDefaultWaitType);
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_wait", reqs);
 	assert(vulkan.hasfeat12.timelineSemaphore == VK_TRUE);
+
+	WaitMode wait_mode = WaitMode::CompletionEvent;
+	const std::string wait_type = std::get<std::string>(reqs.options.at("wait_type"));
+	if (!parse_wait_mode(wait_type, wait_mode))
+	{
+		printf("Invalid wait type '%s'. Expected completion-event, fence-status, wait-fences, wait-semaphores, query-pool, or a matching Vulkan API name.\n",
+		       wait_type.c_str());
+		test_done(vulkan);
+		return 1;
+	}
+	if (wait_mode == WaitMode::QueryPoolResults && !queue_family_supports_timestamps(vulkan))
+	{
+		printf("Timestamp queries are not supported by the selected queue family.\n");
+		test_done(vulkan);
+		return 77;
+	}
+
 	if (getenv("TOOLSTEST_NULL_RUN"))
 	{
 		printf("Skipping execution-sensitive wait verification in null-run mode.\n");
@@ -615,17 +847,17 @@ int main(int argc, char** argv)
 	}
 
 	WaitResources resources;
-	bool success = setup_wait_resources(vulkan, reqs, resources);
+	bool success = setup_wait_resources(vulkan, reqs, resources, wait_mode);
 
 	bench_start_iteration(vulkan.bench);
 	if (success)
 	{
 		// Canary: prove that changing the source before the copy reaches the GPU produces the failing red result.
-		success = run_wait_case(reqs, vulkan, resources, WaitMode::None, true, kRed, "canary_without_completion_wait");
+		success = run_wait_case(reqs, vulkan, resources, WaitMode::None, 0, true, kRed, "canary_without_completion_wait");
 	}
 	if (success)
 	{
-		success = run_wait_case(reqs, vulkan, resources, WaitMode::CompletionEvent, false, kGreen, "completion_event_wait");
+		success = run_wait_case(reqs, vulkan, resources, wait_mode, 1, false, kGreen, wait_mode_label(wait_mode));
 	}
 	bench_stop_iteration(vulkan.bench);
 

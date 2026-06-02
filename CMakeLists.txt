@@ -328,6 +328,10 @@ vulkan_test_extra(vulkan_compute_2_test_V4 compute_2 -V 4)
 vulkan_test(compute_3)
 vulkan_test_extra(vulkan_compute_3_test_0 compute_3 --times 3) # repeat
 vulkan_test(compute_wait)
+vulkan_test_extra(compute_wait_fence-status compute_wait --wait-type fence-status)
+vulkan_test_extra(compute_wait_wait-fences compute_wait --wait-type wait-fences)
+vulkan_test_extra(compute_wait_wait-semaphores compute_wait --wait-type wait-semaphores)
+vulkan_test_extra(compute_wait_query-pool compute_wait --wait-type query-pool)
 
 vulkan_test(compute_device_generated)
 
