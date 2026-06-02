@@ -289,7 +289,7 @@ static bool verify_color(const vulkan_setup_t& vulkan, const BufferResource& buf
 
 static bool assert_final_green_buffer(const vulkan_setup_t& vulkan, const BufferResource& buffer)
 {
-	if (!vulkan.vkAssertBuffer) return true;
+	if (!vulkan.vkAssertBuffer || get_env_int("TOOLSTEST_NULL_RUN", 0) > 0) return true;
 
 	uint32_t checksum = 0;
 	const VkUpdateBufferInfoARM assert_info = {
@@ -715,7 +715,7 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 
 	if (reqs.options.count("frame_boundary") && !submit_frame_boundary(vulkan, resources)) success = false;
 	if (success && same_color(expected, kGreen)) success = assert_final_green_buffer(vulkan, resources.target);
-	if (success) success = verify_color(vulkan, resources.target, expected, label);
+	if (success && get_env_int("TOOLSTEST_NULL_RUN", 0) == 0) success = verify_color(vulkan, resources.target, expected, label);
 	if (completion_timeline_semaphore) vkDestroySemaphore(vulkan.device, completion_timeline_semaphore, nullptr);
 	if (timeline_semaphore) vkDestroySemaphore(vulkan.device, timeline_semaphore, nullptr);
 	vkDestroySemaphore(vulkan.device, semaphore, nullptr);
@@ -835,13 +835,6 @@ int main(int argc, char** argv)
 	if (wait_mode == WaitMode::QueryPoolResults && !queue_family_supports_timestamps(vulkan))
 	{
 		printf("Timestamp queries are not supported by the selected queue family.\n");
-		test_done(vulkan);
-		return 77;
-	}
-
-	if (getenv("TOOLSTEST_NULL_RUN"))
-	{
-		printf("Skipping execution-sensitive wait verification in null-run mode.\n");
 		test_done(vulkan);
 		return 77;
 	}
