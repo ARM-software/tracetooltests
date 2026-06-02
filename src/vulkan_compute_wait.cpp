@@ -251,6 +251,7 @@ static void fill_buffer(const vulkan_setup_t& vulkan, const BufferResource& buff
 	{
 		mapped[pixel] = color;
 	}
+	if (vulkan.has_explicit_host_updates) testFlushMemory(vulkan, buffer.memory, 0, buffer.size, true);
 	vkUnmapMemory(vulkan.device, buffer.memory);
 }
 
