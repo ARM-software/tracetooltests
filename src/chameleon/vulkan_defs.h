@@ -1037,6 +1037,9 @@ struct cVkDevice : cVkBase
 	std::list<cVkPrivateDataSlot> slots;
 
 	std::vector<std::string> enabledExtensions;
+	VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProperties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT
+	};
 
 	void update(cVkBase* parent);
 
