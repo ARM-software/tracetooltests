@@ -1,6 +1,7 @@
 // Test that a host wait for GPU work does not return before the queued work is complete.
 // The first submission runs ordinary compute work. The second submission waits on it,
-// copies a green source buffer to a target buffer, then signals a VkEvent.
+// runs dependent copy work between a green source buffer and a target buffer, then
+// signals a VkEvent.
 
 #include "vulkan_common.h"
 #include "vulkan_compute_common.h"
@@ -18,8 +19,9 @@
 constexpr uint32_t kDefaultWidth = 1024;
 constexpr uint32_t kDefaultHeight = 1024;
 constexpr uint32_t kDefaultPayloadBytes = 1024 * 1024;
+constexpr uint32_t kDefaultDummyCopyRounds = 128;
 constexpr uint64_t kWaitTimeoutSeconds = 5;
-constexpr uint32_t kWaitSleepMicroseconds = 100;
+constexpr uint32_t kWaitSleepMicroseconds = 500;
 constexpr const char* kDefaultWaitType = "completion-event";
 
 struct Color
@@ -129,6 +131,8 @@ static void show_usage()
 {
 	compute_usage();
 	printf("-pb/--payload-bytes N  Bytes copied from source to target (default %u)\n", kDefaultPayloadBytes);
+	printf("-dc/--dummy-copy-rounds N  Dependent target/source copy round trips before completion sync (default %u)\n",
+	       kDefaultDummyCopyRounds);
 	printf("-wt/--wait-type TYPE   completion-event, fence-status, wait-fences, wait-semaphores, query-pool, or Vulkan API name (default %s)\n",
 	       kDefaultWaitType);
 }
@@ -139,6 +143,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-pb", "--payload-bytes"))
 	{
 		reqs.options["payload_bytes"] = get_arg(argv, ++i, argc);
+		return true;
+	}
+	if (match(argv[i], "-dc", "--dummy-copy-rounds"))
+	{
+		reqs.options["dummy_copy_rounds"] = get_arg(argv, ++i, argc);
 		return true;
 	}
 	if (match(argv[i], "-wt", "--wait-type"))
@@ -378,8 +387,27 @@ static void record_compute_command_buffer(const vulkan_setup_t& vulkan, const vu
 	check(result);
 }
 
+static void record_transfer_copy_barrier(VkCommandBuffer command_buffer, const BufferResource& source, const BufferResource& target)
+{
+	std::array<VkBufferMemoryBarrier, 2> barriers = {};
+	barriers[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barriers[0].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+	barriers[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+	barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[0].buffer = source.buffer;
+	barriers[0].offset = 0;
+	barriers[0].size = VK_WHOLE_SIZE;
+	barriers[1] = barriers[0];
+	barriers[1].buffer = target.buffer;
+
+	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr,
+	                     static_cast<uint32_t>(barriers.size()), barriers.data(), 0, nullptr);
+}
+
 static void record_copy_command_buffer(VkCommandBuffer command_buffer, const BufferResource& source, const BufferResource& target,
-                                       VkEvent completion_event, VkQueryPool completion_query_pool, uint32_t completion_query_index)
+                                       uint32_t dummy_copy_rounds, VkEvent completion_event, VkQueryPool completion_query_pool,
+                                       uint32_t completion_query_index)
 {
 	assert(source.size == target.size);
 	VkCommandBufferBeginInfo begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
@@ -402,6 +430,13 @@ static void record_copy_command_buffer(VkCommandBuffer command_buffer, const Buf
 
 	VkBufferCopy copy_region = { 0, 0, source.size };
 	vkCmdCopyBuffer(command_buffer, source.buffer, target.buffer, 1, &copy_region);
+	for (uint32_t round = 0; round < dummy_copy_rounds; round++)
+	{
+		record_transfer_copy_barrier(command_buffer, source, target);
+		vkCmdCopyBuffer(command_buffer, target.buffer, source.buffer, 1, &copy_region);
+		record_transfer_copy_barrier(command_buffer, source, target);
+		vkCmdCopyBuffer(command_buffer, source.buffer, target.buffer, 1, &copy_region);
+	}
 	vkCmdSetEvent(command_buffer, completion_event, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	if (completion_query_pool)
 	{
@@ -425,6 +460,7 @@ static bool wait_timed_out(std::chrono::steady_clock::time_point start, const ch
 
 static bool wait_for_completion_event(const vulkan_setup_t& vulkan, VkEvent event)
 {
+	sleep(1);
 	const auto start = std::chrono::steady_clock::now();
 	while (true)
 	{
@@ -442,6 +478,7 @@ static bool wait_for_completion_event(const vulkan_setup_t& vulkan, VkEvent even
 
 static bool wait_for_fence_status(const vulkan_setup_t& vulkan, VkFence fence)
 {
+	sleep(1);
 	const auto start = std::chrono::steady_clock::now();
 	while (true)
 	{
@@ -459,6 +496,7 @@ static bool wait_for_fence_status(const vulkan_setup_t& vulkan, VkFence fence)
 
 static bool wait_for_fences_loop(const vulkan_setup_t& vulkan, VkFence fence, const char* label)
 {
+	sleep(1);
 	const auto start = std::chrono::steady_clock::now();
 	while (true)
 	{
@@ -535,6 +573,7 @@ static bool wait_destroy_buffer_reference(const vulkan_setup_t& vulkan, PendingB
 
 static bool wait_for_timeline_semaphore(const vulkan_setup_t& vulkan, VkSemaphore semaphore, uint64_t value)
 {
+	sleep(1);
 	VkSemaphoreWaitInfo wait_info = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, nullptr };
 	wait_info.semaphoreCount = 1;
 	wait_info.pSemaphores = &semaphore;
@@ -557,6 +596,7 @@ static bool wait_for_timeline_semaphore(const vulkan_setup_t& vulkan, VkSemaphor
 
 static bool wait_for_query_pool_results(const vulkan_setup_t& vulkan, VkQueryPool query_pool, uint32_t query_index)
 {
+	sleep(1);
 	uint64_t timestamp = 0;
 	const auto start = std::chrono::steady_clock::now();
 	while (true)
@@ -719,8 +759,10 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 
 	result = vkResetCommandBuffer(resources.copyCommandBuffer, 0);
 	check(result);
-	record_copy_command_buffer(resources.copyCommandBuffer, resources.source, resources.target, resources.completionEvent,
-	                           resources.completionQueryPool, completion_query_index);
+	const int dummy_copy_rounds = std::get<int>(reqs.options.at("dummy_copy_rounds"));
+	assert(dummy_copy_rounds >= 0);
+	record_copy_command_buffer(resources.copyCommandBuffer, resources.source, resources.target, static_cast<uint32_t>(dummy_copy_rounds),
+	                           resources.completionEvent, resources.completionQueryPool, completion_query_index);
 
 	VkSemaphoreCreateInfo semaphore_info = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, nullptr };
 	VkSemaphore semaphore = VK_NULL_HANDLE;
@@ -819,8 +861,17 @@ static bool setup_wait_resources(vulkan_setup_t& vulkan, vulkan_req_t& reqs, Wai
 		return false;
 	}
 
-	resources.source = create_buffer(vulkan, payload_bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "compute_wait_source");
-	resources.target = create_buffer(vulkan, payload_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "compute_wait_target");
+	const int dummy_copy_rounds = std::get<int>(reqs.options.at("dummy_copy_rounds"));
+	if (dummy_copy_rounds < 0)
+	{
+		printf("Dummy copy round count must be non-negative\n");
+		return false;
+	}
+
+	resources.source = create_buffer(vulkan, payload_bytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+	                                 "compute_wait_source");
+	resources.target = create_buffer(vulkan, payload_bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	                                 "compute_wait_target");
 	resources.frameImage = create_frame_image(vulkan, payload_bytes);
 
 	VkEventCreateInfo event_info = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO, nullptr };
@@ -886,6 +937,7 @@ int main(int argc, char** argv)
 	reqs.options["width"] = static_cast<int>(kDefaultWidth);
 	reqs.options["height"] = static_cast<int>(kDefaultHeight);
 	reqs.options["payload_bytes"] = static_cast<int>(kDefaultPayloadBytes);
+	reqs.options["dummy_copy_rounds"] = static_cast<int>(kDefaultDummyCopyRounds);
 	reqs.options["wait_type"] = std::string(kDefaultWaitType);
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
