@@ -90,6 +90,21 @@ int main(int argc, char** argv)
 	};
 	VkPhysicalDeviceProperties2 properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tensor_properties };
 	vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
+	printf("tensor_properties.sType = %d\n", tensor_properties.sType);
+	printf("tensor_properties.pNext = %p\n", tensor_properties.pNext);
+	printf("tensor_properties.maxTensorDimensionCount = %u\n", tensor_properties.maxTensorDimensionCount);
+	printf("tensor_properties.maxTensorElements = %" PRIu64 "\n", tensor_properties.maxTensorElements);
+	printf("tensor_properties.maxPerDimensionTensorElements = %" PRIu64 "\n", tensor_properties.maxPerDimensionTensorElements);
+	printf("tensor_properties.maxTensorStride = %" PRId64 "\n", tensor_properties.maxTensorStride);
+	printf("tensor_properties.maxTensorSize = %" PRIu64 "\n", tensor_properties.maxTensorSize);
+	printf("tensor_properties.maxTensorShaderAccessArrayLength = %u\n", tensor_properties.maxTensorShaderAccessArrayLength);
+	printf("tensor_properties.maxTensorShaderAccessSize = %u\n", tensor_properties.maxTensorShaderAccessSize);
+	printf("tensor_properties.maxDescriptorSetStorageTensors = %u\n", tensor_properties.maxDescriptorSetStorageTensors);
+	printf("tensor_properties.maxPerStageDescriptorSetStorageTensors = %u\n", tensor_properties.maxPerStageDescriptorSetStorageTensors);
+	printf("tensor_properties.maxDescriptorSetUpdateAfterBindStorageTensors = %u\n", tensor_properties.maxDescriptorSetUpdateAfterBindStorageTensors);
+	printf("tensor_properties.maxPerStageDescriptorUpdateAfterBindStorageTensors = %u\n", tensor_properties.maxPerStageDescriptorUpdateAfterBindStorageTensors);
+	printf("tensor_properties.shaderStorageTensorArrayNonUniformIndexingNative = %u\n", tensor_properties.shaderStorageTensorArrayNonUniformIndexingNative);
+	printf("tensor_properties.shaderTensorSupportedStages = 0x%x\n", tensor_properties.shaderTensorSupportedStages);
 	assert(tensor_properties.maxTensorDimensionCount >= dimensions.size());
 	assert(tensor_properties.maxTensorElements > 0);
 	if (has_descriptor_buffer && descriptor_buffer_tensor_features.descriptorBufferTensorDescriptors)

@@ -93,24 +93,6 @@ static AlignedBufferAddress get_aligned_device_address(const vulkan_setup_t& vul
 	return aligned;
 }
 
-static void destroy_buffer(const vulkan_setup_t& vulkan, Buffer& buffer)
-{
-	if (buffer.memory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
-		buffer.memory = VK_NULL_HANDLE;
-	}
-
-	if (buffer.handle != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
-		buffer.handle = VK_NULL_HANDLE;
-	}
-
-	buffer.address.deviceAddress = 0;
-	buffer.address.hostAddress = nullptr;
-}
-
 static void destroy_micromap(const vulkan_setup_t& vulkan, const MicromapFunctions& functions, VkMicromapEXT& micromap)
 {
 	if (micromap != VK_NULL_HANDLE)
@@ -288,7 +270,7 @@ static void build_source_micromap(const vulkan_setup_t& vulkan, Resources& resou
 	vkCmdPipelineBarrier2(resources.command_buffer, &dependency_info);
 	submit_and_wait(resources.queue, resources.command_buffer);
 
-	destroy_buffer(vulkan, scratch_buffer);
+	acceleration_structures::destroy_buffer(vulkan, scratch_buffer);
 }
 
 static void build_blas_with_micromap(const vulkan_setup_t& vulkan, Resources& resources, const VkMicromapUsageEXT& usage)
@@ -363,7 +345,7 @@ static void build_blas_with_micromap(const vulkan_setup_t& vulkan, Resources& re
 	resources.accel.vkCmdBuildAccelerationStructuresKHR(resources.command_buffer, 1, &build_info, &range_infos);
 	submit_and_wait(resources.queue, resources.command_buffer);
 
-	destroy_buffer(vulkan, scratch_buffer);
+	acceleration_structures::destroy_buffer(vulkan, scratch_buffer);
 }
 
 static void cleanup_resources(const vulkan_setup_t& vulkan, Resources& resources)
@@ -376,12 +358,12 @@ static void cleanup_resources(const vulkan_setup_t& vulkan, Resources& resources
 
 	destroy_micromap(vulkan, resources.micromap, resources.source_micromap);
 
-	destroy_buffer(vulkan, resources.blas_buffer);
-	destroy_buffer(vulkan, resources.source_storage_buffer);
-	destroy_buffer(vulkan, resources.index_buffer);
-	destroy_buffer(vulkan, resources.vertex_buffer);
-	destroy_buffer(vulkan, resources.triangle_buffer);
-	destroy_buffer(vulkan, resources.data_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.blas_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.source_storage_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.index_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.vertex_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.triangle_buffer);
+	acceleration_structures::destroy_buffer(vulkan, resources.data_buffer);
 
 	if (resources.command_pool != VK_NULL_HANDLE)
 	{

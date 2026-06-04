@@ -20,7 +20,7 @@
 const char* report_env = "CHAMELEON_REPORT";
 
 #ifndef CHAMELEON_DEFAULT_GPU_PATH
-#define CHAMELEON_DEFAULT_GPU_PATH "GPUs/Mali-G925"
+#define CHAMELEON_DEFAULT_GPU_PATH "GPUs/Mali-G1-Ultra"
 #endif
 
 static constexpr uint32_t chameleon_api_version = VK_HEADER_VERSION_COMPLETE;
@@ -62,13 +62,6 @@ static const std::vector<VkExtensionProperties> supported_instance_extensions =
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
 	VkExtensionProperties { "VK_KHR_android_surface", 6 },
 #endif
-};
-
-static const std::vector<VkExtensionProperties> additional_device_extensions =
-{
-	VkExtensionProperties { "VK_ARM_tensors", 1 },
-	VkExtensionProperties { "VK_ARM_data_graph", 1 },
-	VkExtensionProperties { "VK_EXT_descriptor_heap", 1 },
 };
 
 #ifndef FAST
@@ -384,11 +377,6 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		gpu.extensions[extensionName] = extensionsRoot[extensionName].asUInt();
 	}
 
-	for (const VkExtensionProperties& extensionProperties: additional_device_extensions)
-	{
-		gpu.extensions[extensionProperties.extensionName] = extensionProperties.specVersion;
-	}
-
 	// Features
 
 	readVulkanFeatures(deviceRoot["features"], gpu.features);
@@ -560,6 +548,64 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 			reinterpret_cast<VkPhysicalDeviceRayTracingPipelinePropertiesKHR*>(malloc(property_size));
 		readVkPhysicalDeviceRayTracingPipelinePropertiesKHR(root, *property);
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceTensorPropertiesARM"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceTensorPropertiesARM"];
+		size_t property_size = sizeof(VkPhysicalDeviceTensorPropertiesARM);
+		VkPhysicalDeviceTensorPropertiesARM* property =
+			reinterpret_cast<VkPhysicalDeviceTensorPropertiesARM*>(malloc(property_size));
+		readVkPhysicalDeviceTensorPropertiesARM(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceDescriptorBufferTensorPropertiesARM"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceDescriptorBufferTensorPropertiesARM"];
+		size_t property_size = sizeof(VkPhysicalDeviceDescriptorBufferTensorPropertiesARM);
+		VkPhysicalDeviceDescriptorBufferTensorPropertiesARM* property =
+			reinterpret_cast<VkPhysicalDeviceDescriptorBufferTensorPropertiesARM*>(malloc(property_size));
+		readVkPhysicalDeviceDescriptorBufferTensorPropertiesARM(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceDescriptorBufferPropertiesEXT"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceDescriptorBufferPropertiesEXT"];
+		size_t property_size = sizeof(VkPhysicalDeviceDescriptorBufferPropertiesEXT);
+		VkPhysicalDeviceDescriptorBufferPropertiesEXT* property =
+			reinterpret_cast<VkPhysicalDeviceDescriptorBufferPropertiesEXT*>(malloc(property_size));
+		readVkPhysicalDeviceDescriptorBufferPropertiesEXT(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceHostImageCopyPropertiesEXT"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceHostImageCopyPropertiesEXT"];
+		size_t property_size = sizeof(VkPhysicalDeviceHostImageCopyPropertiesEXT);
+		VkPhysicalDeviceHostImageCopyPropertiesEXT* property =
+			reinterpret_cast<VkPhysicalDeviceHostImageCopyPropertiesEXT*>(malloc(property_size));
+		readVkPhysicalDeviceHostImageCopyProperties(root, *property);
+		if (root["pCopySrcLayouts"].isArray())
+		{
+			property->copySrcLayoutCount = root["pCopySrcLayouts"].size();
+			property->pCopySrcLayouts = reinterpret_cast<VkImageLayout*>(malloc(sizeof(VkImageLayout) * property->copySrcLayoutCount));
+			for (uint32_t i = 0; i < property->copySrcLayoutCount; i++)
+			{
+				property->pCopySrcLayouts[i] = stringToVkImageLayout(root["pCopySrcLayouts"][i].asString());
+			}
+		}
+		if (root["pCopyDstLayouts"].isArray())
+		{
+			property->copyDstLayoutCount = root["pCopyDstLayouts"].size();
+			property->pCopyDstLayouts = reinterpret_cast<VkImageLayout*>(malloc(sizeof(VkImageLayout) * property->copyDstLayoutCount));
+			for (uint32_t i = 0; i < property->copyDstLayoutCount; i++)
+			{
+				property->pCopyDstLayouts[i] = stringToVkImageLayout(root["pCopyDstLayouts"][i].asString());
+			}
+		}
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES] = { property, property_size };
 	}
 
 	// Memory
@@ -879,6 +925,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 
 	cVkPhysicalDevice* pdevice = physicaldevice_cast(physicalDevice);
 	cVkDevice& dev = owner_create<cVkDevice, VkDevice>(pdevice->devices, pDevice, pAllocator);
+	auto descriptor_buffer_properties_it = pdevice->extendedProperties.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT);
+	if (descriptor_buffer_properties_it != pdevice->extendedProperties.end())
+	{
+		dev.descriptorBufferProperties =
+			*reinterpret_cast<VkPhysicalDeviceDescriptorBufferPropertiesEXT*>(descriptor_buffer_properties_it->second.first);
+	}
 
 	int num_queues = 0;
 	for (unsigned i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
@@ -1848,9 +1900,9 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout(
 		// 4 * 4 = 32-bit/sample with RGBA channels
 		pLayout->size = img->extent.width * img->extent.height * img->extent.depth * 4 * 4;
 	}
-	pLayout->rowPitch = 1;
-	pLayout->arrayPitch = 1;
-	pLayout->depthPitch = 1;
+	pLayout->rowPitch = img->extent.width * 4;
+	pLayout->depthPitch = pLayout->rowPitch * img->extent.height;
+	pLayout->arrayPitch = pLayout->depthPitch * img->extent.depth;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateImageView(
@@ -3715,8 +3767,45 @@ static void commonGetPhysicalDeviceProperties2(
 		if (it != device->extendedProperties.end())
 		{
 			VkBaseOutStructure* next = current->pNext;
-			memcpy(current, it->second.first, it->second.second);
-			current->pNext = next;
+			if (current->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES)
+			{
+				VkPhysicalDeviceHostImageCopyProperties* out =
+					reinterpret_cast<VkPhysicalDeviceHostImageCopyProperties*>(current);
+				const VkPhysicalDeviceHostImageCopyProperties* stored =
+					reinterpret_cast<const VkPhysicalDeviceHostImageCopyProperties*>(it->second.first);
+				VkImageLayout* copySrcLayouts = out->pCopySrcLayouts;
+				VkImageLayout* copyDstLayouts = out->pCopyDstLayouts;
+				const uint32_t copySrcLayoutCapacity = out->copySrcLayoutCount;
+				const uint32_t copyDstLayoutCapacity = out->copyDstLayoutCount;
+
+				memcpy(current, stored, it->second.second);
+				out->pNext = next;
+				if (copySrcLayouts)
+				{
+					out->copySrcLayoutCount = std::min(copySrcLayoutCapacity, stored->copySrcLayoutCount);
+					memcpy(copySrcLayouts, stored->pCopySrcLayouts, out->copySrcLayoutCount * sizeof(VkImageLayout));
+					out->pCopySrcLayouts = copySrcLayouts;
+				}
+				else
+				{
+					out->pCopySrcLayouts = nullptr;
+				}
+				if (copyDstLayouts)
+				{
+					out->copyDstLayoutCount = std::min(copyDstLayoutCapacity, stored->copyDstLayoutCount);
+					memcpy(copyDstLayouts, stored->pCopyDstLayouts, out->copyDstLayoutCount * sizeof(VkImageLayout));
+					out->pCopyDstLayouts = copyDstLayouts;
+				}
+				else
+				{
+					out->pCopyDstLayouts = nullptr;
+				}
+			}
+			else
+			{
+				memcpy(current, it->second.first, it->second.second);
+				current->pNext = next;
+			}
 		}
 		current = current->pNext;
 	}
@@ -3796,9 +3885,30 @@ VKAPI_ATTR void VKAPI_CALL vkGetPhysicalDeviceFormatProperties2(
 {
 	ENTRY(vkGetPhysicalDeviceFormatProperties2);
 	cVkPhysicalDevice* device = physicaldevice_cast(physicalDevice);
-	pFormatProperties->pNext = nullptr;
 	pFormatProperties->sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2;
 	pFormatProperties->formatProperties = device->formats[format]; // struct copy
+	VkFormatProperties3* format_properties3 =
+		(VkFormatProperties3*)find_extension(pFormatProperties, VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3);
+	if (format_properties3)
+	{
+		format_properties3->linearTilingFeatures =
+			pFormatProperties->formatProperties.linearTilingFeatures | VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT;
+		format_properties3->optimalTilingFeatures =
+			pFormatProperties->formatProperties.optimalTilingFeatures | VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT;
+		format_properties3->bufferFeatures = pFormatProperties->formatProperties.bufferFeatures;
+	}
+	VkTensorFormatPropertiesARM* tensor_format_properties =
+		(VkTensorFormatPropertiesARM*)find_extension(pFormatProperties, VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM);
+	if (tensor_format_properties)
+	{
+		tensor_format_properties->optimalTilingTensorFeatures =
+			VK_FORMAT_FEATURE_2_TENSOR_SHADER_BIT_ARM |
+			VK_FORMAT_FEATURE_2_TENSOR_IMAGE_ALIASING_BIT_ARM |
+			VK_FORMAT_FEATURE_2_TENSOR_DATA_GRAPH_BIT_ARM |
+			VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT |
+			VK_FORMAT_FEATURE_2_TRANSFER_DST_BIT;
+		tensor_format_properties->linearTilingTensorFeatures = tensor_format_properties->optimalTilingTensorFeatures;
+	}
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceImageFormatProperties2(
@@ -8051,13 +8161,91 @@ VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderingKHR(
 
 // VK_EXT_descriptor_buffer
 
+static VkDeviceSize descriptor_buffer_align_up(VkDeviceSize value, VkDeviceSize alignment)
+{
+	if (alignment == 0)
+	{
+		return value;
+	}
+	return (value + alignment - 1) & ~(alignment - 1);
+}
+
+static VkDeviceSize descriptor_buffer_descriptor_size(cVkDevice* dev, VkDescriptorType descriptorType)
+{
+	const VkPhysicalDeviceDescriptorBufferPropertiesEXT* props = &dev->descriptorBufferProperties;
+	switch (descriptorType)
+	{
+	case VK_DESCRIPTOR_TYPE_SAMPLER:
+		return props->samplerDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+		return props->combinedImageSamplerDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+		return props->sampledImageDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+		return props->storageImageDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+		return props->uniformTexelBufferDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+		return props->storageTexelBufferDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+		return props->uniformBufferDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+		return props->storageBufferDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+		return props->inputAttachmentDescriptorSize;
+	case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+		return props->accelerationStructureDescriptorSize;
+	default:
+		return sizeof(uint64_t);
+	}
+}
+
+static VkDeviceSize descriptor_buffer_alignment(cVkDevice* dev)
+{
+	const VkPhysicalDeviceDescriptorBufferPropertiesEXT* props = &dev->descriptorBufferProperties;
+	return props->descriptorBufferOffsetAlignment ? props->descriptorBufferOffsetAlignment : sizeof(uint64_t);
+}
+
+static VkDeviceSize descriptor_buffer_binding_offset(cVkDevice* dev, const cVkDescriptorSetLayout* layout, uint32_t binding)
+{
+	VkDeviceSize offset = 0;
+	const VkDeviceSize alignment = descriptor_buffer_alignment(dev);
+	for (const cVkDescriptorSetLayoutBinding& layout_binding : layout->bindings)
+	{
+		offset = descriptor_buffer_align_up(offset, alignment);
+		if (layout_binding.binding == binding)
+		{
+			return offset;
+		}
+		offset += descriptor_buffer_descriptor_size(dev, layout_binding.descriptorType) * layout_binding.descriptorCount;
+	}
+	return offset;
+}
+
+static VkDeviceSize descriptor_buffer_layout_size(cVkDevice* dev, const cVkDescriptorSetLayout* layout)
+{
+	VkDeviceSize size = 0;
+	const VkDeviceSize alignment = descriptor_buffer_alignment(dev);
+	for (const cVkDescriptorSetLayoutBinding& layout_binding : layout->bindings)
+	{
+		size = descriptor_buffer_align_up(size, alignment);
+		size += descriptor_buffer_descriptor_size(dev, layout_binding.descriptorType) * layout_binding.descriptorCount;
+	}
+	return descriptor_buffer_align_up(size, alignment);
+}
+
 VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorBuffersEXT(
     VkCommandBuffer                             commandBuffer,
     uint32_t                                    bufferCount,
     const VkDescriptorBufferBindingInfoEXT*     pBindingInfos)
 {
 	ENTRY(vkCmdBindDescriptorBuffersEXT);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdBindDescriptorBuffersEXT, commandBuffer, MetricUnit(1, bufferCount));
+	(void)p;
+	for (uint32_t i = 0; i < bufferCount; i++)
+	{
+		(void)pBindingInfos[i];
+	}
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdSetDescriptorBufferOffsetsEXT(
@@ -8070,7 +8258,12 @@ VKAPI_ATTR void VKAPI_CALL vkCmdSetDescriptorBufferOffsetsEXT(
     const VkDeviceSize*                         pOffsets)
 {
 	ENTRY(vkCmdSetDescriptorBufferOffsetsEXT);
-	TBD_UNSUPPORTED;
+	cVkCommandBuffer* p = commandbuffer_command(vkCmdSetDescriptorBufferOffsetsEXT, commandBuffer, MetricUnit(1, setCount));
+	p->commands.back().bindings.push_back(pipelinelayout_cast(layout));
+	(void)pipelineBindPoint;
+	(void)firstSet;
+	(void)pBufferIndices;
+	(void)pOffsets;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindDescriptorBufferEmbeddedSamplersEXT(
@@ -8090,7 +8283,8 @@ VKAPI_ATTR void VKAPI_CALL vkGetDescriptorSetLayoutSizeEXT(
 {
 	ENTRY(vkGetDescriptorSetLayoutSizeEXT);
 	cVkDevice* dev = device_cast(device);
-	TBD_UNSUPPORTED;
+	cVkDescriptorSetLayout* cLayout = descriptorsetlayout_cast(layout);
+	*pLayoutSizeInBytes = descriptor_buffer_layout_size(dev, cLayout);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetDescriptorSetLayoutBindingOffsetEXT(
@@ -8101,7 +8295,8 @@ VKAPI_ATTR void VKAPI_CALL vkGetDescriptorSetLayoutBindingOffsetEXT(
 {
 	ENTRY(vkGetDescriptorSetLayoutBindingOffsetEXT);
 	cVkDevice* dev = device_cast(device);
-	TBD_UNSUPPORTED;
+	cVkDescriptorSetLayout* cLayout = descriptorsetlayout_cast(layout);
+	*pOffset = descriptor_buffer_binding_offset(dev, cLayout, binding);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetDescriptorEXT(
@@ -8112,7 +8307,16 @@ VKAPI_ATTR void VKAPI_CALL vkGetDescriptorEXT(
 {
 	ENTRY(vkGetDescriptorEXT);
 	cVkDevice* dev = device_cast(device);
-	TBD_UNSUPPORTED;
+	assert(pDescriptor);
+	assert(pDescriptorInfo);
+	const VkDeviceSize expected_size = descriptor_buffer_descriptor_size(dev, pDescriptorInfo->type);
+	assert(dataSize >= expected_size);
+	memset(pDescriptor, 0, dataSize);
+	if (pDescriptorInfo->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER && pDescriptorInfo->data.pStorageBuffer)
+	{
+		memcpy(pDescriptor, pDescriptorInfo->data.pStorageBuffer,
+		       std::min(dataSize, sizeof(*pDescriptorInfo->data.pStorageBuffer)));
+	}
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkGetBufferOpaqueCaptureDescriptorDataEXT(
@@ -8221,6 +8425,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultDebugInfoKHR(
 	return VK_SUCCESS;
 }
 
+static void commonGetImageSubresourceLayout2(VkDevice device, VkImage image, const VkImageSubresource2* pSubresource, VkSubresourceLayout2* pLayout);
+
 // VK_EXT_image_compression_control
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout2EXT(
@@ -8230,8 +8436,7 @@ VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout2EXT(
     VkSubresourceLayout2EXT*                    pLayout)
 {
 	ENTRY(vkGetImageSubresourceLayout2EXT);
-	cVkDevice* dev = device_cast(device);
-	TBD_UNSUPPORTED;
+	commonGetImageSubresourceLayout2(device, image, pSubresource, pLayout);
 }
 
 // VK_EXT_pipeline_properties
@@ -9335,9 +9540,9 @@ static void commonGetImageSubresourceLayout2(VkDevice device, VkImage image, con
 	{
 		pLayout->subresourceLayout.size = cimage->extent.width * cimage->extent.height * cimage->extent.depth * 4 * 4;
 	}
-	pLayout->subresourceLayout.rowPitch = 1;
-	pLayout->subresourceLayout.arrayPitch = 1;
-	pLayout->subresourceLayout.depthPitch = 1;
+	pLayout->subresourceLayout.rowPitch = cimage->extent.width * 4;
+	pLayout->subresourceLayout.depthPitch = pLayout->subresourceLayout.rowPitch * cimage->extent.height;
+	pLayout->subresourceLayout.arrayPitch = pLayout->subresourceLayout.depthPitch * cimage->extent.depth;
 }
 
 static cVkBuffer* find_buffer_by_device_address(cVkDevice* cdevice, VkDeviceAddress address)
@@ -9369,9 +9574,9 @@ static void commonGetDeviceImageSubresourceLayout(VkDevice device, const VkDevic
 	const VkExtent3D& extent = pInfo->pCreateInfo->extent;
 	pLayout->subresourceLayout.offset = 0;
 	pLayout->subresourceLayout.size = extent.width * extent.height * extent.depth * 4 * 4;
-	pLayout->subresourceLayout.rowPitch = 1;
-	pLayout->subresourceLayout.arrayPitch = 1;
-	pLayout->subresourceLayout.depthPitch = 1;
+	pLayout->subresourceLayout.rowPitch = extent.width * 4;
+	pLayout->subresourceLayout.depthPitch = pLayout->subresourceLayout.rowPitch * extent.height;
+	pLayout->subresourceLayout.arrayPitch = pLayout->subresourceLayout.depthPitch * extent.depth;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdBindIndexBuffer2KHR(
@@ -9682,6 +9887,169 @@ VKAPI_ATTR void VKAPI_CALL vkGetDeviceImageSubresourceLayoutKHR(
 	commonGetDeviceImageSubresourceLayout(device, pInfo, pLayout);
 }
 
+static VkDeviceSize host_copy_image_offset(const cVkImage* image, const VkOffset3D& offset, uint32_t arrayLayer)
+{
+	assert(image->format == VK_FORMAT_R8G8B8A8_UNORM);
+	assert(offset.x >= 0 && offset.y >= 0 && offset.z >= 0);
+	assert((uint32_t)offset.x < image->extent.width);
+	assert((uint32_t)offset.y < image->extent.height);
+	assert((uint32_t)offset.z < image->extent.depth);
+	assert(arrayLayer < image->arrayLayers);
+
+	const VkDeviceSize texel_size = 4;
+	const VkDeviceSize row_pitch = image->extent.width * texel_size;
+	const VkDeviceSize depth_pitch = row_pitch * image->extent.height;
+	const VkDeviceSize array_pitch = depth_pitch * image->extent.depth;
+	return image->memoryOffset + array_pitch * arrayLayer + depth_pitch * offset.z + row_pitch * offset.y + texel_size * offset.x;
+}
+
+static void host_copy_memory_to_image_region(cVkImage* dstImage, const VkMemoryToImageCopy* region)
+{
+	assert(dstImage->memory && dstImage->memory->ptr);
+	assert(region->pHostPointer);
+	assert(region->imageSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
+	assert(region->imageSubresource.mipLevel == 0);
+
+	const VkDeviceSize texel_size = 4;
+	const uint32_t host_row_length = region->memoryRowLength ? region->memoryRowLength : region->imageExtent.width;
+	const uint32_t host_image_height = region->memoryImageHeight ? region->memoryImageHeight : region->imageExtent.height;
+	const char* src_base = reinterpret_cast<const char*>(region->pHostPointer);
+	for (uint32_t layer = 0; layer < region->imageSubresource.layerCount; layer++)
+	{
+		for (uint32_t z = 0; z < region->imageExtent.depth; z++)
+		{
+			for (uint32_t y = 0; y < region->imageExtent.height; y++)
+			{
+				const VkDeviceSize host_offset =
+					(((layer * region->imageExtent.depth + z) * host_image_height + y) * host_row_length) * texel_size;
+				const char* src = src_base + host_offset;
+				VkOffset3D dst_offset = {
+					region->imageOffset.x,
+					region->imageOffset.y + static_cast<int32_t>(y),
+					region->imageOffset.z + static_cast<int32_t>(z)
+				};
+				char* dst = dstImage->memory->ptr + host_copy_image_offset(dstImage, dst_offset, region->imageSubresource.baseArrayLayer + layer);
+				memcpy(dst, src, region->imageExtent.width * texel_size);
+			}
+		}
+	}
+}
+
+static void host_copy_image_to_memory_region(const cVkImage* srcImage, const VkImageToMemoryCopy* region)
+{
+	assert(srcImage->memory && srcImage->memory->ptr);
+	assert(region->pHostPointer);
+	assert(region->imageSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
+	assert(region->imageSubresource.mipLevel == 0);
+
+	const VkDeviceSize texel_size = 4;
+	const uint32_t host_row_length = region->memoryRowLength ? region->memoryRowLength : region->imageExtent.width;
+	const uint32_t host_image_height = region->memoryImageHeight ? region->memoryImageHeight : region->imageExtent.height;
+	char* dst_base = reinterpret_cast<char*>(region->pHostPointer);
+	for (uint32_t layer = 0; layer < region->imageSubresource.layerCount; layer++)
+	{
+		for (uint32_t z = 0; z < region->imageExtent.depth; z++)
+		{
+			for (uint32_t y = 0; y < region->imageExtent.height; y++)
+			{
+				VkOffset3D src_offset = {
+					region->imageOffset.x,
+					region->imageOffset.y + static_cast<int32_t>(y),
+					region->imageOffset.z + static_cast<int32_t>(z)
+				};
+				const char* src = srcImage->memory->ptr + host_copy_image_offset(srcImage, src_offset, region->imageSubresource.baseArrayLayer + layer);
+				const VkDeviceSize host_offset =
+					(((layer * region->imageExtent.depth + z) * host_image_height + y) * host_row_length) * texel_size;
+				char* dst = dst_base + host_offset;
+				memcpy(dst, src, region->imageExtent.width * texel_size);
+			}
+		}
+	}
+}
+
+static void host_copy_image_to_image_region(const cVkImage* srcImage, cVkImage* dstImage, const VkImageCopy2* region)
+{
+	assert(srcImage->memory && srcImage->memory->ptr);
+	assert(dstImage->memory && dstImage->memory->ptr);
+	assert(region->srcSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
+	assert(region->dstSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT);
+	assert(region->srcSubresource.mipLevel == 0);
+	assert(region->dstSubresource.mipLevel == 0);
+
+	const VkDeviceSize texel_size = 4;
+	for (uint32_t layer = 0; layer < region->srcSubresource.layerCount; layer++)
+	{
+		for (uint32_t z = 0; z < region->extent.depth; z++)
+		{
+			for (uint32_t y = 0; y < region->extent.height; y++)
+			{
+				VkOffset3D src_offset = {
+					region->srcOffset.x,
+					region->srcOffset.y + static_cast<int32_t>(y),
+					region->srcOffset.z + static_cast<int32_t>(z)
+				};
+				VkOffset3D dst_offset = {
+					region->dstOffset.x,
+					region->dstOffset.y + static_cast<int32_t>(y),
+					region->dstOffset.z + static_cast<int32_t>(z)
+				};
+				const char* src = srcImage->memory->ptr + host_copy_image_offset(srcImage, src_offset, region->srcSubresource.baseArrayLayer + layer);
+				char* dst = dstImage->memory->ptr + host_copy_image_offset(dstImage, dst_offset, region->dstSubresource.baseArrayLayer + layer);
+				memmove(dst, src, region->extent.width * texel_size);
+			}
+		}
+	}
+}
+
+static VkResult commonCopyMemoryToImage(VkDevice device, const VkCopyMemoryToImageInfo* pCopyMemoryToImageInfo)
+{
+	cVkDevice* cdevice = device_cast(device);
+	cVkImage* dstImage = image_cast(pCopyMemoryToImageInfo->dstImage);
+	(void)cdevice;
+	for (uint32_t i = 0; i < pCopyMemoryToImageInfo->regionCount; i++)
+	{
+		host_copy_memory_to_image_region(dstImage, &pCopyMemoryToImageInfo->pRegions[i]);
+	}
+	return VK_SUCCESS;
+}
+
+static VkResult commonCopyImageToMemory(VkDevice device, const VkCopyImageToMemoryInfo* pCopyImageToMemoryInfo)
+{
+	cVkDevice* cdevice = device_cast(device);
+	cVkImage* srcImage = image_cast(pCopyImageToMemoryInfo->srcImage);
+	(void)cdevice;
+	for (uint32_t i = 0; i < pCopyImageToMemoryInfo->regionCount; i++)
+	{
+		host_copy_image_to_memory_region(srcImage, &pCopyImageToMemoryInfo->pRegions[i]);
+	}
+	return VK_SUCCESS;
+}
+
+static VkResult commonCopyImageToImage(VkDevice device, const VkCopyImageToImageInfo* pCopyImageToImageInfo)
+{
+	cVkDevice* cdevice = device_cast(device);
+	cVkImage* srcImage = image_cast(pCopyImageToImageInfo->srcImage);
+	cVkImage* dstImage = image_cast(pCopyImageToImageInfo->dstImage);
+	(void)cdevice;
+	for (uint32_t i = 0; i < pCopyImageToImageInfo->regionCount; i++)
+	{
+		host_copy_image_to_image_region(srcImage, dstImage, &pCopyImageToImageInfo->pRegions[i]);
+	}
+	return VK_SUCCESS;
+}
+
+static VkResult commonTransitionImageLayout(VkDevice device, uint32_t transitionCount, const VkHostImageLayoutTransitionInfo* pTransitions)
+{
+	cVkDevice* cdevice = device_cast(device);
+	(void)cdevice;
+	for (uint32_t i = 0; i < transitionCount; i++)
+	{
+		cVkImage* image = image_cast(pTransitions[i].image);
+		(void)image;
+	}
+	return VK_SUCCESS;
+}
+
 // VK_EXT_host_image_copy
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyMemoryToImageEXT(
@@ -9689,8 +10057,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCopyMemoryToImageEXT(
     const VkCopyMemoryToImageInfoEXT*           pCopyMemoryToImageInfo)
 {
 	ENTRY(vkCopyMemoryToImageEXT);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyMemoryToImage(device, pCopyMemoryToImageInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToMemoryEXT(
@@ -9698,8 +10065,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToMemoryEXT(
     const VkCopyImageToMemoryInfoEXT*           pCopyImageToMemoryInfo)
 {
 	ENTRY(vkCopyImageToMemoryEXT);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyImageToMemory(device, pCopyImageToMemoryInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToImageEXT(
@@ -9707,8 +10073,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToImageEXT(
     const VkCopyImageToImageInfoEXT*            pCopyImageToImageInfo)
 {
 	ENTRY(vkCopyImageToImageEXT);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyImageToImage(device, pCopyImageToImageInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkTransitionImageLayoutEXT(
@@ -9717,8 +10082,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkTransitionImageLayoutEXT(
     const VkHostImageLayoutTransitionInfoEXT*   pTransitions)
 {
 	ENTRY(vkTransitionImageLayoutEXT);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonTransitionImageLayout(device, transitionCount, pTransitions);
 }
 
 // VK_KHR_video_encode_queue
@@ -9978,33 +10342,25 @@ VKAPI_ATTR void VKAPI_CALL vkCmdBindIndexBuffer2(VkCommandBuffer commandBuffer, 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyMemoryToImage(VkDevice device, const VkCopyMemoryToImageInfo* pCopyMemoryToImageInfo)
 {
 	ENTRY(vkCopyMemoryToImage);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyMemoryToImage(device, pCopyMemoryToImageInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToMemory(VkDevice device, const VkCopyImageToMemoryInfo* pCopyImageToMemoryInfo)
 {
 	ENTRY(vkCopyImageToMemory);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyImageToMemory(device, pCopyImageToMemoryInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCopyImageToImage(VkDevice device, const VkCopyImageToImageInfo* pCopyImageToImageInfo)
 {
 	ENTRY(vkCopyImageToImage);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonCopyImageToImage(device, pCopyImageToImageInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkTransitionImageLayout(VkDevice device, uint32_t transitionCount, const VkHostImageLayoutTransitionInfo* pTransitions)
 {
 	ENTRY(vkTransitionImageLayout);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
-	return VK_SUCCESS;
+	return commonTransitionImageLayout(device, transitionCount, pTransitions);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkGetImageSubresourceLayout2(VkDevice device, VkImage image, const VkImageSubresource2* pSubresource, VkSubresourceLayout2* pLayout)

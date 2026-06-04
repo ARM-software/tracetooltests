@@ -11,11 +11,11 @@
 
 ## Build, Test, and Development Commands
 - Loader smoke test:
-  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json CHAMELEON_GPU=$PWD/share/chameleon/devices/Mali-G925 ./build/chameleon_loader_icd_smoketest`
+  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json ./build/chameleon_loader_icd_smoketest`
 - Headless ICD test example:
-  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json CHAMELEON_GPU=$PWD/share/chameleon/devices/Mali-G925 ./build/chameleon_icd_general -v --gpu`
+  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json ./build/chameleon_icd_general -v --gpu`
 - Window ICD test example:
-  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json CHAMELEON_GPU=$PWD/share/chameleon/devices/Mali-G925 xvfb-run -a ./build/chameleon_icd_window_1 -v --gpu`
+  `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json xvfb-run -a ./build/chameleon_icd_window_1 -v --gpu`
 
 ## Testing Guidelines
 - Use `VK_DRIVER_FILES=build/chameleon_icd.json` so the Vulkan loader picks up Chameleon as an ICD.

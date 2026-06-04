@@ -1,0 +1,1 @@
+{ "name": "vulkan_as_populate_instance_buffer", "description": "Populate a buffer with BLAS addresses and copy them with a compute shader" }

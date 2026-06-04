@@ -46,24 +46,6 @@ void destroy_context(const vulkan_setup_t& vulkan, Context& context)
 	context.queue = VK_NULL_HANDLE;
 }
 
-static void destroy_buffer(const vulkan_setup_t& vulkan, acceleration_structures::Buffer& buffer)
-{
-	if (buffer.memory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(vulkan.device, buffer.memory, nullptr);
-		buffer.memory = VK_NULL_HANDLE;
-	}
-
-	if (buffer.handle != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(vulkan.device, buffer.handle, nullptr);
-		buffer.handle = VK_NULL_HANDLE;
-	}
-
-	buffer.address.deviceAddress = 0;
-	buffer.address.hostAddress = nullptr;
-}
-
 static void build_blas(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel,
                        const VkAccelerationStructureGeometryKHR& geometry, uint32_t primitive_count)
 {
@@ -307,12 +289,12 @@ void destroy_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, 
 		accel.tlas.address.deviceAddress = 0;
 	}
 
-	destroy_buffer(vulkan, accel.blas_buffer);
-	destroy_buffer(vulkan, accel.tlas_buffer);
-	destroy_buffer(vulkan, accel.instance_buffer);
-	destroy_buffer(vulkan, accel.geometry_buffer);
-	destroy_buffer(vulkan, accel.index_buffer);
-	destroy_buffer(vulkan, accel.vertex_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.blas_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.tlas_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.instance_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.geometry_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.index_buffer);
+	acceleration_structures::destroy_buffer(vulkan, accel.vertex_buffer);
 }
 
 void destroy_simple_aabb_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel)
@@ -407,7 +389,7 @@ std::vector<uint8_t> readback_storage_image(const vulkan_setup_t& vulkan, Contex
 	memcpy(bytes.data(), mapped, byte_size);
 	vkUnmapMemory(vulkan.device, readback.memory);
 
-	destroy_buffer(vulkan, readback);
+	acceleration_structures::destroy_buffer(vulkan, readback);
 	return bytes;
 }
 } // namespace ray_tracing_common
