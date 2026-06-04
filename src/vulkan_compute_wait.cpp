@@ -64,6 +64,13 @@ struct WaitResources
 	uint64_t frameID = 0;
 };
 
+struct PendingBufferReference
+{
+	VkCommandPool commandPool = VK_NULL_HANDLE;
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	VkFence fence = VK_NULL_HANDLE;
+};
+
 enum class WaitMode
 {
 	None,
@@ -467,6 +474,65 @@ static bool wait_for_fences_loop(const vulkan_setup_t& vulkan, VkFence fence, co
 	}
 }
 
+static PendingBufferReference submit_buffer_reference(const vulkan_setup_t& vulkan, VkQueue queue, VkBuffer buffer)
+{
+	PendingBufferReference pending;
+
+	VkCommandPoolCreateInfo pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr };
+	pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	pool_info.queueFamilyIndex = vulkan.queue_family_index;
+	VkResult result = vkCreateCommandPool(vulkan.device, &pool_info, nullptr, &pending.commandPool);
+	check(result);
+
+	VkCommandBufferAllocateInfo allocate_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr };
+	allocate_info.commandPool = pending.commandPool;
+	allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocate_info.commandBufferCount = 1;
+	result = vkAllocateCommandBuffers(vulkan.device, &allocate_info, &pending.commandBuffer);
+	check(result);
+
+	VkFenceCreateInfo fence_info = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr };
+	result = vkCreateFence(vulkan.device, &fence_info, nullptr, &pending.fence);
+	check(result);
+
+	VkCommandBufferBeginInfo begin_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	result = vkBeginCommandBuffer(pending.commandBuffer, &begin_info);
+	check(result);
+
+	VkBufferMemoryBarrier buffer_barrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER, nullptr };
+	buffer_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+	buffer_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	buffer_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	buffer_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	buffer_barrier.buffer = buffer;
+	buffer_barrier.offset = 0;
+	buffer_barrier.size = VK_WHOLE_SIZE;
+	vkCmdPipelineBarrier(pending.commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1,
+	                     &buffer_barrier, 0, nullptr);
+
+	result = vkEndCommandBuffer(pending.commandBuffer);
+	check(result);
+
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &pending.commandBuffer;
+	result = vkQueueSubmit(queue, 1, &submit_info, pending.fence);
+	check(result);
+	return pending;
+}
+
+static bool wait_destroy_buffer_reference(const vulkan_setup_t& vulkan, PendingBufferReference& pending)
+{
+	if (pending.fence == VK_NULL_HANDLE) return true;
+	const bool success = wait_for_fences_loop(vulkan, pending.fence, "buffer reference fence");
+	vkDestroyFence(vulkan.device, pending.fence, nullptr);
+	vkFreeCommandBuffers(vulkan.device, pending.commandPool, 1, &pending.commandBuffer);
+	vkDestroyCommandPool(vulkan.device, pending.commandPool, nullptr);
+	pending = {};
+	return success;
+}
+
 static bool wait_for_timeline_semaphore(const vulkan_setup_t& vulkan, VkSemaphore semaphore, uint64_t value)
 {
 	VkSemaphoreWaitInfo wait_info = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, nullptr };
@@ -707,12 +773,15 @@ static bool run_wait_case(const vulkan_req_t& reqs, vulkan_setup_t& vulkan, Wait
 	success = wait_for_selected_completion(vulkan, resources, wait_mode, completion_timeline_semaphore, completion_query_index);
 
 	fill_buffer(vulkan, resources.source, kRed);
+	PendingBufferReference source_reference;
 	if (use_timeline_gate)
 	{
+		source_reference = submit_buffer_reference(vulkan, resources.compute.queue, resources.source.buffer);
 		signal_timeline_semaphore(vulkan, timeline_semaphore, 1);
 	}
 
 	if (!wait_for_fences_loop(vulkan, resources.fence, "completion fence")) success = false;
+	if (!wait_destroy_buffer_reference(vulkan, source_reference)) success = false;
 
 	if (reqs.options.count("frame_boundary") && !submit_frame_boundary(vulkan, resources)) success = false;
 	if (success && same_color(expected, kGreen)) success = assert_final_green_buffer(vulkan, resources.target);
