@@ -127,10 +127,10 @@ int main(int argc, char** argv)
 		nullptr
 	};
 	address_info.buffer = descriptor_buffer;
-	VkDeviceAddress descriptor_buffer_address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	VkDeviceAddress descriptor_buffer_address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 
 	address_info.buffer = r.buffer;
-	VkDeviceAddress storage_buffer_address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	VkDeviceAddress storage_buffer_address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 	VkDescriptorAddressInfoEXT storage_buffer_descriptor = {
 		VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT,
 		nullptr

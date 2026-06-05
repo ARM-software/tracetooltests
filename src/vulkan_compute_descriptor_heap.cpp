@@ -282,7 +282,7 @@ int main(int argc, char** argv)
 
 	VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
 	address_info.buffer = r.buffer;
-	VkDeviceAddress storage_buffer_address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	VkDeviceAddress storage_buffer_address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 	assert(storage_buffer_address != 0);
 
 	VkPhysicalDeviceProperties device_props{};

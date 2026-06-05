@@ -51,7 +51,7 @@ TestBuffer create_test_buffer(const vulkan_setup_t& vulkan, const char* name)
 
 	VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
 	address_info.buffer = result.buffer;
-	result.address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	result.address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 	assert(result.address != 0);
 
 	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)result.buffer, name);

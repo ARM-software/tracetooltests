@@ -75,7 +75,7 @@ int main(int argc, char** argv)
 	vkBindBufferMemory(vulkan.device, descriptor_buffer, memory, 0);
 	VkBufferDeviceAddressInfo address_info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	address_info.buffer = descriptor_buffer;
-	VkDeviceAddress descriptor_buffer_address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	VkDeviceAddress descriptor_buffer_address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
 	descriptorSetLayoutBinding.binding = 0;
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 	vkMapMemory(vulkan.device, memory, 0, 1024, 0, &ptr);
 	VkDescriptorAddressInfoEXT daie = { VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT, nullptr };
 	address_info.buffer = r.buffer;
-	VkDeviceAddress storage_buffer_address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	VkDeviceAddress storage_buffer_address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 	daie.address = storage_buffer_address;
 	daie.range = r.buffer_size;
 	VkDescriptorDataEXT dde;

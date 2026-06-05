@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 
 	VkBufferDeviceAddressInfo bdainfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	bdainfo.buffer = r.buffer;
-	VkDeviceAddress address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
+	VkDeviceAddress address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 
 	char* data = nullptr;
 	result = vkMapMemory(vulkan.device, ubo_memory, 0, aligned_buffer_size, 0, (void**)&data);

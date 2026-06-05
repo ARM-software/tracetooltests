@@ -19,7 +19,7 @@ public:
 	using BufferCreateInfoFunc = std::function<void(VkBufferCreateInfo&)>;
 	using AllocationCreateInfoFunc = std::function<void(VkMemoryAllocateInfo&)>;
 
-	Buffer(const vulkan_setup_t& vulkan): m_device(vulkan.device) {
+	Buffer(const vulkan_setup_t& vulkan): m_device(vulkan.device), m_vkGetBufferDeviceAddress(vulkan.vkGetBufferDeviceAddress) {
 		emit_extra_flushes = vulkan.has_explicit_host_updates;
 	}
 
@@ -58,6 +58,7 @@ public:
 
 private:
 	VkDevice m_device;
+	PFN_vkGetBufferDeviceAddress m_vkGetBufferDeviceAddress = nullptr;
 	VkResult create();
 
 	bool emit_extra_flushes = false;

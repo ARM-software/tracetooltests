@@ -121,7 +121,8 @@ VkDeviceAddress Buffer::getBufferDeviceAddress()
 	{
 		VkBufferDeviceAddressInfo address_info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
 		address_info.buffer = m_handle;
-		m_deviceAddress = vkGetBufferDeviceAddress(m_device, &address_info);
+		assert(m_vkGetBufferDeviceAddress);
+		m_deviceAddress = m_vkGetBufferDeviceAddress(m_device, &address_info);
 	}
 	return m_deviceAddress;
 }

@@ -155,7 +155,7 @@ static void copying_1(int argc, char** argv)
 	for (unsigned i = 0; i < num_buffers && reqs.bufferDeviceAddress; i++)
 	{
 		VkBufferDeviceAddressInfo info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr, origin_buffers[i] };
-		VkDeviceAddress a = vkGetBufferDeviceAddress(vulkan.device, &info);
+		VkDeviceAddress a = vulkan.vkGetBufferDeviceAddress(vulkan.device, &info);
 		assert(a != 0);
 	}
 

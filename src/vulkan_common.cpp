@@ -649,6 +649,12 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 			explicit_updates_features.pNext = (void*)deviceInfo.pNext;
 			deviceInfo.pNext = &explicit_updates_features;
 		}
+		else if (reqs.bufferDeviceAddress && strcmp(s.extensionName, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0 &&
+		         vulkan.device_extensions.count(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0)
+		{
+			enabledExtensions.push_back(s.extensionName);
+			vulkan.device_extensions.insert(s.extensionName);
+		}
 
 		for (const auto& str : reqs.device_extensions) if (str == s.extensionName)
 		{
@@ -716,6 +722,14 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (reqs.bufferDeviceAddress)
 	{
 		vulkan.vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(vulkan.device, "vkGetBufferDeviceAddress"));
+		if (!vulkan.vkGetBufferDeviceAddress)
+		{
+			vulkan.vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(vulkan.device, "vkGetBufferDeviceAddressKHR"));
+		}
+		if (!vulkan.vkGetBufferDeviceAddress)
+		{
+			vulkan.vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(vulkan.device, "vkGetBufferDeviceAddressEXT"));
+		}
 		assert(vulkan.vkGetBufferDeviceAddress);
 	}
 

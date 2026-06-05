@@ -158,7 +158,7 @@ int main(int argc, char** argv)
 
 	VkBufferDeviceAddressInfo address_info = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	address_info.buffer = resources.buffer;
-	const VkDeviceAddress address = vkGetBufferDeviceAddress(vulkan.device, &address_info);
+	const VkDeviceAddress address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &address_info);
 	std::vector<VkShaderEXT> shaders = create_shaders(vulkan, resources, reqs, address, pf_vkCreateShadersEXT);
 
 	for (uint32_t frame = 0; frame < p__loops; frame++)

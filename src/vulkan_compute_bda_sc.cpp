@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 
 	VkBufferDeviceAddressInfo bdainfo = { VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr };
 	bdainfo.buffer = r.buffer;
-	VkDeviceAddress address = vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
+	VkDeviceAddress address = vulkan.vkGetBufferDeviceAddress(vulkan.device, &bdainfo);
 	bda_sc_create_pipeline(vulkan, r, reqs, address);
 
 	for (unsigned frame = 0; frame < p__loops; frame++)
