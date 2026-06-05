@@ -563,8 +563,18 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	{
 		VkPhysicalDeviceProperties2 properties { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, nullptr };
 		VkPhysicalDeviceDriverProperties driver_properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, nullptr };
-		vulkan.device_ray_tracing_pipeline_properties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, nullptr};
-		properties.pNext = &vulkan.device_ray_tracing_pipeline_properties;
+		VkBaseOutStructure* pnext = nullptr;
+		for (const std::string& extension : reqs.device_extensions)
+		{
+			if (extension == VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME)
+			{
+				vulkan.device_ray_tracing_pipeline_properties = VkPhysicalDeviceRayTracingPipelinePropertiesKHR{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, nullptr};
+				vulkan.device_ray_tracing_pipeline_properties.pNext = pnext;
+				pnext = reinterpret_cast<VkBaseOutStructure*>(&vulkan.device_ray_tracing_pipeline_properties);
+				break;
+			}
+		}
+		properties.pNext = pnext;
 		if (has_driver_properties)
 		{
 			driver_properties.pNext = properties.pNext;
