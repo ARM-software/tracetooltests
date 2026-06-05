@@ -109,7 +109,7 @@ struct atomicPhysicalDeviceVulkan12Features
 	std::atomic_bool shaderSharedInt64Atomics { false }; // not handled
 	std::atomic_bool shaderFloat16 { false };
 	std::atomic_bool shaderInt8 { false };
-	std::atomic_bool descriptorIndexing { false }; // not handled
+	std::atomic_bool descriptorIndexing { false };
 	std::atomic_bool shaderInputAttachmentArrayDynamicIndexing { false };
 	std::atomic_bool shaderUniformTexelBufferArrayDynamicIndexing { false };
 	std::atomic_bool shaderStorageTexelBufferArrayDynamicIndexing { false };
@@ -120,15 +120,15 @@ struct atomicPhysicalDeviceVulkan12Features
 	std::atomic_bool shaderInputAttachmentArrayNonUniformIndexing { false };
 	std::atomic_bool shaderUniformTexelBufferArrayNonUniformIndexing { false };
 	std::atomic_bool shaderStorageTexelBufferArrayNonUniformIndexing { false };
-	std::atomic_bool descriptorBindingUniformBufferUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingSampledImageUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingStorageImageUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingStorageBufferUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingUniformTexelBufferUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingStorageTexelBufferUpdateAfterBind { false }; // not handled
-	std::atomic_bool descriptorBindingUpdateUnusedWhilePending { false }; // not handled
-	std::atomic_bool descriptorBindingPartiallyBound { false }; // not handled
-	std::atomic_bool descriptorBindingVariableDescriptorCount { false }; // not handled
+	std::atomic_bool descriptorBindingUniformBufferUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingSampledImageUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingStorageImageUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingStorageBufferUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingUniformTexelBufferUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingStorageTexelBufferUpdateAfterBind { false };
+	std::atomic_bool descriptorBindingUpdateUnusedWhilePending { false };
+	std::atomic_bool descriptorBindingPartiallyBound { false };
+	std::atomic_bool descriptorBindingVariableDescriptorCount { false };
 	std::atomic_bool runtimeDescriptorArray { false };
 	std::atomic_bool samplerFilterMinmax { false }; // not handled
 	std::atomic_bool scalarBlockLayout { false }; // not handled
@@ -235,6 +235,7 @@ struct feature_detection
 	std::atomic_bool has_VK_EXT_robustness2 { false };
 	std::atomic_bool has_VK_EXT_shader_viewport_index_layer { false };
 	std::atomic_bool has_VK_EXT_transform_feedback { false };
+	std::atomic_bool has_VK_EXT_descriptor_indexing { false };
 
 	// --- Remove unused feature bits from these structures ---
 	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const;
@@ -294,6 +295,12 @@ VkResult check_vkGetPhysicalDeviceSurfaceCapabilities2KHR(VkPhysicalDevice physi
 VkResult check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCount, const VkSwapchainCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchains);
 VkResult check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain);
 VkResult check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler);
+VkResult check_vkCreateDescriptorSetLayout(VkDevice device, const VkDescriptorSetLayoutCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                           VkDescriptorSetLayout* pSetLayout);
+VkResult check_vkCreateDescriptorPool(VkDevice device, const VkDescriptorPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                      VkDescriptorPool* pDescriptorPool);
+VkResult check_vkAllocateDescriptorSets(VkDevice device, const VkDescriptorSetAllocateInfo* pAllocateInfo, VkDescriptorSet* pDescriptorSets);
+void check_vkGetDescriptorSetLayoutSupport(VkDevice device, const VkDescriptorSetLayoutCreateInfo* pCreateInfo, VkDescriptorSetLayoutSupport* pSupport);
 void check_vkCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, VkFilter filter);
 VkResult vkCreateSamplerYcbcrConversion(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
 VkResult vkCreateSamplerYcbcrConversionKHR(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);

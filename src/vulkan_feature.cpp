@@ -3,6 +3,7 @@
 #include "vulkan_compute_bda_sc.inc"
 #include "vulkan_rayquery.frag.inc"
 #include "vulkan_transform_feedback_vert.inc"
+#include "vulkan_demo_descriptor_indexing_frag.inc"
 
 #include <array>
 #include <cassert>
@@ -768,6 +769,165 @@ static void test_transform_feedback_extension_adjustment()
 	f->has_VK_EXT_transform_feedback.store(false);
 	check_vkCmdDrawIndirectByteCountEXT(VK_NULL_HANDLE, 1, 0, VK_NULL_HANDLE, 0, 0, 16);
 	assert(f->has_VK_EXT_transform_feedback == true);
+}
+
+static void test_descriptor_indexing_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_EXT_descriptor_indexing" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_EXT_descriptor_indexing == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_descriptor_indexing" });
+	assert(exts.empty());
+
+	const char* extname = "VK_EXT_descriptor_indexing";
+	const char* namelist[] = { extname };
+	VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptor_indexing = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, nullptr
+	};
+	descriptor_indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	descriptor_indexing.runtimeDescriptorArray = VK_TRUE;
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &descriptor_indexing };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+
+	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO, nullptr };
+	VkInstanceCreateInfo ici = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, nullptr };
+	ici.pApplicationInfo = &app_info;
+
+	app_info.apiVersion = VK_API_VERSION_1_1;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+	exts.insert("VK_EXT_descriptor_indexing");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	exts = { "VK_EXT_descriptor_indexing" };
+	descriptor_indexing = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, nullptr };
+	descriptor_indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	dci.pNext = &descriptor_indexing;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_descriptor_indexing == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_descriptor_indexing" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_descriptor_indexing" }, false);
+
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_2;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	descriptor_indexing = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, nullptr };
+	descriptor_indexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	dci.pNext = &descriptor_indexing;
+	dci.ppEnabledExtensionNames = nullptr;
+	dci.enabledExtensionCount = 0;
+	check_shader_module_code((const uint32_t*)vulkan_demo_descriptor_indexing_frag_spv,
+	                         long(ceil(vulkan_demo_descriptor_indexing_frag_spv_len / 4.0)) * sizeof(uint32_t),
+	                         9);
+	assert(f->has_VK_EXT_descriptor_indexing == false);
+	std::unordered_set<std::string> no_exts;
+	assert_adjusted_device_create_info(f, dci, no_exts, {}, true);
+
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+	f = reset_detection();
+	app_info.apiVersion = VK_API_VERSION_1_1;
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkDescriptorSetLayoutBinding bindings[2] = {
+		{ 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr },
+		{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr }
+	};
+	VkDescriptorBindingFlags binding_flags[2] = {
+		VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT,
+		VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT
+	};
+	VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT, nullptr, 2, binding_flags
+	};
+	VkDescriptorSetLayoutCreateInfo layout_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, &binding_flags_info,
+		VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+		2, bindings
+	};
+	VkResult result = check_vkCreateDescriptorSetLayout(VK_NULL_HANDLE, &layout_info, nullptr, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+	assert(f->core12.descriptorIndexing == true);
+	assert(f->core12.descriptorBindingStorageBufferUpdateAfterBind == true);
+	assert(f->core12.descriptorBindingSampledImageUpdateAfterBind == true);
+	assert(f->core12.descriptorBindingPartiallyBound == true);
+	assert(f->core12.descriptorBindingVariableDescriptorCount == true);
+
+	VkPhysicalDeviceVulkan12Features feat12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
+	feat12.descriptorIndexing = VK_TRUE;
+	feat12.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+	feat12.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+	feat12.descriptorBindingPartiallyBound = VK_TRUE;
+	feat12.descriptorBindingVariableDescriptorCount = VK_TRUE;
+	auto adjusted = f->adjust_VkPhysicalDeviceVulkan12Features(feat12);
+	assert(adjusted.empty());
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkDescriptorPoolCreateInfo pool_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, nullptr,
+		VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+		1, 0, nullptr
+	};
+	result = check_vkCreateDescriptorPool(VK_NULL_HANDLE, &pool_info, nullptr, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	uint32_t variable_count = 4;
+	VkDescriptorSetVariableDescriptorCountAllocateInfo variable_allocate = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT, nullptr, 1, &variable_count
+	};
+	VkDescriptorSetAllocateInfo allocate_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, &variable_allocate,
+		VK_NULL_HANDLE, 0, nullptr
+	};
+	result = check_vkAllocateDescriptorSets(VK_NULL_HANDLE, &allocate_info, nullptr);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+	assert(f->core12.descriptorBindingVariableDescriptorCount == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkDescriptorSetVariableDescriptorCountLayoutSupport variable_support = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT_EXT, nullptr, 0
+	};
+	VkDescriptorSetLayoutSupport support = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_SUPPORT, &variable_support, VK_FALSE
+	};
+	check_vkGetDescriptorSetLayoutSupport(VK_NULL_HANDLE, &layout_info, &support);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+	assert(f->core12.descriptorBindingVariableDescriptorCount == true);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	VkDescriptorSetLayoutBinding plain_binding = { 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr };
+	VkDescriptorSetLayoutCreateInfo plain_layout_info = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr, 0, 1, &plain_binding
+	};
+	check_vkGetDescriptorSetLayoutSupport(VK_NULL_HANDLE, &plain_layout_info, &support);
+	assert(f->has_VK_EXT_descriptor_indexing == false);
+	assert(f->core12.descriptorBindingVariableDescriptorCount == false);
+
+	f = reset_detection();
+	check_vkCreateInstance(&ici, nullptr, nullptr);
+	check_shader_module_code((const uint32_t*)vulkan_demo_descriptor_indexing_frag_spv,
+	                         long(ceil(vulkan_demo_descriptor_indexing_frag_spv_len / 4.0)) * sizeof(uint32_t),
+	                         7);
+	assert(f->has_VK_EXT_descriptor_indexing == true);
+	assert(f->core12.descriptorIndexing == true);
+	assert(f->core12.shaderSampledImageArrayNonUniformIndexing == true);
 }
 
 static void test_get_physical_device_properties2_extension_adjustment()
@@ -2364,6 +2524,7 @@ int main()
 	test_dynamic_rendering_extension_adjustment();
 	test_synchronization2_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
+	test_descriptor_indexing_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();

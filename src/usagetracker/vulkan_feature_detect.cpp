@@ -225,6 +225,42 @@ static bool uses_pre13_synchronization2()
 	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
 }
 
+static bool uses_pre12_descriptor_indexing()
+{
+	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_2;
+}
+
+static void mark_descriptor_indexing_usage()
+{
+	instance->core12.descriptorIndexing = true;
+	if (uses_pre12_descriptor_indexing()) instance->has_VK_EXT_descriptor_indexing = true;
+}
+
+static bool has_enabled_descriptor_indexing_features(const VkPhysicalDeviceDescriptorIndexingFeatures* features)
+{
+	if (!features) return false;
+	return features->shaderInputAttachmentArrayDynamicIndexing ||
+	       features->shaderUniformTexelBufferArrayDynamicIndexing ||
+	       features->shaderStorageTexelBufferArrayDynamicIndexing ||
+	       features->shaderUniformBufferArrayNonUniformIndexing ||
+	       features->shaderSampledImageArrayNonUniformIndexing ||
+	       features->shaderStorageBufferArrayNonUniformIndexing ||
+	       features->shaderStorageImageArrayNonUniformIndexing ||
+	       features->shaderInputAttachmentArrayNonUniformIndexing ||
+	       features->shaderUniformTexelBufferArrayNonUniformIndexing ||
+	       features->shaderStorageTexelBufferArrayNonUniformIndexing ||
+	       features->descriptorBindingUniformBufferUpdateAfterBind ||
+	       features->descriptorBindingSampledImageUpdateAfterBind ||
+	       features->descriptorBindingStorageImageUpdateAfterBind ||
+	       features->descriptorBindingStorageBufferUpdateAfterBind ||
+	       features->descriptorBindingUniformTexelBufferUpdateAfterBind ||
+	       features->descriptorBindingStorageTexelBufferUpdateAfterBind ||
+	       features->descriptorBindingUpdateUnusedWhilePending ||
+	       features->descriptorBindingPartiallyBound ||
+	       features->descriptorBindingVariableDescriptorCount ||
+	       features->runtimeDescriptorArray;
+}
+
 static bool has_enabled_tensor_features(const VkPhysicalDeviceTensorFeaturesARM* features)
 {
 	if (!features) return false;
@@ -388,6 +424,65 @@ static void mark_line_rasterization_mode_usage(VkLineRasterizationMode mode, VkB
 	}
 }
 
+static void mark_descriptor_update_after_bind_usage(VkDescriptorType type)
+{
+	switch (type)
+	{
+	case VK_DESCRIPTOR_TYPE_SAMPLER:
+	case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+	case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+		instance->core12.descriptorBindingSampledImageUpdateAfterBind = true;
+		break;
+	case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+		instance->core12.descriptorBindingStorageImageUpdateAfterBind = true;
+		break;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+		instance->core12.descriptorBindingUniformTexelBufferUpdateAfterBind = true;
+		break;
+	case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+		instance->core12.descriptorBindingStorageTexelBufferUpdateAfterBind = true;
+		break;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+		instance->core12.descriptorBindingUniformBufferUpdateAfterBind = true;
+		break;
+	case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+		instance->core12.descriptorBindingStorageBufferUpdateAfterBind = true;
+		break;
+	default:
+		break;
+	}
+}
+
+static void mark_descriptor_binding_flag_usage(VkDescriptorType type, VkDescriptorBindingFlags flags)
+{
+	if (flags == 0) return;
+	mark_descriptor_indexing_usage();
+	if (flags & VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT) mark_descriptor_update_after_bind_usage(type);
+	if (flags & VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT) instance->core12.descriptorBindingUpdateUnusedWhilePending = true;
+	if (flags & VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT) instance->core12.descriptorBindingPartiallyBound = true;
+	if (flags & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT) instance->core12.descriptorBindingVariableDescriptorCount = true;
+}
+
+static void mark_descriptor_indexing_layout_usage(const VkDescriptorSetLayoutCreateInfo* info)
+{
+	assert(info && info->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
+	assert(info->bindingCount == 0 || info->pBindings != nullptr);
+
+	if (info->flags & VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT) mark_descriptor_indexing_usage();
+
+	const VkDescriptorSetLayoutBindingFlagsCreateInfo* binding_flags =
+		(const VkDescriptorSetLayoutBindingFlagsCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO);
+	if (!binding_flags) return;
+
+	assert(binding_flags->bindingCount == 0 || binding_flags->pBindingFlags != nullptr);
+	assert(binding_flags->bindingCount == info->bindingCount);
+
+	for (uint32_t i = 0; i < binding_flags->bindingCount; i++)
+	{
+		mark_descriptor_binding_flag_usage(info->pBindings[i].descriptorType, binding_flags->pBindingFlags[i]);
+	}
+}
+
 static bool render_pass_uses_multiview(const VkRenderPassCreateInfo* info)
 {
 	const VkRenderPassMultiviewCreateInfo* multiview = (const VkRenderPassMultiviewCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO);
@@ -487,17 +582,17 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityStoragePushConstant8: instance->core12.storagePushConstant8 = true; break;
 			case SpvCapabilityFloat16: instance->core12.shaderFloat16 = true; break;
 			case SpvCapabilityInt8: instance->core12.shaderInt8 = true; break;
-			case SpvCapabilityInputAttachmentArrayDynamicIndexing: instance->core12.shaderInputAttachmentArrayDynamicIndexing = true; break;
-			case SpvCapabilityUniformTexelBufferArrayDynamicIndexing: instance->core12.shaderUniformTexelBufferArrayDynamicIndexing = true; break;
-			case SpvCapabilityStorageTexelBufferArrayDynamicIndexing: instance->core12.shaderStorageTexelBufferArrayDynamicIndexing = true; break;
-			case SpvCapabilityUniformBufferArrayNonUniformIndexing: instance->core12.shaderUniformBufferArrayNonUniformIndexing = true; break;
-			case SpvCapabilitySampledImageArrayNonUniformIndexing: instance->core12.shaderSampledImageArrayNonUniformIndexing = true; break;
-			case SpvCapabilityStorageBufferArrayNonUniformIndexing: instance->core12.shaderStorageBufferArrayNonUniformIndexing = true; break;
-			case SpvCapabilityStorageImageArrayNonUniformIndexing: instance->core12.shaderStorageImageArrayNonUniformIndexing = true; break;
-			case SpvCapabilityInputAttachmentArrayNonUniformIndexing: instance->core12.shaderInputAttachmentArrayNonUniformIndexing = true; break;
-			case SpvCapabilityUniformTexelBufferArrayNonUniformIndexing: instance->core12.shaderUniformTexelBufferArrayNonUniformIndexing = true; break;
-			case SpvCapabilityStorageTexelBufferArrayNonUniformIndexing: instance->core12.shaderStorageTexelBufferArrayNonUniformIndexing = true; break;
-			case SpvCapabilityRuntimeDescriptorArray: instance->core12.runtimeDescriptorArray = true; break;
+			case SpvCapabilityInputAttachmentArrayDynamicIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderInputAttachmentArrayDynamicIndexing = true; break;
+			case SpvCapabilityUniformTexelBufferArrayDynamicIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderUniformTexelBufferArrayDynamicIndexing = true; break;
+			case SpvCapabilityStorageTexelBufferArrayDynamicIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderStorageTexelBufferArrayDynamicIndexing = true; break;
+			case SpvCapabilityUniformBufferArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderUniformBufferArrayNonUniformIndexing = true; break;
+			case SpvCapabilitySampledImageArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderSampledImageArrayNonUniformIndexing = true; break;
+			case SpvCapabilityStorageBufferArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderStorageBufferArrayNonUniformIndexing = true; break;
+			case SpvCapabilityStorageImageArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderStorageImageArrayNonUniformIndexing = true; break;
+			case SpvCapabilityInputAttachmentArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderInputAttachmentArrayNonUniformIndexing = true; break;
+			case SpvCapabilityUniformTexelBufferArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderUniformTexelBufferArrayNonUniformIndexing = true; break;
+			case SpvCapabilityStorageTexelBufferArrayNonUniformIndexing: mark_descriptor_indexing_usage(); instance->core12.shaderStorageTexelBufferArrayNonUniformIndexing = true; break;
+			case SpvCapabilityRuntimeDescriptorArray: mark_descriptor_indexing_usage(); instance->core12.runtimeDescriptorArray = true; break;
 			case SpvCapabilityVulkanMemoryModel: instance->core12.vulkanMemoryModel = true; break;
 			case SpvCapabilityVulkanMemoryModelDeviceScope: instance->core12.vulkanMemoryModelDeviceScope = true; break;
 			case SpvCapabilityShaderViewportIndex: instance->core12.shaderOutputViewportIndex = true; break;
@@ -632,6 +727,31 @@ static bool preserve_synchronization2_dependency(const std::unordered_set<std::s
 	        (exts.count("VK_ARM_pipeline_opacity_micromap") != 0 && instance->has_VK_ARM_pipeline_opacity_micromap));
 }
 
+static bool descriptor_indexing_features_used(const feature_detection& f)
+{
+	return f.core12.descriptorIndexing ||
+	       f.core12.shaderInputAttachmentArrayDynamicIndexing ||
+	       f.core12.shaderUniformTexelBufferArrayDynamicIndexing ||
+	       f.core12.shaderStorageTexelBufferArrayDynamicIndexing ||
+	       f.core12.shaderUniformBufferArrayNonUniformIndexing ||
+	       f.core12.shaderSampledImageArrayNonUniformIndexing ||
+	       f.core12.shaderStorageBufferArrayNonUniformIndexing ||
+	       f.core12.shaderStorageImageArrayNonUniformIndexing ||
+	       f.core12.shaderInputAttachmentArrayNonUniformIndexing ||
+	       f.core12.shaderUniformTexelBufferArrayNonUniformIndexing ||
+	       f.core12.shaderStorageTexelBufferArrayNonUniformIndexing ||
+	       f.core12.descriptorBindingUniformBufferUpdateAfterBind ||
+	       f.core12.descriptorBindingSampledImageUpdateAfterBind ||
+	       f.core12.descriptorBindingStorageImageUpdateAfterBind ||
+	       f.core12.descriptorBindingStorageBufferUpdateAfterBind ||
+	       f.core12.descriptorBindingUniformTexelBufferUpdateAfterBind ||
+	       f.core12.descriptorBindingStorageTexelBufferUpdateAfterBind ||
+	       f.core12.descriptorBindingUpdateUnusedWhilePending ||
+	       f.core12.descriptorBindingPartiallyBound ||
+	       f.core12.descriptorBindingVariableDescriptorCount ||
+	       f.core12.runtimeDescriptorArray;
+}
+
 std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const
 {
 	std::unordered_set<std::string> found;
@@ -645,6 +765,10 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
+	if (enabled_exts.count("VK_EXT_descriptor_indexing") == 0 && !descriptor_indexing_features_used(*this))
+	{
+		check_prune_device({"VK_EXT_descriptor_indexing"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES, enabled_exts, found);
+	}
 	check_prune_device({"VK_EXT_opacity_micromap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_pipeline_opacity_micromap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
@@ -688,6 +812,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
 	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
 	if (!has_VK_EXT_descriptor_heap) removed.insert(exts.extract("VK_EXT_descriptor_heap"));
+	if (!has_VK_EXT_descriptor_indexing) removed.insert(exts.extract("VK_EXT_descriptor_indexing"));
 	if (!has_VK_EXT_opacity_micromap && !(exts.count("VK_ARM_pipeline_opacity_micromap") != 0 && has_VK_ARM_pipeline_opacity_micromap))
 		removed.insert(exts.extract("VK_EXT_opacity_micromap"));
 	if (!has_VK_ARM_pipeline_opacity_micromap) removed.insert(exts.extract("VK_ARM_pipeline_opacity_micromap"));
@@ -809,6 +934,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 	CHECK_FEATURE12(storagePushConstant8);
 	CHECK_FEATURE12(shaderFloat16);
 	CHECK_FEATURE12(shaderInt8);
+	CHECK_FEATURE12(descriptorIndexing);
 	CHECK_FEATURE12(shaderInputAttachmentArrayDynamicIndexing);
 	CHECK_FEATURE12(shaderUniformTexelBufferArrayDynamicIndexing);
 	CHECK_FEATURE12(shaderStorageTexelBufferArrayDynamicIndexing);
@@ -819,6 +945,15 @@ std::unordered_set<std::string> feature_detection::adjust_VkPhysicalDeviceVulkan
 	CHECK_FEATURE12(shaderInputAttachmentArrayNonUniformIndexing);
 	CHECK_FEATURE12(shaderUniformTexelBufferArrayNonUniformIndexing);
 	CHECK_FEATURE12(shaderStorageTexelBufferArrayNonUniformIndexing);
+	CHECK_FEATURE12(descriptorBindingUniformBufferUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingSampledImageUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingStorageImageUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingStorageBufferUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingUniformTexelBufferUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingStorageTexelBufferUpdateAfterBind);
+	CHECK_FEATURE12(descriptorBindingUpdateUnusedWhilePending);
+	CHECK_FEATURE12(descriptorBindingPartiallyBound);
+	CHECK_FEATURE12(descriptorBindingVariableDescriptorCount);
 	CHECK_FEATURE12(runtimeDescriptorArray);
 	CHECK_FEATURE12(vulkanMemoryModel);
 	CHECK_FEATURE12(vulkanMemoryModelDeviceScope);
@@ -986,6 +1121,10 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceDescriptorHeapFeaturesEXT* pddhf = (VkPhysicalDeviceDescriptorHeapFeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT);
 	if (pddhf && pddhf->descriptorHeap) instance->has_VK_EXT_descriptor_heap = true;
 
+	const VkPhysicalDeviceDescriptorIndexingFeatures* pddif =
+		(const VkPhysicalDeviceDescriptorIndexingFeatures*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES);
+	if (has_enabled_descriptor_indexing_features(pddif) && uses_pre12_descriptor_indexing()) instance->has_VK_EXT_descriptor_indexing = true;
+
 	// Older SDKs expose the robustness2 feature struct only through the EXT alias
 	const VkPhysicalDeviceRobustness2FeaturesEXT* pdr2f = (VkPhysicalDeviceRobustness2FeaturesEXT*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT);
 	if (pdr2f && (pdr2f->robustBufferAccess2 || pdr2f->robustImageAccess2 || pdr2f->nullDescriptor))
@@ -1141,6 +1280,41 @@ VkResult check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCrea
 		instance->core12.samplerMirrorClampToEdge = true;
 	if (pCreateInfo->magFilter == VK_FILTER_CUBIC_EXT || pCreateInfo->minFilter == VK_FILTER_CUBIC_EXT) instance->has_VK_IMG_filter_cubic = true;
 	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateDescriptorSetLayout(VkDevice device, const VkDescriptorSetLayoutCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                           VkDescriptorSetLayout* pSetLayout)
+{
+	mark_descriptor_indexing_layout_usage(pCreateInfo);
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateDescriptorPool(VkDevice device, const VkDescriptorPoolCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator,
+                                      VkDescriptorPool* pDescriptorPool)
+{
+	assert(pCreateInfo && pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+	if (pCreateInfo->flags & VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT) mark_descriptor_indexing_usage();
+	return VK_SUCCESS;
+}
+
+VkResult check_vkAllocateDescriptorSets(VkDevice device, const VkDescriptorSetAllocateInfo* pAllocateInfo, VkDescriptorSet* pDescriptorSets)
+{
+	assert(pAllocateInfo && pAllocateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
+	const VkDescriptorSetVariableDescriptorCountAllocateInfo* variable_count =
+		(const VkDescriptorSetVariableDescriptorCountAllocateInfo*)get_extension(
+			pAllocateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO);
+	if (variable_count)
+	{
+		assert(variable_count->descriptorSetCount == 0 || variable_count->pDescriptorCounts != nullptr);
+		instance->core12.descriptorBindingVariableDescriptorCount = true;
+		mark_descriptor_indexing_usage();
+	}
+	return VK_SUCCESS;
+}
+
+void check_vkGetDescriptorSetLayoutSupport(VkDevice device, const VkDescriptorSetLayoutCreateInfo* pCreateInfo, VkDescriptorSetLayoutSupport* pSupport)
+{
+	mark_descriptor_indexing_layout_usage(pCreateInfo);
 }
 
 void check_vkCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, VkFilter filter)
