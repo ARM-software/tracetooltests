@@ -711,26 +711,6 @@ static void test_transform_feedback_extension_adjustment()
 	assert(exts.empty());
 	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_transform_feedback" }, false);
 
-	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &tf_features };
-	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
-	assert(f->has_VK_EXT_transform_feedback == true);
-
-	f->has_VK_EXT_transform_feedback.store(false);
-	check_vkGetPhysicalDeviceFeatures2KHR(VK_NULL_HANDLE, &features2);
-	assert(f->has_VK_EXT_transform_feedback == true);
-
-	f->has_VK_EXT_transform_feedback.store(false);
-	VkPhysicalDeviceTransformFeedbackPropertiesEXT tf_properties = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT, nullptr
-	};
-	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tf_properties };
-	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
-	assert(f->has_VK_EXT_transform_feedback == true);
-
-	f->has_VK_EXT_transform_feedback.store(false);
-	check_vkGetPhysicalDeviceProperties2KHR(VK_NULL_HANDLE, &properties2);
-	assert(f->has_VK_EXT_transform_feedback == true);
-
 	f = reset_detection();
 	VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, nullptr };
 	buffer_info.size = 64;
@@ -1688,33 +1668,6 @@ static void test_opacity_micromap_detection()
 
 	f = reset_detection();
 
-	VkPhysicalDeviceOpacityMicromapFeaturesEXT micromap_features = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT, nullptr, VK_FALSE, VK_FALSE, VK_FALSE
-	};
-	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &micromap_features };
-	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
-	assert(f->has_VK_EXT_opacity_micromap == true);
-
-	f = reset_detection();
-
-	VkPhysicalDevicePipelineOpacityMicromapFeaturesARM pipeline_micromap_features = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, nullptr, VK_FALSE
-	};
-	features2.pNext = &pipeline_micromap_features;
-	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
-	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
-
-	f = reset_detection();
-
-	VkPhysicalDeviceOpacityMicromapPropertiesEXT micromap_properties = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT, nullptr, 0, 0
-	};
-	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &micromap_properties };
-	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
-	assert(f->has_VK_EXT_opacity_micromap == true);
-
-	f = reset_detection();
-
 	VkMicromapUsageEXT usage = { 1, 0, VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT };
 	VkMicromapTriangleEXT triangle = { 0, 0, VK_OPACITY_MICROMAP_FORMAT_2_STATE_EXT };
 	VkMicromapBuildInfoEXT build_info = { VK_STRUCTURE_TYPE_MICROMAP_BUILD_INFO_EXT, nullptr };
@@ -1987,36 +1940,6 @@ static void test_tensor_extension_adjustment()
 	assert_adjusted_device_create_info(f, dci, exts, { "VK_ARM_tensors" }, false);
 
 	f = reset_detection();
-	VkPhysicalDeviceDescriptorBufferTensorFeaturesARM query_descriptor_buffer_tensor_features = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, nullptr, VK_FALSE
-	};
-	VkPhysicalDeviceTensorFeaturesARM query_tensor_features = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, &query_descriptor_buffer_tensor_features
-	};
-	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &query_tensor_features };
-	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
-	assert(f->has_VK_ARM_tensors == true);
-
-	f->has_VK_ARM_tensors.store(false);
-	VkPhysicalDeviceDescriptorBufferTensorPropertiesARM descriptor_buffer_tensor_properties = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM, nullptr
-	};
-	VkPhysicalDeviceTensorPropertiesARM tensor_properties = {
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM, &descriptor_buffer_tensor_properties
-	};
-	VkPhysicalDeviceProperties2 properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &tensor_properties };
-	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
-	assert(f->has_VK_ARM_tensors == true);
-
-	f->has_VK_ARM_tensors.store(false);
-	VkTensorFormatPropertiesARM tensor_format_properties = {
-		VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM, nullptr
-	};
-	VkFormatProperties2 format_properties = { VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, &tensor_format_properties };
-	check_vkGetPhysicalDeviceFormatProperties2(VK_NULL_HANDLE, VK_FORMAT_R8_UINT, &format_properties);
-	assert(f->has_VK_ARM_tensors == true);
-
-	f->has_VK_ARM_tensors.store(false);
 	VkExternalMemoryTensorCreateInfoARM external_tensor_info = {
 		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_TENSOR_CREATE_INFO_ARM, nullptr, VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
 	};

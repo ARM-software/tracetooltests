@@ -1065,51 +1065,19 @@ void check_vkCmdEndRenderPass2KHR(VkCommandBuffer commandBuffer, const VkSubpass
 	instance->has_VK_KHR_create_renderpass2 = true;
 }
 
-void check_vkGetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
-{
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM)) instance->has_VK_ARM_pipeline_opacity_micromap = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
-}
-
-void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures)
+void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR* pFeatures)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_FEATURES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM)) instance->has_VK_ARM_pipeline_opacity_micromap = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT)) instance->has_VK_EXT_transform_feedback = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
-	if (get_extension(pFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
-void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
-{
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
-}
-
-void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
+void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2KHR* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_OPACITY_MICROMAP_PROPERTIES_EXT)) instance->has_VK_EXT_opacity_micromap = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_PROPERTIES_EXT)) instance->has_VK_EXT_transform_feedback = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
-	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
-}
-
-void check_vkGetPhysicalDeviceFormatProperties2(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
-{
-	if (get_extension(pFormatProperties, VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
-	if (get_extension(pFormatProperties, VK_STRUCTURE_TYPE_TENSOR_FORMAT_PROPERTIES_ARM)) instance->has_VK_ARM_tensors = true;
 }
 
 VkResult check_vkGetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2* pImageFormatInfo,

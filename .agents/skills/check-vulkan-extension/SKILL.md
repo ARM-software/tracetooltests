@@ -19,3 +19,7 @@ metadata:
    $vulkan-extension-detection to add this if missing.
 7. For any modified test, run the test with `VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump` environment variable set to verify that
    the expected changes actually got executed.
+
+Special notes:
+- Calls into `vkGetPhysicalDeviceFeatures2`, `vkGetPhysicalDeviceProperties2` or `vkGetPhysicalDeviceFormatProperties2` (or their
+  KHR variants) should not be considered evidence of usage. These are just capability queries.
