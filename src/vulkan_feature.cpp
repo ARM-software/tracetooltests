@@ -1617,6 +1617,57 @@ static void test_opacity_micromap_acceleration_structure_dependency()
 	assert(as_features.pNext == &micromap_features);
 }
 
+static void test_pipeline_opacity_micromap_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_pipeline_opacity_micromap" };
+	assert_removed_device_extensions(f, exts, { "VK_ARM_pipeline_opacity_micromap" });
+	assert(exts.empty());
+
+	exts.insert("VK_ARM_pipeline_opacity_micromap");
+	const char* names[] = { "VK_ARM_pipeline_opacity_micromap" };
+	VkPhysicalDevicePipelineOpacityMicromapFeaturesARM features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	dci.ppEnabledExtensionNames = names;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_pipeline_opacity_micromap" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_ARM_pipeline_opacity_micromap" }, false);
+}
+
+static void test_pipeline_opacity_micromap_dependency()
+{
+	feature_detection* f = reset_detection();
+
+	VkPipelineCreateFlags2CreateInfo flags2 = {
+		VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO, nullptr,
+		VK_PIPELINE_CREATE_2_DISALLOW_OPACITY_MICROMAP_BIT_ARM
+	};
+	VkComputePipelineCreateInfo pipeline_info = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, &flags2 };
+	check_vkCreateComputePipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
+
+	std::unordered_set<std::string> exts = {
+		"VK_KHR_acceleration_structure",
+		"VK_KHR_synchronization2",
+		"VK_EXT_opacity_micromap",
+		"VK_ARM_pipeline_opacity_micromap"
+	};
+	assert_removed_device_extensions(f, exts, {});
+	assert_string_set_equals(exts, {
+		"VK_KHR_acceleration_structure",
+		"VK_KHR_synchronization2",
+		"VK_EXT_opacity_micromap",
+		"VK_ARM_pipeline_opacity_micromap"
+	});
+}
+
 static void test_opacity_micromap_detection()
 {
 	feature_detection* f = reset_detection();
@@ -1643,6 +1694,15 @@ static void test_opacity_micromap_detection()
 	VkPhysicalDeviceFeatures2 features2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &micromap_features };
 	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
 	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkPhysicalDevicePipelineOpacityMicromapFeaturesARM pipeline_micromap_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, nullptr, VK_FALSE
+	};
+	features2.pNext = &pipeline_micromap_features;
+	check_vkGetPhysicalDeviceFeatures2(VK_NULL_HANDLE, &features2);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
 
 	f = reset_detection();
 
@@ -1789,6 +1849,29 @@ static void test_opacity_micromap_detection()
 	pipeline_info.flags = VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT;
 	check_vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
 	assert(f->has_VK_EXT_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkPipelineCreateFlags2CreateInfo flags2 = {
+		VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO, nullptr,
+		VK_PIPELINE_CREATE_2_DISALLOW_OPACITY_MICROMAP_BIT_ARM
+	};
+	VkGraphicsPipelineCreateInfo graphics_pipeline_info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &flags2 };
+	check_vkCreateGraphicsPipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &graphics_pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
+
+	f = reset_detection();
+
+	VkComputePipelineCreateInfo compute_pipeline_info = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, &flags2 };
+	check_vkCreateComputePipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &compute_pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
+
+	f = reset_detection();
+
+	pipeline_info.flags = 0;
+	pipeline_info.pNext = &flags2;
+	check_vkCreateRayTracingPipelinesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_pipeline_opacity_micromap == true);
 
 	f = reset_detection();
 
@@ -2359,6 +2442,8 @@ int main()
 	test_ray_tracing_maintenance1_acceleration_structure_dependency();
 	test_opacity_micromap_extension_adjustment();
 	test_opacity_micromap_acceleration_structure_dependency();
+	test_pipeline_opacity_micromap_extension_adjustment();
+	test_pipeline_opacity_micromap_dependency();
 	test_maintenance1_detection();
 	test_opacity_micromap_detection();
 	test_ray_tracing_pipeline_detection();

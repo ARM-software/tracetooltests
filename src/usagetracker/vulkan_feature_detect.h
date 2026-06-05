@@ -231,6 +231,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_robustness2 { false };
 	std::atomic_bool has_VK_EXT_descriptor_heap { false };
 	std::atomic_bool has_VK_EXT_opacity_micromap { false };
+	std::atomic_bool has_VK_ARM_pipeline_opacity_micromap { false };
 	std::atomic_bool has_VK_EXT_robustness2 { false };
 	std::atomic_bool has_VK_EXT_shader_viewport_index_layer { false };
 	std::atomic_bool has_VK_EXT_transform_feedback { false };
