@@ -1521,7 +1521,27 @@ static void test_ray_tracing_pipeline_detection()
 	f = reset_detection();
 
 	VkStridedDeviceAddressRegionKHR region{};
+	check_vkCmdTraceRaysKHR(VK_NULL_HANDLE, &region, &region, &region, &region, 1, 1, 1);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
 	check_vkCmdTraceRaysIndirectKHR(VK_NULL_HANDLE, &region, &region, &region, &region, 0);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	check_vkGetRayTracingShaderGroupHandlesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 1, 0, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	check_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, 1, 0, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+
+	f = reset_detection();
+
+	check_vkGetRayTracingShaderGroupStackSizeKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 0, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
 	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
 
 	f = reset_detection();
@@ -1545,6 +1565,7 @@ static void test_ray_tracing_pipeline_detection()
 	};
 	check_shader_module_code(primitive_culling_spirv, sizeof(primitive_culling_spirv), 9);
 	assert(f->has_VK_KHR_ray_tracing_pipeline == true);
+	assert(f->has_VK_KHR_ray_query == true);
 }
 
 static void test_opacity_micromap_extension_adjustment()

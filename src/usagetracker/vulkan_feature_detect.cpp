@@ -1396,9 +1396,40 @@ void check_vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, ui
 	}
 }
 
-void check_vkCmdTraceRaysIndirectKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, VkDeviceAddress indirectDeviceAddress)
+VkResult check_vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize,
+                                                    void* pData)
 {
 	instance->has_VK_KHR_ray_tracing_pipeline = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount,
+                                                                 size_t dataSize, void* pData)
+{
+	instance->has_VK_KHR_ray_tracing_pipeline = true;
+	return VK_SUCCESS;
+}
+
+void check_vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth)
+{
+	instance->has_VK_KHR_ray_tracing_pipeline = true;
+}
+
+void check_vkCmdTraceRaysIndirectKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable,
+                                     const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable,
+                                     const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable,
+                                     const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, VkDeviceAddress indirectDeviceAddress)
+{
+	instance->has_VK_KHR_ray_tracing_pipeline = true;
+}
+
+VkDeviceSize check_vkGetRayTracingShaderGroupStackSizeKHR(VkDevice device, VkPipeline pipeline, uint32_t group, VkShaderGroupShaderKHR groupShader)
+{
+	instance->has_VK_KHR_ray_tracing_pipeline = true;
+	return 0;
 }
 
 void check_vkCmdSetRayTracingPipelineStackSizeKHR(VkCommandBuffer commandBuffer, uint32_t pipelineStackSize)
