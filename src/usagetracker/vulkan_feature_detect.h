@@ -225,6 +225,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_synchronization2 { false };
 	std::atomic_bool has_VK_KHR_acceleration_structure { false };
 	std::atomic_bool has_VK_KHR_ray_query { false };
+	std::atomic_bool has_VK_ARM_shader_core_properties { false };
 	std::atomic_bool has_VK_ARM_tensors { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_pipeline { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_maintenance1 { false };
@@ -280,6 +281,7 @@ void check_vkCmdNextSubpass2KHR(VkCommandBuffer commandBuffer, const VkSubpassBe
 void check_vkCmdEndRenderPass2(VkCommandBuffer commandBuffer, const VkSubpassEndInfo* pSubpassEndInfo);
 void check_vkCmdEndRenderPass2KHR(VkCommandBuffer commandBuffer, const VkSubpassEndInfo* pSubpassEndInfo);
 void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2* pFeatures);
+void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties);
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties);
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties);
 VkResult check_vkGetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2* pImageFormatInfo,

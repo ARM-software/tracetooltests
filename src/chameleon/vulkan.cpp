@@ -550,6 +550,22 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR] = { property, property_size };
 	}
 
+	if (propertiesRoot.isMember("VkPhysicalDeviceShaderCorePropertiesARM"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceShaderCorePropertiesARM"];
+		size_t property_size = sizeof(VkPhysicalDeviceShaderCorePropertiesARM);
+		VkPhysicalDeviceShaderCorePropertiesARM* property =
+			reinterpret_cast<VkPhysicalDeviceShaderCorePropertiesARM*>(malloc(property_size));
+		*property = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM,
+			nullptr,
+			root["pixelRate"].asUInt(),
+			root["texelRate"].asUInt(),
+			root["fmaRate"].asUInt()
+		};
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM] = { property, property_size };
+	}
+
 	if (propertiesRoot.isMember("VkPhysicalDeviceTensorPropertiesARM"))
 	{
 		const Json::Value& root = propertiesRoot["VkPhysicalDeviceTensorPropertiesARM"];

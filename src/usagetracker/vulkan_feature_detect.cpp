@@ -807,6 +807,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
 	if (!has_VK_KHR_acceleration_structure && !preserve_acceleration_structure) removed.insert(exts.extract("VK_KHR_acceleration_structure"));
 	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
+	if (!has_VK_ARM_shader_core_properties) removed.insert(exts.extract("VK_ARM_shader_core_properties"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
@@ -1209,9 +1210,17 @@ void check_vkGetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPh
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
 }
 
+void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2* pProperties)
+{
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM))
+		instance->has_VK_ARM_shader_core_properties = true;
+}
+
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2KHR* pProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM))
+		instance->has_VK_ARM_shader_core_properties = true;
 }
 
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)

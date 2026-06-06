@@ -989,6 +989,36 @@ static void test_get_physical_device_properties2_extension_adjustment()
 	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
 }
 
+static void test_shader_core_properties_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_shader_core_properties" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_ARM_shader_core_properties == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_shader_core_properties" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceShaderCorePropertiesARM shader_core_properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM, nullptr
+	};
+	VkPhysicalDeviceProperties2 properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &shader_core_properties
+	};
+
+	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties);
+	assert(f->has_VK_ARM_shader_core_properties == true);
+
+	exts.insert("VK_ARM_shader_core_properties");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f->has_VK_ARM_shader_core_properties.store(false);
+	check_vkGetPhysicalDeviceProperties2KHR(VK_NULL_HANDLE, &properties);
+	assert(f->has_VK_ARM_shader_core_properties == true);
+	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
+}
+
 static void test_external_fence_capabilities_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2526,6 +2556,7 @@ int main()
 	test_transform_feedback_extension_adjustment();
 	test_descriptor_indexing_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
+	test_shader_core_properties_extension_adjustment();
 	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
