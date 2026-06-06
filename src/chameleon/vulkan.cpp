@@ -566,6 +566,16 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM] = { property, property_size };
 	}
 
+	if (propertiesRoot.isMember("VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM"];
+		size_t property_size = sizeof(VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM);
+		VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM* property =
+			reinterpret_cast<VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM*>(malloc(property_size));
+		readVkPhysicalDeviceShaderCoreBuiltinsPropertiesARM(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_PROPERTIES_ARM] = { property, property_size };
+	}
+
 	if (propertiesRoot.isMember("VkPhysicalDeviceTensorPropertiesARM"))
 	{
 		const Json::Value& root = propertiesRoot["VkPhysicalDeviceTensorPropertiesARM"];

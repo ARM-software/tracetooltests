@@ -1019,6 +1019,50 @@ static void test_shader_core_properties_extension_adjustment()
 	assert(f->has_VK_KHR_get_physical_device_properties2 == true);
 }
 
+static void test_shader_core_builtins_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_shader_core_builtins" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_ARM_shader_core_builtins == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_shader_core_builtins" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceShaderCoreBuiltinsFeaturesARM shader_core_builtins_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = {
+		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &shader_core_builtins_features
+	};
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_ARM_shader_core_builtins == true);
+
+	exts.insert("VK_ARM_shader_core_builtins");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	exts = { "VK_ARM_shader_core_builtins" };
+	const uint32_t core_builtins_spirv[] = {
+		SpvMagicNumber,
+		0x00010000,
+		0,
+		3,
+		0,
+		(uint32_t(2) << 16) | SpvOpCapability,
+		SpvCapabilityCoreBuiltinsARM,
+		(uint32_t(3) << 16) | SpvOpMemoryModel,
+		SpvAddressingModelLogical,
+		SpvMemoryModelGLSL450
+	};
+	check_shader_module_code(core_builtins_spirv, sizeof(core_builtins_spirv), 10);
+	assert(f->has_VK_ARM_shader_core_builtins == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_external_fence_capabilities_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2557,6 +2601,7 @@ int main()
 	test_descriptor_indexing_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();
 	test_shader_core_properties_extension_adjustment();
+	test_shader_core_builtins_extension_adjustment();
 	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();

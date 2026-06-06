@@ -226,6 +226,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_acceleration_structure { false };
 	std::atomic_bool has_VK_KHR_ray_query { false };
 	std::atomic_bool has_VK_ARM_shader_core_properties { false };
+	std::atomic_bool has_VK_ARM_shader_core_builtins { false };
 	std::atomic_bool has_VK_ARM_tensors { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_pipeline { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_maintenance1 { false };

@@ -574,6 +574,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 				instance->has_VK_KHR_ray_tracing_pipeline = true;
 				instance->has_VK_KHR_ray_query = true;
 				break;
+			case SpvCapabilityCoreBuiltinsARM: instance->has_VK_ARM_shader_core_builtins = true; break;
 			case SpvCapabilityTensorsARM: instance->has_VK_ARM_tensors = true; break;
 			case SpvCapabilityStorageTensorArrayDynamicIndexingARM: instance->has_VK_ARM_tensors = true; break;
 			case SpvCapabilityStorageTensorArrayNonUniformIndexingARM: instance->has_VK_ARM_tensors = true; break;
@@ -773,6 +774,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_ARM_pipeline_opacity_micromap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, enabled_exts, found);
 	return found;
@@ -808,6 +810,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_acceleration_structure && !preserve_acceleration_structure) removed.insert(exts.extract("VK_KHR_acceleration_structure"));
 	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
 	if (!has_VK_ARM_shader_core_properties) removed.insert(exts.extract("VK_ARM_shader_core_properties"));
+	if (!has_VK_ARM_shader_core_builtins) removed.insert(exts.extract("VK_ARM_shader_core_builtins"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
@@ -1113,6 +1116,11 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceTensorFeaturesARM* pdtf =
 		(const VkPhysicalDeviceTensorFeaturesARM*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM);
 	if (has_enabled_tensor_features(pdtf)) instance->has_VK_ARM_tensors = true;
+
+	const VkPhysicalDeviceShaderCoreBuiltinsFeaturesARM* pdscbf =
+		(const VkPhysicalDeviceShaderCoreBuiltinsFeaturesARM*)get_extension(
+			pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM);
+	if (pdscbf && pdscbf->shaderCoreBuiltins) instance->has_VK_ARM_shader_core_builtins = true;
 
 	const VkPhysicalDeviceDescriptorBufferTensorFeaturesARM* pddbtf =
 		(const VkPhysicalDeviceDescriptorBufferTensorFeaturesARM*)get_extension(
