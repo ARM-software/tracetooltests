@@ -328,7 +328,7 @@ void compute_done(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& re
 	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
 }
 
-void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs, uint32_t pipeline_flags)
+void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& reqs, VkPipelineCreateFlags2 pipeline_flags)
 {
 	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, nullptr };
 	createInfo.pCode = r.code.data();
@@ -375,13 +375,23 @@ void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulka
 	VkComputePipelineCreateInfo pipelineCreateInfo = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, nullptr };
 	pipelineCreateInfo.stage = shaderStageCreateInfo;
 	pipelineCreateInfo.layout = r.pipelineLayout;
-	pipelineCreateInfo.flags = pipeline_flags;
+	const bool uses_flags2 = (pipeline_flags & ~VkPipelineCreateFlags2(UINT32_MAX)) != 0;
+	if (!uses_flags2)
+	{
+		pipelineCreateInfo.flags = static_cast<VkPipelineCreateFlags>(pipeline_flags);
+	}
 
 	VkPipelineCreationFeedback creationfeedback = { 0, 0 };
 	VkPipelineCreationFeedbackCreateInfo feedinfo = { VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO, nullptr, &creationfeedback, 0, nullptr };
 	if (reqs.apiVersion == VK_API_VERSION_1_3)
 	{
 		pipelineCreateInfo.pNext = &feedinfo;
+	}
+	VkPipelineCreateFlags2CreateInfo flags2 = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO, nullptr, pipeline_flags };
+	if (uses_flags2)
+	{
+		flags2.pNext = pipelineCreateInfo.pNext;
+		pipelineCreateInfo.pNext = &flags2;
 	}
 
 	if (reqs.options.count("pipelinecache"))
@@ -406,7 +416,14 @@ void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulka
 	if (reqs.options.count("allow_compile_required") && (result == VK_PIPELINE_COMPILE_REQUIRED || result == VK_PIPELINE_COMPILE_REQUIRED_EXT))
 	{
 		printf("Pipeline compile required, retrying without FAIL_ON flag\n");
-		pipelineCreateInfo.flags &= ~VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT;
+		if (uses_flags2)
+		{
+			flags2.flags &= ~VK_PIPELINE_CREATE_2_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT;
+		}
+		else
+		{
+			pipelineCreateInfo.flags &= ~VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT;
+		}
 		result = vkCreateComputePipelines(vulkan.device, r.cache, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
 	}
 	if (reqs.options.count("allow_compile_required") && (result == VK_PIPELINE_COMPILE_REQUIRED || result == VK_PIPELINE_COMPILE_REQUIRED_EXT))
