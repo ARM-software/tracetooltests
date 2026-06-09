@@ -90,6 +90,13 @@ static bool pipeline_flags2_uses_pipeline_opacity_micromap(const void* pNext)
 	return flags2 && (flags2->flags & VK_PIPELINE_CREATE_2_DISALLOW_OPACITY_MICROMAP_BIT_ARM) != 0;
 }
 
+static bool pipeline_flags2_uses_shader_instrumentation(const void* pNext)
+{
+	const VkPipelineCreateFlags2CreateInfo* flags2 =
+		(const VkPipelineCreateFlags2CreateInfo*)get_extension(pNext, VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO);
+	return flags2 && (flags2->flags & VK_PIPELINE_CREATE_2_INSTRUMENT_SHADERS_BIT_ARM) != 0;
+}
+
 inline bool is_ray_tracing_maintenance1_token_type(VkIndirectCommandsTokenTypeEXT type)
 {
 	return type == VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
@@ -775,6 +782,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
+	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, enabled_exts, found);
 	return found;
@@ -811,6 +819,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
 	if (!has_VK_ARM_shader_core_properties) removed.insert(exts.extract("VK_ARM_shader_core_properties"));
 	if (!has_VK_ARM_shader_core_builtins) removed.insert(exts.extract("VK_ARM_shader_core_builtins"));
+	if (!has_VK_ARM_shader_instrumentation) removed.insert(exts.extract("VK_ARM_shader_instrumentation"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
@@ -1031,6 +1040,7 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 		if (rendering_info && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 		if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT) instance->has_VK_EXT_opacity_micromap = true;
 		if (pipeline_flags2_uses_pipeline_opacity_micromap(pCreateInfos[i].pNext)) instance->has_VK_ARM_pipeline_opacity_micromap = true;
+		if (pipeline_flags2_uses_shader_instrumentation(pCreateInfos[i].pNext)) instance->has_VK_ARM_shader_instrumentation = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->depthBiasClamp != 0.0) instance->core10.depthBiasClamp = true;
 		if (pCreateInfos[i].pRasterizationState && pCreateInfos[i].pRasterizationState->lineWidth != 1.0) instance->core10.wideLines = true;
 		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
@@ -1051,6 +1061,7 @@ VkResult check_vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelin
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
 		if (pipeline_flags2_uses_pipeline_opacity_micromap(pCreateInfos[i].pNext)) instance->has_VK_ARM_pipeline_opacity_micromap = true;
+		if (pipeline_flags2_uses_shader_instrumentation(pCreateInfos[i].pNext)) instance->has_VK_ARM_shader_instrumentation = true;
 		struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].stage);
 	}
 	return VK_SUCCESS;
@@ -1063,10 +1074,21 @@ VkResult check_vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperati
 	{
 		if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_RAY_TRACING_OPACITY_MICROMAP_BIT_EXT) instance->has_VK_EXT_opacity_micromap = true;
 		if (pipeline_flags2_uses_pipeline_opacity_micromap(pCreateInfos[i].pNext)) instance->has_VK_ARM_pipeline_opacity_micromap = true;
+		if (pipeline_flags2_uses_shader_instrumentation(pCreateInfos[i].pNext)) instance->has_VK_ARM_shader_instrumentation = true;
 		for (uint32_t stage_index = 0; stage_index < pCreateInfos[i].stageCount; stage_index++)
 		{
 			struct_check_VkPipelineShaderStageCreateInfo(&pCreateInfos[i].pStages[stage_index]);
 		}
+	}
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateShadersEXT(VkDevice device, uint32_t createInfoCount, const VkShaderCreateInfoEXT* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkShaderEXT* pShaders)
+{
+	assert(createInfoCount == 0 || pCreateInfos != nullptr);
+	for (uint32_t i = 0; i < createInfoCount; i++)
+	{
+		if (pCreateInfos[i].flags & VK_SHADER_CREATE_INSTRUMENT_SHADER_BIT_ARM) instance->has_VK_ARM_shader_instrumentation = true;
 	}
 	return VK_SUCCESS;
 }
@@ -1149,6 +1171,47 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	return VK_SUCCESS;
 }
 
+VkResult check_vkEnumeratePhysicalDeviceShaderInstrumentationMetricsARM(VkPhysicalDevice physicalDevice, uint32_t* pDescriptionCount,
+                                                                        VkShaderInstrumentationMetricDescriptionARM* pDescriptions)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateShaderInstrumentationARM(VkDevice device, const VkShaderInstrumentationCreateInfoARM* pCreateInfo,
+                                                const VkAllocationCallbacks* pAllocator, VkShaderInstrumentationARM* pInstrumentation)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+	return VK_SUCCESS;
+}
+
+void check_vkDestroyShaderInstrumentationARM(VkDevice device, VkShaderInstrumentationARM instrumentation, const VkAllocationCallbacks* pAllocator)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+}
+
+void check_vkCmdBeginShaderInstrumentationARM(VkCommandBuffer commandBuffer, VkShaderInstrumentationARM instrumentation)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+}
+
+void check_vkCmdEndShaderInstrumentationARM(VkCommandBuffer commandBuffer)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+}
+
+VkResult check_vkGetShaderInstrumentationValuesARM(VkDevice device, VkShaderInstrumentationARM instrumentation, uint32_t* pMetricBlockCount,
+                                                   void* pMetricValues, VkShaderInstrumentationValuesFlagsARM flags)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+	return VK_SUCCESS;
+}
+
+void check_vkClearShaderInstrumentationMetricsARM(VkDevice device, VkShaderInstrumentationARM instrumentation)
+{
+	instance->has_VK_ARM_shader_instrumentation = true;
+}
+
 VkResult check_vkCreateMicromapEXT(VkDevice device, const VkMicromapCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkMicromapEXT* pMicromap)
 {
 	instance->has_VK_EXT_opacity_micromap = true;
@@ -1222,6 +1285,8 @@ void check_vkGetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice, VkPhy
 {
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM))
 		instance->has_VK_ARM_shader_core_properties = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_PROPERTIES_ARM))
+		instance->has_VK_ARM_shader_instrumentation = true;
 }
 
 void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceProperties2KHR* pProperties)
@@ -1229,6 +1294,8 @@ void check_vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice, Vk
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
 	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_ARM))
 		instance->has_VK_ARM_shader_core_properties = true;
+	if (get_extension(pProperties, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_PROPERTIES_ARM))
+		instance->has_VK_ARM_shader_instrumentation = true;
 }
 
 void check_vkGetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2* pFormatProperties)

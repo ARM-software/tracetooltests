@@ -107,41 +107,42 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	result = vkAllocateCommandBuffers(vulkan.device, &commandBufferAllocateInfo, &r.commandBufferFrameBoundary);
 	check(result);
 
-	// Create an image for the frame boundary, in case we need it
-	const uint32_t queueFamilyIndex = 0;
-	VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
-	imageCreateInfo.flags = 0;
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageCreateInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	imageCreateInfo.extent.width = width;
-	imageCreateInfo.extent.height = height;
-	imageCreateInfo.extent.depth = 1;
-	imageCreateInfo.mipLevels = 1;
-	imageCreateInfo.arrayLayers = 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
-	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.queueFamilyIndexCount = 1;
-	imageCreateInfo.pQueueFamilyIndices = &queueFamilyIndex;
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &r.image);
-	check(result);
-
 	VkMemoryRequirements memory_requirements = {};
-	vkGetImageMemoryRequirements(vulkan.device, r.image, &memory_requirements);
-	VkMemoryPropertyFlagBits memoryflags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, memoryflags);
-	uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
-	const uint32_t aligned_image_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
-	uint32_t total_size = aligned_image_size;
-
 	vkGetBufferMemoryRequirements(vulkan.device, r.buffer, &memory_requirements);
-	const uint32_t memoryTypeIndex2 = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	assert(memoryTypeIndex == memoryTypeIndex2); // else we're in trouble here
-	align_mod = memory_requirements.size % memory_requirements.alignment;
+	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
 	const uint32_t aligned_buffer_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
-	total_size += aligned_buffer_size;
+	uint32_t total_size = aligned_buffer_size;
+
+	if (reqs.options.count("frame_boundary"))
+	{
+		const uint32_t queueFamilyIndex = 0;
+		VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
+		imageCreateInfo.flags = 0;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		imageCreateInfo.extent.width = width;
+		imageCreateInfo.extent.height = height;
+		imageCreateInfo.extent.depth = 1;
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCreateInfo.queueFamilyIndexCount = 1;
+		imageCreateInfo.pQueueFamilyIndices = &queueFamilyIndex;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &r.image);
+		check(result);
+
+		vkGetImageMemoryRequirements(vulkan.device, r.image, &memory_requirements);
+		const uint32_t imageMemoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		assert(memoryTypeIndex == imageMemoryTypeIndex); // else we're in trouble here
+		align_mod = memory_requirements.size % memory_requirements.alignment;
+		const uint32_t aligned_image_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
+		total_size += aligned_image_size;
+	}
 
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
@@ -169,48 +170,57 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 		result = vkBindBufferMemory2(vulkan.device, 1, &bindBufferInfo);
 		check(result);
 
-		VkBindImageMemoryInfo bindImageInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
-		bindImageInfo.image = r.image;
-		bindImageInfo.memory = r.memory;
-		bindImageInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
+		if (r.image != VK_NULL_HANDLE)
+		{
+			VkBindImageMemoryInfo bindImageInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
+			bindImageInfo.image = r.image;
+			bindImageInfo.memory = r.memory;
+			bindImageInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
 
-		result = vkBindImageMemory2(vulkan.device, 1, &bindImageInfo);
-		check(result);
+			result = vkBindImageMemory2(vulkan.device, 1, &bindImageInfo);
+			check(result);
+		}
 	}
 	else
 	{
 		result = vkBindBufferMemory(vulkan.device, r.buffer, r.memory, 0);
 		check(result);
 
-		result = vkBindImageMemory(vulkan.device, r.image, r.memory, aligned_buffer_size);
-		check(result);
+		if (r.image != VK_NULL_HANDLE)
+		{
+			result = vkBindImageMemory(vulkan.device, r.image, r.memory, aligned_buffer_size);
+			check(result);
+		}
 	}
 
-	// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
-	VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
-	check(result);
-	VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr };
-	barrier.srcAccessMask = VK_ACCESS_NONE;
-	barrier.dstAccessMask = VK_ACCESS_NONE;
-	barrier.image = r.image;
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
-	check(result);
-	VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &r.commandBufferFrameBoundary;
-	result = vkQueueSubmit(r.queue, 1, &submitInfo, VK_NULL_HANDLE);
-	check(result);
-	vkQueueWaitIdle(r.queue);
+	if (r.image != VK_NULL_HANDLE)
+	{
+		// Transition the image already to VK_IMAGE_LAYOUT_GENERAL
+		VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr };
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
+		check(result);
+		VkImageMemoryBarrier barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr };
+		barrier.srcAccessMask = VK_ACCESS_NONE;
+		barrier.dstAccessMask = VK_ACCESS_NONE;
+		barrier.image = r.image;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
+		check(result);
+		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr };
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &r.commandBufferFrameBoundary;
+		result = vkQueueSubmit(r.queue, 1, &submitInfo, VK_NULL_HANDLE);
+		check(result);
+		vkQueueWaitIdle(r.queue);
+	}
 
 	return r;
 }

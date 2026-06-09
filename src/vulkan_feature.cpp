@@ -1063,6 +1063,77 @@ static void test_shader_core_builtins_extension_adjustment()
 	assert(exts.size() == 1);
 }
 
+static void test_shader_instrumentation_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_shader_instrumentation" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_ARM_shader_instrumentation == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_shader_instrumentation" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceShaderInstrumentationFeaturesARM features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = {
+		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features
+	};
+	const char* names[] = { "VK_ARM_shader_instrumentation" };
+	dci.ppEnabledExtensionNames = names;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == false);
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_ARM_shader_instrumentation" }, false);
+	assert(dci.pNext == nullptr);
+
+	VkPhysicalDeviceShaderInstrumentationPropertiesARM properties = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_PROPERTIES_ARM, nullptr
+	};
+	VkPhysicalDeviceProperties2 properties2 = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &properties
+	};
+	check_vkGetPhysicalDeviceProperties2(VK_NULL_HANDLE, &properties2);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	exts.insert("VK_ARM_shader_instrumentation");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	uint32_t count = 0;
+	check_vkEnumeratePhysicalDeviceShaderInstrumentationMetricsARM(VK_NULL_HANDLE, &count, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	VkShaderInstrumentationCreateInfoARM create_info = {
+		VK_STRUCTURE_TYPE_SHADER_INSTRUMENTATION_CREATE_INFO_ARM, nullptr
+	};
+	check_vkCreateShaderInstrumentationARM(VK_NULL_HANDLE, &create_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	check_vkDestroyShaderInstrumentationARM(VK_NULL_HANDLE, VK_NULL_HANDLE, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	check_vkCmdBeginShaderInstrumentationARM(VK_NULL_HANDLE, VK_NULL_HANDLE);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	check_vkCmdEndShaderInstrumentationARM(VK_NULL_HANDLE);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	check_vkGetShaderInstrumentationValuesARM(VK_NULL_HANDLE, VK_NULL_HANDLE, &count, nullptr, 0);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+
+	f = reset_detection();
+	check_vkClearShaderInstrumentationMetricsARM(VK_NULL_HANDLE, VK_NULL_HANDLE);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+}
+
 static void test_external_fence_capabilities_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -1903,6 +1974,31 @@ static void test_pipeline_opacity_micromap_dependency()
 	});
 }
 
+static void test_shader_instrumentation_pipeline_flag()
+{
+	feature_detection* f = reset_detection();
+
+	VkPipelineCreateFlags2CreateInfo flags2 = {
+		VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO, nullptr,
+		VK_PIPELINE_CREATE_2_INSTRUMENT_SHADERS_BIT_ARM
+	};
+	VkComputePipelineCreateInfo pipeline_info = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, &flags2 };
+	check_vkCreateComputePipelines(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+}
+
+static void test_shader_instrumentation_shader_object_flag()
+{
+	feature_detection* f = reset_detection();
+
+	VkShaderCreateInfoEXT shader_info = {
+		VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT, nullptr
+	};
+	shader_info.flags = VK_SHADER_CREATE_INSTRUMENT_SHADER_BIT_ARM;
+	check_vkCreateShadersEXT(VK_NULL_HANDLE, 1, &shader_info, nullptr, nullptr);
+	assert(f->has_VK_ARM_shader_instrumentation == true);
+}
+
 static void test_opacity_micromap_detection()
 {
 	feature_detection* f = reset_detection();
@@ -2602,6 +2698,7 @@ int main()
 	test_get_physical_device_properties2_extension_adjustment();
 	test_shader_core_properties_extension_adjustment();
 	test_shader_core_builtins_extension_adjustment();
+	test_shader_instrumentation_extension_adjustment();
 	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
@@ -2625,6 +2722,8 @@ int main()
 	test_opacity_micromap_acceleration_structure_dependency();
 	test_pipeline_opacity_micromap_extension_adjustment();
 	test_pipeline_opacity_micromap_dependency();
+	test_shader_instrumentation_pipeline_flag();
+	test_shader_instrumentation_shader_object_flag();
 	test_maintenance1_detection();
 	test_opacity_micromap_detection();
 	test_ray_tracing_pipeline_detection();

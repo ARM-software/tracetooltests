@@ -1,0 +1,1 @@
+{ "name": "vulkan_shader_instrumentation", "description": "Run a compute dispatch with VK_ARM_shader_instrumentation and print metrics" }
