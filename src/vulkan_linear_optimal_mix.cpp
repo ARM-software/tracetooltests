@@ -222,6 +222,23 @@ int main(int argc, char** argv)
 		return 77;
 	}
 
+	uint32_t host_visible_common = 0;
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
+	{
+		if ((common_memory_type_bits & (1u << i)) == 0) continue;
+		if (memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) host_visible_common |= (1u << i);
+	}
+
+	if (host_visible_common == 0)
+	{
+		printf("No common HOST_VISIBLE Vulkan memory type can hold both the buffers and optimal images.\n");
+		for (auto& image : images) if (image.image) vkDestroyImage(vulkan.device, image.image, nullptr);
+		for (auto& buffer : buffers) if (buffer.buffer) vkDestroyBuffer(vulkan.device, buffer.buffer, nullptr);
+		test_done(vulkan);
+		return 77;
+	}
+	common_memory_type_bits = host_visible_common;
+
 	const VkDeviceSize granularity = vulkan.device_properties.limits.bufferImageGranularity;
 	printf("bufferImageGranularity is %u\n", (unsigned)granularity);
 	VkDeviceSize allocation_size = 0;
