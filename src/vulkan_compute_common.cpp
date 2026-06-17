@@ -5,6 +5,12 @@ struct pixel
 	float r, g, b, a;
 };
 
+static VkDeviceSize align_up(VkDeviceSize value, VkDeviceSize alignment)
+{
+	const VkDeviceSize align_mod = value % alignment;
+	return (align_mod == 0) ? value : (value + alignment - align_mod);
+}
+
 void compute_usage()
 {
 	printf("-i/--image-output      Save an image of the output to disk\n");
@@ -107,12 +113,11 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 	result = vkAllocateCommandBuffers(vulkan.device, &commandBufferAllocateInfo, &r.commandBufferFrameBoundary);
 	check(result);
 
-	VkMemoryRequirements memory_requirements = {};
-	vkGetBufferMemoryRequirements(vulkan.device, r.buffer, &memory_requirements);
-	const uint32_t memoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	uint32_t align_mod = memory_requirements.size % memory_requirements.alignment;
-	const uint32_t aligned_buffer_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
-	uint32_t total_size = aligned_buffer_size;
+	VkMemoryRequirements buffer_memory_requirements = {};
+	vkGetBufferMemoryRequirements(vulkan.device, r.buffer, &buffer_memory_requirements);
+	uint32_t memory_type_bits = buffer_memory_requirements.memoryTypeBits;
+	VkDeviceSize total_size = buffer_memory_requirements.size;
+	VkDeviceSize image_offset = 0;
 
 	if (reqs.options.count("frame_boundary"))
 	{
@@ -136,13 +141,16 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 		result = vkCreateImage(vulkan.device, &imageCreateInfo, nullptr, &r.image);
 		check(result);
 
-		vkGetImageMemoryRequirements(vulkan.device, r.image, &memory_requirements);
-		const uint32_t imageMemoryTypeIndex = get_device_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		assert(memoryTypeIndex == imageMemoryTypeIndex); // else we're in trouble here
-		align_mod = memory_requirements.size % memory_requirements.alignment;
-		const uint32_t aligned_image_size = (align_mod == 0) ? memory_requirements.size : (memory_requirements.size + memory_requirements.alignment - align_mod);
-		total_size += aligned_image_size;
+		VkMemoryRequirements image_memory_requirements = {};
+		vkGetImageMemoryRequirements(vulkan.device, r.image, &image_memory_requirements);
+
+		memory_type_bits &= image_memory_requirements.memoryTypeBits;
+		assert(memory_type_bits != 0);
+		image_offset = align_up(buffer_memory_requirements.size, image_memory_requirements.alignment);
+		total_size = image_offset + image_memory_requirements.size;
 	}
+
+	const uint32_t memoryTypeIndex = get_device_memory_type(memory_type_bits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	VkMemoryAllocateInfo pAllocateMemInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	pAllocateMemInfo.memoryTypeIndex = memoryTypeIndex;
@@ -175,7 +183,7 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 			VkBindImageMemoryInfo bindImageInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO, nullptr };
 			bindImageInfo.image = r.image;
 			bindImageInfo.memory = r.memory;
-			bindImageInfo.memoryOffset = aligned_buffer_size; // comes after the buffer
+			bindImageInfo.memoryOffset = image_offset; // comes after the buffer
 
 			result = vkBindImageMemory2(vulkan.device, 1, &bindImageInfo);
 			check(result);
@@ -188,7 +196,7 @@ compute_resources compute_init(vulkan_setup_t& vulkan, vulkan_req_t& reqs)
 
 		if (r.image != VK_NULL_HANDLE)
 		{
-			result = vkBindImageMemory(vulkan.device, r.image, r.memory, aligned_buffer_size);
+			result = vkBindImageMemory(vulkan.device, r.image, r.memory, image_offset);
 			check(result);
 		}
 	}

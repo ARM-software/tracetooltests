@@ -416,7 +416,7 @@ int main(int argc, char** argv)
 	void* mapped = nullptr;
 	result = vkMapMemory(vulkan.device, readback.memory, 0, kReadbackSize, 0, &mapped);
 	check(result);
-	assert(image_has_color(reinterpret_cast<const uint8_t*>(mapped), kReadbackSize));
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0) assert(image_has_color(reinterpret_cast<const uint8_t*>(mapped), kReadbackSize));
 	vkUnmapMemory(vulkan.device, readback.memory);
 
 	test_marker_mention(vulkan, "Executed VK_KHR_create_renderpass2 render pass", VK_OBJECT_TYPE_RENDER_PASS, (uint64_t)render_pass);
