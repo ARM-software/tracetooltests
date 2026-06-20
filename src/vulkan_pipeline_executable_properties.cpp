@@ -228,7 +228,7 @@ int main(int argc, char** argv)
 			check(result);
 			for (uint32_t i = 0; i < irCount; ++i)
 			{
-				printf("InternalRep %u: %s - %s\n", i, irs[i].name, irs[i].description);
+				printf("InternalRep %u: %s - %s (%s)\n", i, irs[i].name, irs[i].description, irs[i].isText ? "is text" : "is binary");
 			}
 		}
 	}

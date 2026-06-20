@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_device_memory_report",
+	"description": "Test of VK_EXT_device_memory_report allocation callbacks"
+}

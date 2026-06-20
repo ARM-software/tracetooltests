@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_memory_budget",
+	"description": "Test of VK_EXT_memory_budget heap budget reporting"
+}
