@@ -1,0 +1,1 @@
+{ "name": "vulkan_device_fault", "description": "Exercise VK_KHR_device_fault reports and VK_KHR_shader_abort message retrieval" }
