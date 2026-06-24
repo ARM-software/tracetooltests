@@ -5,6 +5,8 @@
 
 #include "vulkan_device_fault.inc"
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 static constexpr uint32_t ABORT_MAGIC = 0xdeadbeef;
 static bool compile_only = false;
 
