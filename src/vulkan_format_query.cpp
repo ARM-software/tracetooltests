@@ -326,7 +326,8 @@ int main(int argc, char** argv)
 
 	printf("Querying 2D optimal images: %ux%u, 1 mip, 1 layer, 1 sample, usage sampled|transfer_src|transfer_dst\n",
 	       image_width, image_height);
-	printf("%-48s %16s %16s %10s %10s\n", "format", "vk_bytes", "naive_bytes", "% naive", "alignment");
+	printf("%-48s %16s %16s %10s %10s %8s %8s\n",
+	       "format", "vk_bytes", "naive_bytes", "% naive", "alignment", "ded_req", "ded_pref");
 
 	uint32_t supported = 0;
 	uint32_t measured = 0;
@@ -381,17 +382,20 @@ int main(int argc, char** argv)
 		VkDeviceImageMemoryRequirementsKHR memory_info = { VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS_KHR, nullptr };
 		memory_info.pCreateInfo = &create_info;
 		memory_info.planeAspect = static_cast<VkImageAspectFlagBits>(0);
-		VkMemoryRequirements2KHR requirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, nullptr };
+		VkMemoryDedicatedRequirements dedicated = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS, nullptr };
+		VkMemoryRequirements2KHR requirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR, &dedicated };
 		pf_vkGetDeviceImageMemoryRequirementsKHR(vulkan.device, &memory_info, &requirements);
 
 		const uint64_t naive_bytes = naive_size(image_width, image_height, info);
 		const double percent = (100.0 * static_cast<double>(requirements.memoryRequirements.size)) / static_cast<double>(naive_bytes);
-		printf("%-48s %16" PRIu64 " %16" PRIu64 " %9.2f%% %10" PRIu64 "\n",
+		printf("%-48s %16" PRIu64 " %16" PRIu64 " %9.2f%% %10" PRIu64 " %8s %8s\n",
 		       format_name(format),
 		       static_cast<uint64_t>(requirements.memoryRequirements.size),
 		       naive_bytes,
 		       percent,
-		       static_cast<uint64_t>(requirements.memoryRequirements.alignment));
+		       static_cast<uint64_t>(requirements.memoryRequirements.alignment),
+		       dedicated.requiresDedicatedAllocation == VK_TRUE ? "yes" : "no",
+		       dedicated.prefersDedicatedAllocation == VK_TRUE ? "yes" : "no");
 		measured++;
 	}
 
