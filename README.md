@@ -14,7 +14,7 @@ You may need to install the LunarG SDK first to get up to date headers.
 You also may need to install some dependencies. For Ubuntu:
 
 ```
-sudo apt-get install xvfb libvulkan-dev cmake g++ xorg-dev libglu1-mesa-dev libwayland-dev python3
+sudo apt-get install xvfb libvulkan-dev cmake g++ xorg-dev libglu1-mesa-dev libwayland-dev python3 libxcb-randr0-dev
 ```
 
 Then run:
@@ -132,8 +132,11 @@ Known issues
 
 * The multi-surface tests do not work with the SDL backend.
 
-Ubuntu and OpenCL:
-* apt install ocl-icd-opencl-dev mesa-opencl-icd pocl-opencl-icd
+Ubuntu and OpenCL
+-----------------
+
+* apt install ocl-icd-opencl-dev mesa-opencl-icd clinfo
+* For CPU emulation, also install pocl-opencl-icd
 * On Intel also install intel-opencl-icd
 
 AI code generation
