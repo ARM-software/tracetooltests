@@ -32,6 +32,29 @@ static bool fence_is_signalled(const cVkFence* fence)
 	return fence->importedFence ? fence_is_signalled(fence->importedFence) : fence->signalled;
 }
 
+static void report_device_memory(cVkDevice* dev, const cVkDeviceMemory* memory, VkDeviceMemory handle, VkDeviceMemoryReportEventTypeEXT type)
+{
+	if (!dev || !memory) return;
+	if (dev->memory_report_callbacks.empty()) return;
+
+	VkDeviceMemoryReportCallbackDataEXT data = {
+		VK_STRUCTURE_TYPE_DEVICE_MEMORY_REPORT_CALLBACK_DATA_EXT,
+		nullptr,
+		0,
+		type,
+		(uint64_t)memory->uid,
+		memory->allocationSize,
+		VK_OBJECT_TYPE_DEVICE_MEMORY,
+		(uint64_t)handle,
+		memory->heapIndex
+	};
+
+	for (const cVkDeviceMemoryReportCallback& report : dev->memory_report_callbacks)
+	{
+		if (report.callback) report.callback(&data, report.userData);
+	}
+}
+
 // -- Extensions
 // extension name, and last checked extension update version from the extension registry
 
@@ -983,6 +1006,23 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 	for (unsigned i = 0; i < pdevice->memoryProperties.memoryTypeCount; i++)
 	{
 		dev.memoryTypeBits |= 1 << i;
+		dev.memory_type_heap_index[i] = pdevice->memoryProperties.memoryTypes[i].heapIndex;
+	}
+
+	const VkBaseInStructure* next = reinterpret_cast<const VkBaseInStructure*>(pCreateInfo->pNext);
+	while (next)
+	{
+		if (next->sType == VK_STRUCTURE_TYPE_DEVICE_DEVICE_MEMORY_REPORT_CREATE_INFO_EXT)
+		{
+			const VkDeviceDeviceMemoryReportCreateInfoEXT* report_create_info =
+				reinterpret_cast<const VkDeviceDeviceMemoryReportCreateInfoEXT*>(next);
+			cVkDeviceMemoryReportCallback report = {};
+			report.flags = report_create_info->flags;
+			report.callback = report_create_info->pfnUserCallback;
+			report.userData = report_create_info->pUserData;
+			dev.memory_report_callbacks.push_back(report);
+		}
+		next = next->pNext;
 	}
 
 	for (unsigned i = 0; i < pCreateInfo->enabledLayerCount; i++)
@@ -1245,6 +1285,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(
 	cVkDeviceMemory memory;
 	memory.allocationSize = pAllocateInfo->allocationSize;
 	memory.memoryTypeIndex = pAllocateInfo->memoryTypeIndex;
+	memory.heapIndex = dev->memory_type_heap_index[pAllocateInfo->memoryTypeIndex];
 	const int ret = posix_memalign((void**)&memory.ptr, 4096, memory.allocationSize);
 	if (ret != 0)
 	{
@@ -1260,6 +1301,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(
 	VkMemoryDedicatedAllocateInfo* mda = (VkMemoryDedicatedAllocateInfo*)find_extension(pAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO);
 	(void)mda; // ignored for now
 	*pMemory = reinterpret_cast<VkDeviceMemory>(&dev->deviceMemory.back());
+	report_device_memory(dev, &dev->deviceMemory.back(), *pMemory, VK_DEVICE_MEMORY_REPORT_EVENT_TYPE_ALLOCATE_EXT);
 	return VK_SUCCESS;
 }
 
@@ -1273,6 +1315,7 @@ VKAPI_ATTR void VKAPI_CALL vkFreeMemory(
 
 	cVkDevice* dev = device_cast(device);
 	auto* mem = destroy<cVkDeviceMemory, VkDeviceMemory>(memory, pAllocator);
+	report_device_memory(dev, mem, memory, VK_DEVICE_MEMORY_REPORT_EVENT_TYPE_FREE_EXT);
 	if (mem && !store_allocations)
 	{
 		free(mem->ptr);

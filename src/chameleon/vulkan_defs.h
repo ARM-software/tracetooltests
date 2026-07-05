@@ -370,6 +370,7 @@ struct cVkDeviceMemory : cVkBase
 {
 	VkDeviceSize allocationSize = 0;
 	uint32_t memoryTypeIndex = 0;
+	uint32_t heapIndex = 0;
 	char* ptr = nullptr;
 	bool mapped = false;
 
@@ -378,6 +379,13 @@ struct cVkDeviceMemory : cVkBase
 		object_type = VK_OBJECT_TYPE_DEVICE_MEMORY;
 		debug_object_type = VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT;
 	}
+};
+
+struct cVkDeviceMemoryReportCallback
+{
+	VkDeviceMemoryReportFlagsEXT flags = 0;
+	PFN_vkDeviceMemoryReportCallbackEXT callback = nullptr;
+	void* userData = nullptr;
 };
 
 struct cVkSurfaceKHR : cVkBase
@@ -1049,6 +1057,8 @@ struct cVkDevice : cVkBase
 	std::map<uint32_t, uint64_t> memory_allocated;
 	/// Highest amount of each type of memory that has ever been allocated.
 	std::map<uint32_t, uint64_t> memory_highest;
+	std::map<uint32_t, uint32_t> memory_type_heap_index;
+	std::vector<cVkDeviceMemoryReportCallback> memory_report_callbacks;
 
 	cVkDevice()
 	{
