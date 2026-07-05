@@ -16,7 +16,7 @@ TRACEDIR=traces${TAG}
 CSV=$REPORTDIR/report.csv
 TIMER="/usr/bin/time -f %U -o $(pwd)/time.txt"
 
-rm -f external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.vk $REPORTDIR/*.png $REPORTDIR/*.html
+rm -f external/vulkan-demos/*.ppm *.ppm $TRACEDIR/demo_*.api $REPORTDIR/*.png $REPORTDIR/*.html
 mkdir -p $TRACEDIR $REPORTDIR
 
 HTMLIMGOPTS="width=200 height=200"
@@ -62,7 +62,7 @@ function demo
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
 	CFPS=$(( cd external/vulkan-demos/build/bin ; $TIMER ./$1 -g 0 $DEMO_PARAMS )| grep fps | sed 's/fps    : //')
 	CTIME=$(cat time.txt)
-	mv external/vulkan-demos/build/bin/demo_$1.vk $TRACEDIR/
+	mv external/vulkan-demos/build/bin/demo_$1.api $TRACEDIR/
 	rm -f time.txt
 
 	# Make trace - CPU
@@ -72,7 +72,7 @@ function demo
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
 	CPU_CFPS=$(( cd external/vulkan-demos/build/bin ; $TIMER ./$1 -g 1 $DEMO_PARAMS )| grep fps | sed 's/fps    : //')
 	CPU_CTIME=$(cat time.txt)
-	mv external/vulkan-demos/build/bin/demo_$1_cpu.vk $TRACEDIR/
+	mv external/vulkan-demos/build/bin/demo_$1_cpu.api $TRACEDIR/
 	rm -f time.txt
 
 	echo
@@ -82,7 +82,7 @@ function demo
 	# Replay - GPU to GPU
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --gpu $TRACEDIR/demo_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --gpu $TRACEDIR/demo_$1.api
 	RTIME=$(cat time.txt)
 	RFPS=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_gpu_to_gpu.png
@@ -92,7 +92,7 @@ function demo
 	# Replay - CPU to CPU
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --cpu $TRACEDIR/demo_$1_cpu.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --cpu $TRACEDIR/demo_$1_cpu.api
 	RTIME2=$(cat time.txt)
 	RFPS2=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_cpu_to_cpu.png
@@ -102,7 +102,7 @@ function demo
 	# Replay - GPU to CPU
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --cpu $TRACEDIR/demo_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --cpu $TRACEDIR/demo_$1.api
 	RTIME3=$(cat time.txt)
 	RFPS3=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_gpu_to_cpu.png
@@ -112,7 +112,7 @@ function demo
 	# Replay - CPU to GPU
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --gpu $TRACEDIR/demo_$1_cpu.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $TIMER $LAVATUBE_REPLAYER --gpu $TRACEDIR/demo_$1_cpu.api
 	RTIME4=$(cat time.txt)
 	RFPS4=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_cpu_to_gpu.png
@@ -120,7 +120,7 @@ function demo
 	compare -alpha off $REPORTDIR/$1_f3_native_cpu.png $REPORTDIR/$1_f3_replay_cpu_to_gpu.png $REPORTDIR/$1_f3_compare_cpu_to_gpu.png || true
 
 	# Perf mode
-	$TIMER $LAVATUBE_REPLAYER --virtualperfmode $TRACEDIR/demo_$1.vk
+	$TIMER $LAVATUBE_REPLAYER --virtualperfmode $TRACEDIR/demo_$1.api
 	RTIMEPERF=$(cat time.txt)
 	RFPSPERF=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 

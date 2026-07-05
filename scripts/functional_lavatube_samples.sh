@@ -1,18 +1,27 @@
 #!/bin/bash
 
-REPORTDIR=reports/lavatube/samples
-TRACEDIR=traces
+if [ "$LAVATUBE_LAYER_PATH" != "" ];
+then
+	LAVATUBE_REPLAYER="$LAVATUBE_LAYER_PATH/lava-replay"
+	LAVATUBE_PATH="$LAVATUBE_LAYER_PATH"
+else
+	LAVATUBE_REPLAYER="/opt/lavatube/bin"
+	LAVATUBE_PATH="/opt/lavatube"
+fi
+
+REPORTDIR=reports/lavatube/samples${TAG}
+REPORT=$REPORTDIR/report.html
+TRACEDIR=traces${TAG}
+APP=build/app/bin/Release/x86_64/vulkan_samples
 
 mkdir -p $TRACEDIR
 mkdir -p $REPORTDIR
-rm -f $TRACEDIR/sample_*.vk
+rm -f $TRACEDIR/sample_*.api
 rm -f $REPORTDIR/*.png
 rm -f $REPORTDIR/*.html
 
-REPORT=$REPORTDIR/report.html
 HTMLIMGOPTS="width=200 height=200"
-LAVATUBE_PATH=/raid/lava/build
-PARAMS="--benchmark --stop-after-frame=10 --force-close"
+PARAMS="--benchmark --stop-after-frame 5 --force-close"
 
 unset VK_INSTANCE_LAYERS
 unset VK_LAYER_PATH
@@ -35,7 +44,7 @@ function run
 
 	# Native run
 	rm -f external/vulkan-samples/*.ppm
-	( cd external/vulkan-samples ; VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 build/linux/app/bin/Debug/x86_64/vulkan_samples --benchmark --stop-after-frame=10 --force-close sample $1 )
+	( cd external/vulkan-samples ; VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $APP sample $1 $PARAMS )
 	convert -alpha off external/vulkan-samples/3.ppm $REPORTDIR/sample_$1_f3_native.png
 	rm -f external/vulkan-samples/*.ppm
 
@@ -48,8 +57,8 @@ function run
 	export VK_LAYER_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export LD_LIBRARY_PATH=$LAVATUBE_PATH/implicit_layer.d
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
-	( cd external/vulkan-samples ; build/linux/app/bin/Debug/x86_64/vulkan_samples $PARAMS sample $1 )
-	mv external/vulkan-samples/sample_$1.vk $TRACEDIR/
+	( cd external/vulkan-samples ; $APP sample $1 $PARAMS )
+	mv external/vulkan-samples/sample_$1.api $TRACEDIR/
 
 	echo
 	echo "** replay $1 virtual **"
@@ -58,7 +67,7 @@ function run
 	# Replay
 	unset VK_INSTANCE_LAYERS
 	unset VK_LAYER_PATH
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_PATH/replay -v $TRACEDIR/sample_$1.vk
+	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=3 $LAVATUBE_REPLAYER $TRACEDIR/sample_$1.api
 	convert -alpha off 3.ppm $REPORTDIR/sample_$1_f3_replay_virtual.png
 	rm -f *.ppm
 	compare -alpha off $REPORTDIR/sample_$1_f3_native.png $REPORTDIR/sample_$1_f3_replay_virtual.png $REPORTDIR/sample_$1_f3_compare_virtual.png || true

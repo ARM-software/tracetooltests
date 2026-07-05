@@ -61,3 +61,31 @@ run memory_budget
 run mesh_shader_culling
 run mesh_shading
 run vertex_dynamic_state
+run hello_triangle_1_3
+run oit_depth_peeling
+run oit_linked_lists
+run swapchain_recreation
+run color_write_enable
+run compute_shader_derivatives
+run dynamic_blending
+run dynamic_line_rasterization
+run dynamic_multisample_rasterization
+run dynamic_primitive_clipping
+run dynamic_rendering_local_read
+run fragment_density_map
+run full_screen_exclusive
+run gshader_to_mshader
+run host_image_copy
+#open_cl_common
+#open_cl_interop
+#open_cl_interop_arm
+#open_gl_interop
+run patch_control_points
+run rasterization_order_attachment_access
+run ray_tracing_invocation_reorder
+run ray_tracing_position_fetch
+run shader_debugprintf
+run shader_object
+run shader_relaxed_extended_instruction
+run sparse_image
+#run tensor_and_data_graph
