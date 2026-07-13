@@ -415,6 +415,7 @@ vulkan_test(demo_graphics_pipeline_library)
 
 if (NOT WINDOWSYSTEM MATCHES "android")
 vulkan_window_test(window_1)
+vulkan_window_test(multithreaded_swapchain)
 vulkan_test(display)
 vulkan_test(headless_surface)
 vulkan_window_test(swapchain_maintenance1)

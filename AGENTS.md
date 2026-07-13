@@ -22,6 +22,7 @@
 - Bench files: add `benchmarking/<api>_<name>.bench` aligned with the target name.
 - Add assert() calls to verify assumptions. Do not work around problems with defensive coding.
 - Avoid adding unnecessary namespaces.
+- Do not use lambdas, anonymous namespaces or throw new exceptions.
 
 ## Testing Guidelines
 - Run test binaries directly, do not run via CTest unless asked to.

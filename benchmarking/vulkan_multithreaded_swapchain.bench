@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_multithreaded_swapchain",
+	"description": "Multithreaded swapchain acquire, submit, present, and command buffer reuse"
+}
