@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_strict_sync",
+	"description": "Strict queue, semaphore, fence, and command buffer synchronization"
+}

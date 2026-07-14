@@ -29,7 +29,7 @@ static constexpr uint32_t chameleon_max_icd_interface_version = CURRENT_LOADER_I
 
 static bool fence_is_signalled(const cVkFence* fence)
 {
-	return fence->importedFence ? fence_is_signalled(fence->importedFence) : fence->signalled;
+	return fence->importedFence ? fence_is_signalled(fence->importedFence) : fence->signalled.load();
 }
 
 static void report_device_memory(cVkDevice* dev, const cVkDeviceMemory* memory, VkDeviceMemory handle, VkDeviceMemoryReportEventTypeEXT type)
@@ -145,6 +145,7 @@ std::atomic_int cVkBase::last_uid;
 #ifndef FAST
 #define commandbuffer_command(_name, _c, _metrics) \
 	ccast<cVkCommandBuffer, VkCommandBuffer>(_c); \
+	assert(p->state == cVkCommandBuffer::Recording); \
         vk_command _cmd = ENUM_ ## _name; \
 	p->commands.push_back(cVkCommand(_cmd, _metrics)); \
 	p->count[ENUM_ ## _name] += _metrics; \
@@ -152,6 +153,7 @@ std::atomic_int cVkBase::last_uid;
 #else
 #define commandbuffer_command(_name, _c, _metrics) \
 	ccast<cVkCommandBuffer, VkCommandBuffer>(_c); \
+	assert(p->state == cVkCommandBuffer::Recording); \
         vk_command _cmd = ENUM_ ## _name; \
 	p->commands.push_back(cVkCommand(_cmd, _metrics));
 #endif
@@ -995,10 +997,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 		assert(q.sType == VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO);
 		for (unsigned j = 0; j < q.queueCount; j++, index++)
 		{
-			cVkQueue queue;
+			dev.queues.emplace_back();
+			cVkQueue& queue = dev.queues.back();
+			queue.device = &dev;
 			queue.index = index;
 			queue.priority = q.pQueuePriorities[j];
-			dev.queues.push_back(queue);
 			dev.queue_ptrs.push_back(reinterpret_cast<VkQueue>(&dev.queues.back()));
 		}
 	}
@@ -1190,6 +1193,74 @@ static void internalQueueSubmit(cVkQueue* q, VkCommandBuffer cmdbuffer)
 	q->commandbuffers.push_back(cmdbuf);
 }
 
+static bool submission_waits_satisfied(const cVkPendingSubmission& submission)
+{
+	for (const cVkSemaphoreOperation& wait : submission.waits)
+	{
+		if (wait.semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE)
+		{
+			if (wait.semaphore->value < wait.value) return false;
+		}
+		else
+		{
+			assert(wait.semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+			if (!wait.semaphore->binary_signalled) return false;
+		}
+	}
+	return true;
+}
+
+static void complete_submission(cVkPendingSubmission& submission)
+{
+	for (const cVkSemaphoreOperation& wait : submission.waits)
+	{
+		if (wait.semaphore->type == VK_SEMAPHORE_TYPE_BINARY)
+		{
+			assert(wait.semaphore->binary_signalled);
+			wait.semaphore->binary_signalled = false;
+		}
+	}
+	for (const cVkSemaphoreOperation& signal : submission.signals)
+	{
+		if (signal.semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE)
+		{
+			assert(signal.value > signal.semaphore->value);
+			signal.semaphore->value = signal.value;
+		}
+		else
+		{
+			assert(signal.semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+			assert(!signal.semaphore->binary_signalled);
+			signal.semaphore->binary_signalled = true;
+		}
+	}
+	if (submission.fence) submission.fence->signalled.store(true);
+}
+
+static void retire_pending_submissions(cVkDevice* device)
+{
+	bool progressed;
+	do
+	{
+		progressed = false;
+		for (cVkQueue& queue : device->queues)
+		{
+			while (!queue.pendingSubmissions.empty() && submission_waits_satisfied(queue.pendingSubmissions.front()))
+			{
+				complete_submission(queue.pendingSubmissions.front());
+				queue.pendingSubmissions.pop_front();
+				progressed = true;
+			}
+		}
+	} while (progressed);
+}
+
+static void enqueue_submission(cVkQueue* queue, cVkPendingSubmission& submission)
+{
+	queue->pendingSubmissions.push_back(submission);
+	retire_pending_submissions(queue->device);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
     VkQueue                                     queue,
     uint32_t                                    submitCount,
@@ -1199,10 +1270,17 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 	ENTRY(vkQueueSubmit);
 	CLOG("queue=%p, submitCount=%u, pSubmits=%p, fence=" NHANDLE, queue, submitCount, pSubmits, fence);
 	cVkQueue* q = queue_cast(queue);
+	cVkDevice* device = q->device;
+	cVkFence* submit_fence = fence_cast(fence);
+	if (submit_fence)
+	{
+		assert(!fence_is_signalled(submit_fence));
+	}
 
 	for (unsigned i = 0; i < submitCount; i++)
 	{
-		VkTimelineSemaphoreSubmitInfo* timeline_semaphore = (VkTimelineSemaphoreSubmitInfo*)find_extension(&pSubmits[i], VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO);
+		cVkPendingSubmission submission;
+		const VkTimelineSemaphoreSubmitInfo* timeline_semaphore = (const VkTimelineSemaphoreSubmitInfo*)find_extension(&pSubmits[i], VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO);
 		XLOG("%u: %u wait semaphores, %u commandbuffers, %u signal semaphores (timeline=%s)", i, pSubmits[i].waitSemaphoreCount, pSubmits[i].commandBufferCount,
 		     pSubmits[i].signalSemaphoreCount, timeline_semaphore ? "yes" : "no");
 
@@ -1216,7 +1294,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 		for (unsigned j = 0; j < pSubmits[i].waitSemaphoreCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pWaitSemaphores[j]);
-			// no need to wait - everything here is immediate!
+			const uint64_t value = c->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline_semaphore->pWaitSemaphoreValues[j] : 0;
+			submission.waits.push_back({ c, value });
 
 			update_stageflag_usage(q, pSubmits[i].pWaitDstStageMask[j]);
 		}
@@ -1230,24 +1309,14 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 		for (unsigned j = 0; j < pSubmits[i].signalSemaphoreCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pSignalSemaphores[j]);
-			if (timeline_semaphore)
-			{
-				assert(c->type == VK_SEMAPHORE_TYPE_TIMELINE);
-				c->value = timeline_semaphore->pSignalSemaphoreValues[j];
-			}
-			else
-			{
-				assert(c->type == VK_SEMAPHORE_TYPE_BINARY);
-				c->value = 1;
-			}
+			const uint64_t value = c->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline_semaphore->pSignalSemaphoreValues[j] : 0;
+			submission.signals.push_back({ c, value });
 		}
+		if (i + 1 == submitCount) submission.fence = submit_fence;
+		enqueue_submission(q, submission);
 	}
 
-	// If user sent in a fence, lift it to signal that we're done executing the queue now
-	if (fence != VK_NULL_HANDLE)
-	{
-		fence_cast(fence)->signalled = true;
-	}
+	if (submitCount == 0 && submit_fence) submit_fence->signalled.store(true);
 
 	return VK_SUCCESS;
 }
@@ -1258,6 +1327,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueWaitIdle(
 	ENTRY(vkQueueWaitIdle);
 	CLOG("queue=%p", queue);
 	cVkQueue* q = queue_cast(queue);
+	retire_pending_submissions(q->device);
+	assert(q->pendingSubmissions.empty());
 	return VK_SUCCESS;
 }
 
@@ -1267,6 +1338,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkDeviceWaitIdle(
 	ENTRY(vkDeviceWaitIdle);
 	CLOG("device=%p", device);
 	cVkDevice* dev = device_cast(device);
+	retire_pending_submissions(dev);
+	for (const cVkQueue& queue : dev->queues) assert(queue.pendingSubmissions.empty());
 	return VK_SUCCESS;
 }
 
@@ -1547,6 +1620,36 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueBindSparse(
 	TBD_UNSUPPORTED;
 	cVkQueue* q = queue_cast(queue);
 	cVkFence* cfence = fence_cast(fence);
+	cVkDevice* device = q->device;
+	if (cfence)
+	{
+		assert(!fence_is_signalled(cfence));
+	}
+	for (uint32_t i = 0; i < bindInfoCount; i++)
+	{
+		cVkPendingSubmission submission;
+		const VkTimelineSemaphoreSubmitInfo* timeline = (const VkTimelineSemaphoreSubmitInfo*)find_extension(&pBindInfo[i], VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO);
+		if (timeline)
+		{
+			assert(timeline->waitSemaphoreValueCount == pBindInfo[i].waitSemaphoreCount);
+			assert(timeline->signalSemaphoreValueCount == pBindInfo[i].signalSemaphoreCount);
+		}
+		for (uint32_t j = 0; j < pBindInfo[i].waitSemaphoreCount; j++)
+		{
+			cVkSemaphore* semaphore = semaphore_cast(pBindInfo[i].pWaitSemaphores[j]);
+			const uint64_t value = semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline->pWaitSemaphoreValues[j] : 0;
+			submission.waits.push_back({ semaphore, value });
+		}
+		for (uint32_t j = 0; j < pBindInfo[i].signalSemaphoreCount; j++)
+		{
+			cVkSemaphore* semaphore = semaphore_cast(pBindInfo[i].pSignalSemaphores[j]);
+			const uint64_t value = semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline->pSignalSemaphoreValues[j] : 0;
+			submission.signals.push_back({ semaphore, value });
+		}
+		if (i + 1 == bindInfoCount) submission.fence = cfence;
+		enqueue_submission(q, submission);
+	}
+	if (bindInfoCount == 0 && cfence) cfence->signalled.store(true);
 	return VK_SUCCESS;
 }
 
@@ -1569,7 +1672,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateFence(
 	}
 	if (p.flags & VK_FENCE_CREATE_SIGNALED_BIT)
 	{
-		p.signalled = true;
+		p.signalled.store(true);
 	}
 	return VK_SUCCESS;
 }
@@ -1598,7 +1701,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkResetFences(
 	for (unsigned i = 0; i < fenceCount; i++)
 	{
 		cVkFence* fence = fence_cast(pFences[i]);
-		fence->signalled = false;
+		fence->signalled.store(false);
 		fence->importedFence = nullptr;
 	}
 
@@ -1640,6 +1743,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkWaitForFences(
 
 		while (!fence_is_signalled(fence) && timeout)
 		{
+			retire_pending_submissions(dev);
 			timeout--;
 		}
 		if (!fence_is_signalled(fence))
@@ -2740,6 +2844,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateCommandPool(
 	assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
 	cVkDevice* dev = device_cast(device);
 	cVkCommandPool& p = owner_create<cVkCommandPool, VkCommandPool>(dev->commandPools, pCommandPool, pAllocator);
+	p.device = dev;
 	p.queueFamilyIndex = pCreateInfo->queueFamilyIndex;
 	return VK_SUCCESS;
 }
@@ -2770,7 +2875,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkResetCommandPool(
 		cVkCommandPool* pool = commandpool_cast(commandPool);
 		for (auto& cmdbuf : pool->commandBuffers)
 		{
+			assert(cmdbuf.state != cVkCommandBuffer::Pending);
 			reset_command_buffer(&cmdbuf, flags & VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+			cmdbuf.state = cVkCommandBuffer::Initial;
 		}
 	}
 	return VK_SUCCESS;
@@ -2791,6 +2898,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateCommandBuffers(
 	for (unsigned i = 0; i < pAllocateInfo->commandBufferCount; i++)
 	{
 		cVkCommandBuffer buffer;
+		buffer.device = dev;
 		buffer.level = pAllocateInfo->level;
 		pool->commandBuffers.push_back(buffer);
 		pCommandBuffers[i] = reinterpret_cast<VkCommandBuffer>(&pool->commandBuffers.back());
@@ -2822,8 +2930,11 @@ VKAPI_ATTR VkResult VKAPI_CALL vkBeginCommandBuffer(
 	ENTRY(vkBeginCommandBuffer);
 	CLOG("commandBuffer=%p, pBeginInfo=%p[flags=%u, pInheritanceInfo=%p]", commandBuffer, pBeginInfo, pBeginInfo->flags, pBeginInfo->pInheritanceInfo);
 	cVkCommandBuffer* buffer = commandbuffer_cast(commandBuffer);
+	assert(buffer->state != cVkCommandBuffer::Recording);
+	assert(buffer->state != cVkCommandBuffer::Pending);
 	reset_command_buffer(buffer, true);
 	buffer->flags = pBeginInfo->flags;
+	buffer->state = cVkCommandBuffer::Recording;
 	if (pBeginInfo->pInheritanceInfo)
 	{
 		assert(pBeginInfo->pInheritanceInfo->sType == VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO);
@@ -2843,6 +2954,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkEndCommandBuffer(
 	ENTRY(vkEndCommandBuffer);
 	CLOG("commandBuffer=%p", commandBuffer);
 	cVkCommandBuffer* buffer = commandbuffer_cast(commandBuffer);
+	assert(buffer->state == cVkCommandBuffer::Recording);
+	buffer->state = cVkCommandBuffer::Executable;
 	return VK_SUCCESS;
 }
 
@@ -2853,7 +2966,10 @@ VKAPI_ATTR VkResult VKAPI_CALL vkResetCommandBuffer(
 	ENTRY(vkResetCommandBuffer);
 	CLOG("commandBuffer=%p, flags=%u", commandBuffer, flags);
 
-	reset_command_buffer(commandbuffer_cast(commandBuffer), flags & VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+	cVkCommandBuffer* buffer = commandbuffer_cast(commandBuffer);
+	assert(buffer->state != cVkCommandBuffer::Pending);
+	reset_command_buffer(buffer, flags & VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+	buffer->state = cVkCommandBuffer::Initial;
 
 	return VK_SUCCESS;
 }
@@ -4301,6 +4417,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(
 	for (unsigned i = 0; i < swapchain.imageCount; i++)
 	{
 		add_swapchain_image(dev, &swapchain, pAllocator);
+		swapchain.imageStates.push_back(cVkSwapchainKHR::Available);
 	}
 	return VK_SUCCESS;
 }
@@ -4339,6 +4456,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR(
 		for (unsigned i = std::min(chain->imageCount, *pSwapchainImageCount); i < *pSwapchainImageCount; i++)
 		{
 			add_swapchain_image(dev, chain, nullptr);
+			chain->imageStates.push_back(cVkSwapchainKHR::Available);
 		}
 		if (chain->imageCount < *pSwapchainImageCount) chain->imageCount = *pSwapchainImageCount;
 	}
@@ -4347,6 +4465,33 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR(
 		*pSwapchainImageCount = chain->imageCount;
 	}
 	return VK_SUCCESS;
+}
+
+static VkResult internalAcquireNextImage(cVkDevice* dev, cVkSwapchainKHR* chain, uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t* pImageIndex)
+{
+	for (uint32_t offset = 0; offset < chain->imageCount; offset++)
+	{
+		const uint32_t index = (chain->currentImage + offset) % chain->imageCount;
+		if (chain->imageStates.at(index) != cVkSwapchainKHR::Available) continue;
+		chain->imageStates.at(index) = cVkSwapchainKHR::Acquired;
+		chain->currentImage = (index + 1) % chain->imageCount;
+		*pImageIndex = index;
+		if (semaphore != VK_NULL_HANDLE)
+		{
+			cVkSemaphore* acquired = semaphore_cast(semaphore);
+			assert(acquired->type == VK_SEMAPHORE_TYPE_BINARY);
+			assert(!acquired->binary_signalled);
+			acquired->binary_signalled = true;
+		}
+		if (fence != VK_NULL_HANDLE)
+		{
+			cVkFence* acquired = fence_cast(fence);
+			assert(!fence_is_signalled(acquired));
+			acquired->signalled.store(true);
+		}
+		return VK_SUCCESS;
+	}
+	return timeout == 0 ? VK_NOT_READY : VK_TIMEOUT;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(
@@ -4360,22 +4505,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR(
 	ENTRY(vkAcquireNextImageKHR);
 	CLOG("device=%p, swapchain=" NHANDLE ", timeout=%llu, semaphore=" NHANDLE ", fence=" NHANDLE ", pImageIndex=%p",
 	     device, swapchain, (unsigned long long)timeout, semaphore, fence, pImageIndex);
-
-	cVkDevice* dev = device_cast(device);
-	cVkSwapchainKHR* chain = swapchain_cast(swapchain);
-	*pImageIndex = chain->currentImage++ % chain->imageCount; // since we infinitely fast, we can always get an image in the swap chain
-	// "A successful call to vkAcquireNextImageKHR counts as a signal operation on semaphore for the purposes of
-	// queue forward-progress requirements. The semaphore is guaranteed to signal, so a wait operation can be
-	// queued for the semaphore without risk of deadlock."
-	// TBD
-
-	if (fence != VK_NULL_HANDLE)
-	{
-		cVkFence* f = fence_cast(fence);
-		f->signalled = true;
-	}
-
-	return VK_SUCCESS;
+	return internalAcquireNextImage(device_cast(device), swapchain_cast(swapchain), timeout, semaphore, fence, pImageIndex);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(
@@ -4386,9 +4516,21 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(
 	CLOG("queue=%p, pPresentInfo=%p", queue, pPresentInfo);
 	cVkQueue* c = queue_cast(queue);
 
+	for (unsigned i = 0; i < pPresentInfo->waitSemaphoreCount; i++)
+	{
+		cVkSemaphore* wait = semaphore_cast(pPresentInfo->pWaitSemaphores[i]);
+		assert(wait->type == VK_SEMAPHORE_TYPE_BINARY);
+		assert(wait->binary_signalled);
+		wait->binary_signalled = false;
+	}
 	for (unsigned i = 0; i < pPresentInfo->swapchainCount; i++)
 	{
-		const cVkSwapchainKHR* swapchain = swapchain_cast(pPresentInfo->pSwapchains[i]);
+		cVkSwapchainKHR* swapchain = swapchain_cast(pPresentInfo->pSwapchains[i]);
+		const uint32_t image_index = pPresentInfo->pImageIndices[i];
+		assert(image_index < swapchain->imageCount);
+		assert(swapchain->imageStates.at(image_index) == cVkSwapchainKHR::Acquired);
+		swapchain->imageStates.at(image_index) = cVkSwapchainKHR::Available;
+		if (pPresentInfo->pResults) pPresentInfo->pResults[i] = VK_SUCCESS;
 		c->commandbuffers.clear();
 	}
 	c->current_frame++;
@@ -5559,9 +5701,9 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImage2KHR(
     uint32_t*                                   pImageIndex)
 {
 	ENTRY(vkAcquireNextImage2KHR);
-	TBD_UNSUPPORTED;
 	cVkDevice* dev = device_cast(device);
-	return VK_SUCCESS;
+	assert(pAcquireInfo->sType == VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR);
+	return internalAcquireNextImage(dev, swapchain_cast(pAcquireInfo->swapchain), pAcquireInfo->timeout, pAcquireInfo->semaphore, pAcquireInfo->fence, pImageIndex);
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdDispatchBaseKHR(
@@ -6673,6 +6815,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSemaphoreCounterValue(
 	ENTRY(vkGetSemaphoreCounterValue);
 	cVkDevice* dev = device_cast(device);
 	cVkSemaphore* c = semaphore_cast(semaphore);
+	assert(c->type == VK_SEMAPHORE_TYPE_TIMELINE);
 	*pValue = c->value;
 	return VK_SUCCESS;
 }
@@ -6685,6 +6828,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSemaphoreCounterValueKHR(
 	ENTRY(vkGetSemaphoreCounterValueKHR);
 	cVkDevice* dev = device_cast(device);
 	cVkSemaphore* c = semaphore_cast(semaphore);
+	assert(c->type == VK_SEMAPHORE_TYPE_TIMELINE);
 	*pValue = c->value;
 	return VK_SUCCESS;
 }
@@ -6701,6 +6845,7 @@ static VkResult internalWaitSemaphores(
 		for (uint32_t i = 0; i < pWaitInfo->semaphoreCount; i++)
 		{
 			cVkSemaphore* c = semaphore_cast(pWaitInfo->pSemaphores[i]);
+			assert(c->type == VK_SEMAPHORE_TYPE_TIMELINE);
 			if (c->value >= pWaitInfo->pValues[i] && (pWaitInfo->flags & VK_SEMAPHORE_WAIT_ANY_BIT_KHR)) return VK_SUCCESS;
 			if (c->value < pWaitInfo->pValues[i]) success = false;
 		}
@@ -6719,15 +6864,23 @@ VKAPI_ATTR VkResult VKAPI_CALL vkWaitSemaphores(
 	return internalWaitSemaphores(device, pWaitInfo, timeout);
 }
 
+static VkResult internalSignalSemaphore(VkDevice device, const VkSemaphoreSignalInfo* pSignalInfo)
+{
+	cVkDevice* dev = device_cast(device);
+	cVkSemaphore* semaphore = semaphore_cast(pSignalInfo->semaphore);
+	assert(semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE);
+	assert(pSignalInfo->value > semaphore->value);
+	semaphore->value = pSignalInfo->value;
+	retire_pending_submissions(dev);
+	return VK_SUCCESS;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL vkSignalSemaphore(
     VkDevice                                    device,
     const VkSemaphoreSignalInfo*                pSignalInfo)
 {
 	ENTRY(vkSignalSemaphore);
-	cVkDevice* dev = device_cast(device);
-	cVkSemaphore* c = semaphore_cast(pSignalInfo->semaphore);
-	c->value = pSignalInfo->value;
-	return VK_SUCCESS; // probably wrong
+	return internalSignalSemaphore(device, pSignalInfo);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkWaitSemaphoresKHR(
@@ -6744,10 +6897,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkSignalSemaphoreKHR(
     const VkSemaphoreSignalInfo*                pSignalInfo)
 {
 	ENTRY(vkSignalSemaphoreKHR);
-	cVkDevice* dev = device_cast(device);
-	cVkSemaphore* c = semaphore_cast(pSignalInfo->semaphore);
-	c->value = pSignalInfo->value;
-	return VK_SUCCESS;
+	return internalSignalSemaphore(device, pSignalInfo);
 }
 
 // VK_KHR_acceleration_structure
@@ -7605,24 +7755,20 @@ VkResult internalQueueSubmit2(
 	ENTRY(vkQueueSubmit2KHR);
 	CLOG("queue=%p, submitCount=%u, pSubmits=%p, fence=" NHANDLE, queue, submitCount, pSubmits, fence);
 	cVkQueue* q = queue_cast(queue);
+	cVkFence* submit_fence = fence_cast(fence);
+	if (submit_fence) assert(!fence_is_signalled(submit_fence));
 
 	for (unsigned i = 0; i < submitCount; i++)
 	{
-		VkTimelineSemaphoreSubmitInfo* timeline_semaphore = (VkTimelineSemaphoreSubmitInfo*)find_extension(&pSubmits[i], VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO);
-		XLOG("%u: %u wait semaphores, %u commandbuffers, %u signal semaphores (timeline=%s)", i, pSubmits[i].waitSemaphoreInfoCount, pSubmits[i].commandBufferInfoCount,
-		     pSubmits[i].signalSemaphoreInfoCount, timeline_semaphore ? "yes" : "no");
-
-		if (timeline_semaphore)
-		{
-			assert(timeline_semaphore->signalSemaphoreValueCount == pSubmits[i].signalSemaphoreInfoCount);
-			assert(timeline_semaphore->waitSemaphoreValueCount == pSubmits[i].waitSemaphoreInfoCount);
-		}
+		cVkPendingSubmission submission;
+		XLOG("%u: %u wait semaphores, %u commandbuffers, %u signal semaphores", i, pSubmits[i].waitSemaphoreInfoCount,
+		     pSubmits[i].commandBufferInfoCount, pSubmits[i].signalSemaphoreInfoCount);
 
 		// Wait execution start
 		for (unsigned j = 0; j < pSubmits[i].waitSemaphoreInfoCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pWaitSemaphoreInfos[j].semaphore);
-			// no need to wait - everything here is immediate!
+			submission.waits.push_back({ c, pSubmits[i].pWaitSemaphoreInfos[j].value });
 			update_stageflag_usage(q, pSubmits[i].pWaitSemaphoreInfos[j].stageMask);
 		}
 
@@ -7635,26 +7781,14 @@ VkResult internalQueueSubmit2(
 		for (unsigned j = 0; j < pSubmits[i].signalSemaphoreInfoCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pSignalSemaphoreInfos[j].semaphore);
-			// here we would signal it, but no need to think about this yet
 			update_stageflag_usage(q, pSubmits[i].pSignalSemaphoreInfos[j].stageMask);
-			if (timeline_semaphore)
-			{
-				assert(c->type == VK_SEMAPHORE_TYPE_TIMELINE);
-				c->value = timeline_semaphore->pSignalSemaphoreValues[j];
-			}
-			else
-			{
-				assert(c->type == VK_SEMAPHORE_TYPE_BINARY);
-				c->value = 1;
-			}
+			submission.signals.push_back({ c, pSubmits[i].pSignalSemaphoreInfos[j].value });
 		}
+		if (i + 1 == submitCount) submission.fence = submit_fence;
+		enqueue_submission(q, submission);
 	}
 
-	// If user sent in a fence, lift it to signal that we're done executing the queue now
-	if (fence != VK_NULL_HANDLE)
-	{
-		fence_cast(fence)->signalled = true;
-	}
+	if (submitCount == 0 && submit_fence) submit_fence->signalled.store(true);
 
 	return VK_SUCCESS;
 }

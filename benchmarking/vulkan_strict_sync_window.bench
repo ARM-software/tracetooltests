@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_strict_sync_window",
+	"description": "Strict swapchain image acquisition and presentation synchronization"
+}

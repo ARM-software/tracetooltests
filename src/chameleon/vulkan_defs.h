@@ -6,6 +6,7 @@
 #include "util.h"
 
 #include <algorithm>
+#include <atomic>
 #include <vector>
 #include <list> // need to use linked lists since we return pointers to contents _and_ add stuff
 #include <string>
@@ -34,6 +35,10 @@ struct MetricUnit
 // These should correspond to Vulkan public data type names, but prefixed with 'c'.
 
 struct cVkDevice;
+struct cVkQueue;
+struct cVkFence;
+struct cVkSemaphore;
+struct cVkSwapchainKHR;
 struct cVkSurfaceKHR;
 struct cVkDisplayKHR;
 struct cVkDisplayModeKHR;
@@ -225,7 +230,18 @@ struct cVkDescriptorUpdateTemplate : cVkBase
 
 struct cVkCommandBuffer : cVkBase
 {
+	enum State
+	{
+		Initial,
+		Recording,
+		Executable,
+		Pending,
+		Invalid
+	};
+
+	cVkDevice* device = nullptr;
 	VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_MAX_ENUM;
+	State state = Initial;
 	struct
 	{
 		cVkRenderPass* renderPass = nullptr;
@@ -264,6 +280,7 @@ struct cVkCommandBuffer : cVkBase
 
 struct cVkCommandPool : cVkBase
 {
+	cVkDevice* device = nullptr;
 	uint32_t queueFamilyIndex = 0;
 	std::list<cVkCommandBuffer> commandBuffers;
 
@@ -352,11 +369,26 @@ struct cVkInstance : cVkBase
 static const std::vector<const char*> queue_counter_names {"QueueSubmitCalls", "QueueSubmits", "QueueSubmitFences",
 	"QueueSubmitWaitSemaphores", "QueueSubmitSignalSemaphores", "WaitIdle"};
 
+struct cVkSemaphoreOperation
+{
+	cVkSemaphore* semaphore = nullptr;
+	uint64_t value = 0;
+};
+
+struct cVkPendingSubmission
+{
+	std::vector<cVkSemaphoreOperation> waits;
+	std::vector<cVkSemaphoreOperation> signals;
+	cVkFence* fence = nullptr;
+};
+
 struct cVkQueue : cVkBase
 {
+	cVkDevice* device = nullptr;
 	int index = -1;
 	float priority = 0.0f;
 	std::vector<cVkCommandBuffer*> commandbuffers;
+	std::list<cVkPendingSubmission> pendingSubmissions;
 	std::map<int, int> stageflag_usage; // mapping flag bit -> usage counter
 
 	cVkQueue()
@@ -440,7 +472,7 @@ struct cVkFence : cVkBase
 {
 	VkFenceCreateFlags flags = 0;
 	VkExternalFenceHandleTypeFlags exportHandleTypes = 0;
-	volatile bool signalled = false; // TBD this should be an atomic
+	std::atomic_bool signalled { false };
 	cVkFence* importedFence = nullptr;
 
 	cVkFence()
@@ -448,18 +480,31 @@ struct cVkFence : cVkBase
 		object_type = VK_OBJECT_TYPE_FENCE;
 		debug_object_type = VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT;
 	}
+
+	cVkFence(const cVkFence& other) : cVkBase(other), flags(other.flags), exportHandleTypes(other.exportHandleTypes),
+		signalled(other.signalled.load()), importedFence(other.importedFence)
+	{
+		set_loader_magic_value(this);
+	}
 };
 
 struct cVkSemaphore : cVkBase
 {
 	VkSemaphoreCreateFlags flags = 0;
-	uint64_t value = 0;
+	std::atomic_uint64_t value { 0 };
 	VkSemaphoreType type = VK_SEMAPHORE_TYPE_MAX_ENUM;
+	bool binary_signalled = false;
 
 	cVkSemaphore()
 	{
 		object_type = VK_OBJECT_TYPE_SEMAPHORE;
 		debug_object_type = VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT;
+	}
+
+	cVkSemaphore(const cVkSemaphore& other) : cVkBase(other), flags(other.flags), value(other.value.load()), type(other.type),
+		binary_signalled(other.binary_signalled)
+	{
+		set_loader_magic_value(this);
 	}
 };
 
@@ -962,6 +1007,13 @@ struct cVkDisplayKHR : cVkBase
 
 struct cVkSwapchainKHR : cVkBase
 {
+	enum ImageState
+	{
+		Available,
+		Acquired,
+		PendingPresent
+	};
+
 	cVkSurfaceKHR* surface = nullptr;
 	uint32_t minImageCount = 0;
 	VkFormat imageFormat = VK_FORMAT_MAX_ENUM;
@@ -980,6 +1032,7 @@ struct cVkSwapchainKHR : cVkBase
 	uint32_t currentImage = 0;
 	/// Pointers to presentation images
 	std::vector<cVkImage*> images;
+	std::vector<ImageState> imageStates;
 
 	cVkSwapchainKHR()
 	{

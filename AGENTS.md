@@ -34,3 +34,9 @@
 - For GLES, window system is selectable via `-DWINDOWSYSTEM=<x11|sdl|fbuffers|fbdev>`; default is X11.
 - Optional components can be toggled at configure time, e.g., `-DNO_VULKAN=1`, `-DNO_GLES=1`, `-DNO_CL=1`.
 - For Vulkan headers, install LunarG SDK or use provided `external/` headers as configured.
+- Chameleon is different than a normal Vulkan implementation in that we have zero asynchronous or
+  background GPU work going on. All work is completed the moment a Vulkan command is run and almost all work
+  is pretend work, since we are a mock driver.
+- We also rely on the Vulkan 'external synchronization' rules and requirement that all signal operations that
+  queue submissions depend on must already have been submitted to reduce the amount of synchronization work
+  we need to do.
