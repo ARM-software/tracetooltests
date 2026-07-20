@@ -156,7 +156,11 @@ int main(int argc, char** argv)
 	reqs.device_extensions.push_back("VK_ARM_trace_helpers");
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_trace_helpers", reqs);
 
-	assert(vulkan.has_trace_helpers);
+	if (!vulkan.has_trace_helpers)
+	{
+		return 77; // user probably used --no-trace-helpers
+	}
+
 	assert(vulkan.vkCmdUpdateBuffer2);
 	assert(vulkan.vkCmdUpdateMemory2);
 	MAKEDEVICEPROCADDR(vulkan, vkGetDescriptorSetLayoutSizeEXT);
