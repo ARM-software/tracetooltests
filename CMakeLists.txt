@@ -358,7 +358,6 @@ vulkan_test_extra(compute_bda_ubo_1_test_1 compute_bda_ubo --ssbo)
 vulkan_test(compute_bda_copying_address) # copying buffer device address
 vulkan_test_extra(compute_bda_copying_address_gpu_driven compute_bda_copying_address --gpu-driven)
 vulkan_test(compute_bda_copying_address_minimal) # reduced copying buffer device address repro
-
 vulkan_test(deferred_1)
 vulkan_test(pipelinecache_1)
 vulkan_test(multidevice_1)
@@ -370,6 +369,7 @@ vulkan_test(aliasing_1)
 vulkan_test(aliasing_2)
 vulkan_test(aliasing_3)
 vulkan_test(aliasing_4)
+vulkan_test(aliasing_5)
 vulkan_test(timeline_semaphore_1)
 vulkan_test(external_fence_fd)
 vulkan_test(external_fence_fd_capabilities)
