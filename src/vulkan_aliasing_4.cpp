@@ -310,6 +310,16 @@ int main(int argc, char **argv)
 	assert_pixel(bytes, kCases[3].readback_offset, 255, 255, 0, 255);
 
 	vkUnmapMemory(vulkan.device, readback_memory);
+
+	if (vulkan.vkAssertBuffer)
+	{
+		uint32_t readback_crc = 0;
+		const VkUpdateBufferInfoARM readback_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, readback_buffer, 0, VK_WHOLE_SIZE, nullptr};
+		result = vulkan.vkAssertBuffer(vulkan.device, &readback_info, &readback_crc, "aliased image subresource readback buffer");
+		check(result);
+		(void)readback_crc;
+	}
+
 	vkDestroyFence(vulkan.device, fence, nullptr);
 	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 	vkDestroyBuffer(vulkan.device, readback_buffer, nullptr);
