@@ -304,10 +304,13 @@ int main(int argc, char **argv)
 	result = vkMapMemory(vulkan.device, readback_memory, 0, kReadbackSize, 0, (void **)&bytes);
 	check(result);
 
-	assert_pixel(bytes, kCases[0].readback_offset, 255, 0, 0, 255);
-	assert_pixel(bytes, kCases[1].readback_offset, 0, 255, 0, 255);
-	assert_pixel(bytes, kCases[2].readback_offset, 0, 0, 255, 255);
-	assert_pixel(bytes, kCases[3].readback_offset, 255, 255, 0, 255);
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
+	{
+		assert_pixel(bytes, kCases[0].readback_offset, 255, 0, 0, 255);
+		assert_pixel(bytes, kCases[1].readback_offset, 0, 255, 0, 255);
+		assert_pixel(bytes, kCases[2].readback_offset, 0, 0, 255, 255);
+		assert_pixel(bytes, kCases[3].readback_offset, 255, 255, 0, 255);
+	}
 
 	vkUnmapMemory(vulkan.device, readback_memory);
 
