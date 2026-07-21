@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 {
 	vulkan_req_t reqs;
 	reqs.apiVersion = VK_API_VERSION_1_1;
-	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_image_aliasing", reqs);
+	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_aliasing_4", reqs);
 
 	VkImage im1 = VK_NULL_HANDLE;
 	VkImage im2 = VK_NULL_HANDLE;

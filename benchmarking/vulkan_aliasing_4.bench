@@ -1,5 +1,5 @@
 {
-	"name": "vulkan_image_aliasing",
+	"name": "vulkan_aliasing_4",
 	"description": "Test of aliased image memory using mip and layer subresources",
 	"settings": {
 		"vulkan_variant": {
