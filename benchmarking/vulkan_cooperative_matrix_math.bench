@@ -1,0 +1,23 @@
+{
+	"name": "vulkan_cooperative_matrix_math",
+	"description": "Run a compute shader that exercises instructions related to VK_KHR_cooperative_matrix",
+	"path": "build/vulkan_cooperative_matrix_math",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"frameless": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"file_output": {
+			"default": false,
+			"modifiable": false,
+		},
+	}
+}

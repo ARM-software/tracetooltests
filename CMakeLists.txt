@@ -407,6 +407,7 @@ vulkan_test(memory_budget)
 
 if (NOT MOCK_DRIVER MATCHES "1")
 vulkan_test(cooperative_matrix)
+vulkan_test(cooperative_matrix_math)
 vulkan_test(address_remap_test_1)
 endif()
 
