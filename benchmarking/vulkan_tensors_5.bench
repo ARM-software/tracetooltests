@@ -1,0 +1,1 @@
+{ "name": "vulkan_tensors_5", "description": "VK_ARM_tensors tensor/image aliasing with shader write readback" }
