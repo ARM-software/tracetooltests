@@ -41,12 +41,12 @@ void main()
 
     signed_matrix = signed_matrix - coopmat<int, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float_matrix);
     signed_matrix = signed_matrix + signed_matrix;
-    signed_matrix = signed_matrix * signed_matrix; 
-    signed_matrix = signed_matrix / signed_matrix; 
+    signed_matrix = signed_matrix * signed_matrix;
+    signed_matrix = signed_matrix / signed_matrix;
 
-    unsigned_matrix = unsigned_matrix - coopmat<uint, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float_matrix); 
-    unsigned_matrix = unsigned_matrix + unsigned_matrix; 
-    unsigned_matrix = unsigned_matrix * unsigned_matrix; 
+    unsigned_matrix = unsigned_matrix - coopmat<uint, gl_ScopeSubgroup, 16, 16, gl_MatrixUseAccumulator>(float_matrix);
+    unsigned_matrix = unsigned_matrix + unsigned_matrix;
+    unsigned_matrix = unsigned_matrix * unsigned_matrix;
     unsigned_matrix = unsigned_matrix / unsigned_matrix;
 
     coopMatStore(signed_matrix,

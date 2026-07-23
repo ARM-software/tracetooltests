@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 			{.sType = VK_STRUCTURE_TYPE_COOPERATIVE_MATRIX_PROPERTIES_KHR,
 			 .pNext = nullptr
 			});
-	
+
 	if (propCount > 0)
 	{
 		r = pf_vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR(vk.physical, &propCount, coopProps.data());
@@ -146,7 +146,8 @@ int main(int argc, char** argv)
 		mData.unsigned_values[i] = 3;
 	}
 	void* data;
-	vkMapMemory(vk.device, ssboMemory[0], 0, bufferSize, 0x0, &data);
+	r = vkMapMemory(vk.device, ssboMemory[0], 0, bufferSize, 0x0, &data);
+        check(r);
 	memcpy(data, &mData, (size_t)bufferSize);
 	vkUnmapMemory(vk.device, ssboMemory[0]);
 
@@ -163,7 +164,7 @@ int main(int argc, char** argv)
 	layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	layoutBindings[1].pImmutableSamplers = nullptr;
 	layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	
+
 	VkDescriptorSetLayoutCreateInfo layoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.pNext = nullptr,
@@ -180,7 +181,7 @@ int main(int argc, char** argv)
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 2,
 	};
-	
+
 	VkDescriptorPoolCreateInfo poolCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.pNext = nullptr,
@@ -205,7 +206,7 @@ int main(int argc, char** argv)
 
 	r = vkAllocateDescriptorSets(vk.device, &setAllocateInfo, &descSet);
 	check(r);
-	
+
 	// Connect descriptor set and buffers
 	std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 	VkDescriptorBufferInfo inSsboInfo = {
@@ -358,25 +359,44 @@ int main(int argc, char** argv)
 	check(r);
 	const MatrixData* results = reinterpret_cast<const MatrixData*>(mapped);
 	bool ok = true;
-	for(size_t i = 0; i < 256; ++i)
-	{
-		uint64_t row = i/16;
-		uint64_t col = i % 16;
-		if (results->unsigned_values[i] == 1)
-		{
-			ok = false;
-			printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->unsigned_values[i]);
-			break;
-		}
-		if (results->signed_values[i] == 1)
-		{
-			ok = false;
-			printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->signed_values[i]);
-			break;
-		}
-	}
+
+        if(get_env_int("TOOLSTEST_NULL_RUN", 0))
+        {
+                printf("  skipping coop-matrix output verification for null run\n");
+        }
+        else
+        {
+                for(size_t i = 0; i < 256; ++i)
+                {
+                        uint64_t row = i/16;
+                        uint64_t col = i % 16;
+                        if (results->unsigned_values[i] != 1)
+                        {
+                                ok = false;
+                                printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->unsigned_values[i]);
+                                break;
+                        }
+                        if (results->signed_values[i] != 1)
+                        {
+                                ok = false;
+                                printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->signed_values[i]);
+                                break;
+                        }
+                }
+
+        }
 
 	vkUnmapMemory(vk.device, ssboMemory[1]);
+
+	if(vk.vkAssertBuffer)
+	{
+		printf("Writing out checksum\n");
+		uint32_t crc = 0;
+                const VkUpdateBufferInfoARM result_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr, ssbo[1], 0, VK_WHOLE_SIZE, nullptr};
+                r = vk.vkAssertBuffer(vk.device, &result_info, &crc, "Results buffer");
+                check(r);
+	}
+
 
 	vkDestroyPipeline(vk.device, computePipeline, nullptr);
 	vkDestroyPipelineLayout(vk.device, pipeLayout, nullptr);
@@ -389,17 +409,21 @@ int main(int argc, char** argv)
 		vkDestroyBuffer(vk.device, ssbo[i], nullptr);
 		testFreeMemory(vk, ssboMemory[i]);
 	}
-	
+
 	bench_stop_iteration(vk.bench);
 	test_done(vk);
 
-	if(ok)
+	if(ok && !get_env_int("TOOLSTEST_NULL_RUN", 0))
 	{
 		printf("  coop-matrix compute verified: all 256 values == 1\n");
 	}
-	else 
+        else if (get_env_int("TOOLSTEST_NULL_RUN", 0))
+        {
+		printf("  TOOLSTEST_NULL_RUN: verification was skipped\n");
+        }
+	else
 	{
-		return -1;
+		return 1;
 	}
 	return 0;
 }
