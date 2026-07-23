@@ -286,6 +286,7 @@ vulkan_test(raytracing_3)
 vulkan_test(raytracing_4)
 vulkan_test(raytracing_5)
 vulkan_test(raytracing_indirect_noop)
+vulkan_test(raytracing_callable_bda)
 vulkan_test(rayquery)
 
 vulkan_test(copying_2)

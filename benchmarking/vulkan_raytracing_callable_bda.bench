@@ -1,0 +1,1 @@
+{ "name": "vulkan_raytracing_callable_bda", "description": "Pass a buffer device address back from a callable ray tracing shader" }

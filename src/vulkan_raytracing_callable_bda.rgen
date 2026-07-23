@@ -1,0 +1,30 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_buffer_reference : require
+#extension GL_EXT_buffer_reference_uvec2 : require
+
+layout(buffer_reference, std430, buffer_reference_align = 4) buffer TargetBuffer
+{
+	uint value;
+};
+
+layout(push_constant) uniform PushConstants
+{
+	uvec2 target_address;
+	uvec2 decoy_address;
+} pc;
+
+struct CallableData
+{
+	uvec2 address;
+};
+
+layout(location = 0) callableDataEXT CallableData callable_data;
+
+void main()
+{
+	callable_data.address = pc.decoy_address;
+	executeCallableEXT(0, 0);
+	TargetBuffer target = TargetBuffer(callable_data.address);
+	target.value = 0xc011ab1e;
+}
