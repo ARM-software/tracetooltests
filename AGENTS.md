@@ -28,15 +28,11 @@
 - Run test binaries directly, do not run via CTest unless asked to.
 - For Vulkan tests, you can add the command line parameter `--cpu` to workaround AI sandbox problems.
 - For Vulkan tests, you can add the command line parameter `-v` to enable the Vulkan validation layer.
-- Tests return error code 77 to indicate feature not supported.
+- Tests shall return error code 77 when a feature is not supported.
+- Tests shall check the environment variable `TOOLSTEST_NULL_RUN` before failing or asserting on the results of GPU work.
+- Tests should use `vkAssertBufferARM` (usually accessible as `vulkan.vkAssertBuffer`) to allow a 'burn in' of test assumptions into API traces.
 
 ## Notes & Configuration Tips
 - For GLES, window system is selectable via `-DWINDOWSYSTEM=<x11|sdl|fbuffers|fbdev>`; default is X11.
 - Optional components can be toggled at configure time, e.g., `-DNO_VULKAN=1`, `-DNO_GLES=1`, `-DNO_CL=1`.
 - For Vulkan headers, install LunarG SDK or use provided `external/` headers as configured.
-- Chameleon is different than a normal Vulkan implementation in that we have zero asynchronous or
-  background GPU work going on. All work is completed the moment a Vulkan command is run and almost all work
-  is pretend work, since we are a mock driver.
-- We also rely on the Vulkan 'external synchronization' rules and requirement that all signal operations that
-  queue submissions depend on must already have been submitted to reduce the amount of synchronization work
-  we need to do.

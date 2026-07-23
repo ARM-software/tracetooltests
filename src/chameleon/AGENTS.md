@@ -28,6 +28,14 @@
   `chameleon_icd_multiinstance -v --gpu`,
   and `xvfb-run -a chameleon_icd_window_1 -v --gpu`.
 
+# Design notes
+- Chameleon is different than a normal Vulkan implementation in that we have zero asynchronous or
+  background GPU work going on. All work is completed the moment a Vulkan command is run and almost all work
+  is pretend work, since we are a mock driver.
+- We also rely on the Vulkan 'external synchronization' rules and requirement that all signal operations that
+  queue submissions depend on must already have been submitted to reduce the amount of synchronization work
+  we need to do.
+
 ## Implementing Vulkan Functions
 - All Chameleon Vulkan entry points belong in `src/chameleon/vulkan.cpp`.
 - Chameleon is a mock driver. It should track and simulate Vulkan usage, not produce real rendering.
