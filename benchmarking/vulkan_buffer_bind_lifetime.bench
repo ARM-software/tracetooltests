@@ -1,0 +1,1 @@
+{ "name": "vulkan_buffer_bind_lifetime", "description": "Test Vulkan buffer binding order and object lifetime tracking" }
