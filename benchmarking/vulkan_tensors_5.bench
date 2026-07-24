@@ -1,1 +1,33 @@
-{ "name": "vulkan_tensors_5", "description": "VK_ARM_tensors tensor/image aliasing with shader write readback" }
+{
+	"name": "vulkan_tensors_5",
+	"description": "VK_ARM_tensors tensor/image aliasing with framed shader write readback",
+	"settings": {
+		"vulkan_variant": {
+			"description": "Set Vulkan variant",
+			"type": "selection",
+			"options": [ "1.3", "1.4" ]
+		}
+	},
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"frameless": {
+			"default": false,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}
