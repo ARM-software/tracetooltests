@@ -1,6 +1,7 @@
 #include "vulkan_common.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "vulkan_tensors_2_preprocessing.inc"
@@ -26,14 +27,54 @@ static VkShaderModule create_shader_module(const vulkan_setup_t &vulkan, const u
     return module;
 }
 
+static void submit_frame_boundary(
+    VkDevice device,
+    VkQueue queue,
+    VkCommandBuffer command_buffer,
+    VkFence fence,
+    uint64_t frame_id,
+    VkImage image,
+    VkTensorARM tensor,
+    uint32_t buffer_count,
+    const VkBuffer *buffers)
+{
+    VkTensorARM tensors[] = {tensor};
+    VkFrameBoundaryTensorsARM frame_boundary_tensors = {
+        VK_STRUCTURE_TYPE_FRAME_BOUNDARY_TENSORS_ARM,
+        nullptr,
+        1,
+        tensors};
+    VkFrameBoundaryEXT frame_boundary = {VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, &frame_boundary_tensors};
+    frame_boundary.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+    frame_boundary.frameID = frame_id;
+    frame_boundary.imageCount = 1;
+    frame_boundary.pImages = &image;
+    frame_boundary.bufferCount = buffer_count;
+    frame_boundary.pBuffers = buffers;
+
+    VkSubmitInfo submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO, &frame_boundary};
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+    VkResult result = vkQueueSubmit(queue, 1, &submit_info, fence);
+    check(result);
+    result = vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    check(result);
+    result = vkResetFences(device, 1, &fence);
+    check(result);
+}
+
 int main(int argc, char **argv)
 {
     vulkan_req_t reqs;
     VkPhysicalDeviceTensorFeaturesARM tensor_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, nullptr};
     tensor_features.tensors = VK_TRUE;
     tensor_features.shaderTensorAccess = VK_TRUE;
+    VkPhysicalDeviceFrameBoundaryFeaturesEXT frame_boundary_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAME_BOUNDARY_FEATURES_EXT, &tensor_features};
+    frame_boundary_features.frameBoundary = VK_TRUE;
     reqs.device_extensions.push_back("VK_ARM_tensors");
-    reqs.extension_features = reinterpret_cast<VkBaseInStructure *>(&tensor_features);
+    reqs.device_extensions.push_back(VK_EXT_FRAME_BOUNDARY_EXTENSION_NAME);
+    reqs.options["frame_boundary"] = true;
+    reqs.extension_features = reinterpret_cast<VkBaseInStructure *>(&frame_boundary_features);
     reqs.minApiVersion = VK_API_VERSION_1_3;
     reqs.apiVersion = VK_API_VERSION_1_3;
     reqs.reqfeat13.synchronization2 = VK_TRUE;
@@ -312,17 +353,28 @@ int main(int argc, char **argv)
     result = vkCreateCommandPool(vulkan.device, &command_pool_info, nullptr, &command_pool);
     check(result);
 
-    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+    std::array<VkCommandBuffer, 3> command_buffers = {};
     VkCommandBufferAllocateInfo command_buffer_alloc_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr};
     command_buffer_alloc_info.commandPool = command_pool;
     command_buffer_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    command_buffer_alloc_info.commandBufferCount = 1;
-    result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_alloc_info, &command_buffer);
+    command_buffer_alloc_info.commandBufferCount = command_buffers.size();
+    result = vkAllocateCommandBuffers(vulkan.device, &command_buffer_alloc_info, command_buffers.data());
     check(result);
+    VkCommandBuffer clear_command_buffer = command_buffers[0];
+    VkCommandBuffer dispatch_command_buffer = command_buffers[1];
+    VkCommandBuffer readback_command_buffer = command_buffers[2];
+
+    VkFence fence = VK_NULL_HANDLE;
+    VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr};
+    result = vkCreateFence(vulkan.device, &fence_info, nullptr, &fence);
+    check(result);
+
+    VkQueue queue = VK_NULL_HANDLE;
+    vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 
     VkCommandBufferBeginInfo begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    result = vkBeginCommandBuffer(command_buffer, &begin_info);
+    result = vkBeginCommandBuffer(clear_command_buffer, &begin_info);
     check(result);
 
     VkImageSubresourceRange image_range = {};
@@ -346,14 +398,21 @@ int main(int argc, char **argv)
     VkDependencyInfo dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &to_clear;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vkCmdPipelineBarrier2(clear_command_buffer, &dependency_info);
 
     VkClearColorValue sentinel = {};
     sentinel.float32[0] = -12345.0f;
     sentinel.float32[1] = -12345.0f;
     sentinel.float32[2] = -12345.0f;
     sentinel.float32[3] = -12345.0f;
-    vkCmdClearColorImage(command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &sentinel, 1, &image_range);
+    vkCmdClearColorImage(clear_command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &sentinel, 1, &image_range);
+
+    result = vkEndCommandBuffer(clear_command_buffer);
+    check(result);
+    submit_frame_boundary(vulkan.device, queue, clear_command_buffer, fence, 0, image, tensor, 0, nullptr);
+
+    result = vkBeginCommandBuffer(dispatch_command_buffer, &begin_info);
+    check(result);
 
     VkImageMemoryBarrier2 clear_to_copy = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, nullptr};
     clear_to_copy.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
@@ -369,7 +428,7 @@ int main(int argc, char **argv)
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &clear_to_copy;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vkCmdPipelineBarrier2(dispatch_command_buffer, &dependency_info);
 
     VkBufferImageCopy copy_region = {};
     copy_region.bufferOffset = 0;
@@ -381,7 +440,7 @@ int main(int argc, char **argv)
     copy_region.imageSubresource.layerCount = 1;
     copy_region.imageOffset = {0, 0, 0};
     copy_region.imageExtent = {width, height, 1};
-    vkCmdCopyImageToBuffer(command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback_buffer, 1, &copy_region);
+    vkCmdCopyImageToBuffer(dispatch_command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback_buffer, 1, &copy_region);
 
     VkImageMemoryBarrier2 copy_to_shader = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, nullptr};
     copy_to_shader.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
@@ -397,13 +456,20 @@ int main(int argc, char **argv)
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &copy_to_shader;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vkCmdPipelineBarrier2(dispatch_command_buffer, &dependency_info);
 
     const float time_seconds = 0.25f;
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
-    vkCmdPushConstants(command_buffer, pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(time_seconds), &time_seconds);
-    vkCmdDispatch(command_buffer, width, height, 1);
+    vkCmdBindPipeline(dispatch_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindDescriptorSets(dispatch_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    vkCmdPushConstants(dispatch_command_buffer, pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(time_seconds), &time_seconds);
+    vkCmdDispatch(dispatch_command_buffer, width, height, 1);
+
+    result = vkEndCommandBuffer(dispatch_command_buffer);
+    check(result);
+    submit_frame_boundary(vulkan.device, queue, dispatch_command_buffer, fence, 1, image, tensor, 0, nullptr);
+
+    result = vkBeginCommandBuffer(readback_command_buffer, &begin_info);
+    check(result);
 
     VkTensorMemoryBarrierARM tensor_barrier = {VK_STRUCTURE_TYPE_TENSOR_MEMORY_BARRIER_ARM, nullptr};
     tensor_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
@@ -430,10 +496,10 @@ int main(int argc, char **argv)
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO, &tensor_dependency_info};
     dependency_info.imageMemoryBarrierCount = 1;
     dependency_info.pImageMemoryBarriers = &to_copy;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vkCmdPipelineBarrier2(readback_command_buffer, &dependency_info);
 
     copy_region.bufferOffset = readback_size;
-    vkCmdCopyImageToBuffer(command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback_buffer, 1, &copy_region);
+    vkCmdCopyImageToBuffer(readback_command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readback_buffer, 1, &copy_region);
 
     VkBufferMemoryBarrier2 readback_barrier = {VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2, nullptr};
     readback_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
@@ -448,25 +514,11 @@ int main(int argc, char **argv)
     dependency_info = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO, nullptr};
     dependency_info.bufferMemoryBarrierCount = 1;
     dependency_info.pBufferMemoryBarriers = &readback_barrier;
-    vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+    vkCmdPipelineBarrier2(readback_command_buffer, &dependency_info);
 
-    result = vkEndCommandBuffer(command_buffer);
+    result = vkEndCommandBuffer(readback_command_buffer);
     check(result);
-
-    VkFence fence = VK_NULL_HANDLE;
-    VkFenceCreateInfo fence_info = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr};
-    result = vkCreateFence(vulkan.device, &fence_info, nullptr, &fence);
-    check(result);
-
-    VkQueue queue = VK_NULL_HANDLE;
-    vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
-    VkSubmitInfo submit_info = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffer;
-    result = vkQueueSubmit(queue, 1, &submit_info, fence);
-    check(result);
-    result = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, UINT64_MAX);
-    check(result);
+    submit_frame_boundary(vulkan.device, queue, readback_command_buffer, fence, 2, image, tensor, 1, &readback_buffer);
 
     if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
     {
@@ -503,7 +555,7 @@ int main(int argc, char **argv)
         (void)readback_crc;
     }
     vkDestroyFence(vulkan.device, fence, nullptr);
-    vkFreeCommandBuffers(vulkan.device, command_pool, 1, &command_buffer);
+    vkFreeCommandBuffers(vulkan.device, command_pool, command_buffers.size(), command_buffers.data());
     vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
     vkDestroyBuffer(vulkan.device, readback_buffer, nullptr);
     testFreeMemory(vulkan, readback_memory);
