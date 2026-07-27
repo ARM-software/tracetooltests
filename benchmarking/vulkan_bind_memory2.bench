@@ -1,6 +1,6 @@
 {
 	"name": "vulkan_bind_memory2",
-	"description": "Exercise VK_KHR_bind_memory2 entry points on Vulkan 1.0",
+	"description": "Exercise VK_KHR_bind_memory2 entry points on Vulkan 1.0, optionally with batched binds",
 	"settings": {
 		"vulkan_variant": {
 			"description": "Set Vulkan variant",
