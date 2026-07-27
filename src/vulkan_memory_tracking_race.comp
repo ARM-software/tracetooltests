@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(binding = 0) readonly buffer Target
+{
+	uint words[];
+} target_buffer;
+
+layout(binding = 1) writeonly buffer Readback
+{
+	uint words[];
+} readback_buffer;
+
+layout(push_constant) uniform Parameters
+{
+	uint word_count;
+	uint chunk_count;
+	uint copy_to_readback;
+} parameters;
+
+void main()
+{
+	for (uint i = 0; i < parameters.word_count; i++)
+	{
+		readback_buffer.words[i] = target_buffer.words[i];
+	}
+}

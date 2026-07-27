@@ -1284,17 +1284,17 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 		XLOG("%u: %u wait semaphores, %u commandbuffers, %u signal semaphores (timeline=%s)", i, pSubmits[i].waitSemaphoreCount, pSubmits[i].commandBufferCount,
 		     pSubmits[i].signalSemaphoreCount, timeline_semaphore ? "yes" : "no");
 
-		if (timeline_semaphore)
-		{
-			assert(timeline_semaphore->signalSemaphoreValueCount == pSubmits[i].signalSemaphoreCount);
-			assert(timeline_semaphore->waitSemaphoreValueCount == pSubmits[i].waitSemaphoreCount);
-		}
-
 		// Wait execution start
 		for (unsigned j = 0; j < pSubmits[i].waitSemaphoreCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pWaitSemaphores[j]);
-			const uint64_t value = c->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline_semaphore->pWaitSemaphoreValues[j] : 0;
+			uint64_t value = 0;
+			if (c->type == VK_SEMAPHORE_TYPE_TIMELINE)
+			{
+				assert(timeline_semaphore);
+				assert(timeline_semaphore->waitSemaphoreValueCount == pSubmits[i].waitSemaphoreCount);
+				value = timeline_semaphore->pWaitSemaphoreValues[j];
+			}
 			submission.waits.push_back({ c, value });
 
 			update_stageflag_usage(q, pSubmits[i].pWaitDstStageMask[j]);
@@ -1309,7 +1309,13 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 		for (unsigned j = 0; j < pSubmits[i].signalSemaphoreCount; j++)
 		{
 			cVkSemaphore* c = semaphore_cast(pSubmits[i].pSignalSemaphores[j]);
-			const uint64_t value = c->type == VK_SEMAPHORE_TYPE_TIMELINE ? timeline_semaphore->pSignalSemaphoreValues[j] : 0;
+			uint64_t value = 0;
+			if (c->type == VK_SEMAPHORE_TYPE_TIMELINE)
+			{
+				assert(timeline_semaphore);
+				assert(timeline_semaphore->signalSemaphoreValueCount == pSubmits[i].signalSemaphoreCount);
+				value = timeline_semaphore->pSignalSemaphoreValues[j];
+			}
 			submission.signals.push_back({ c, value });
 		}
 		if (i + 1 == submitCount) submission.fence = submit_fence;

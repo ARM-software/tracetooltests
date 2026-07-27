@@ -333,6 +333,10 @@ vulkan_test_extra(compute_wait_fence-status compute_wait --wait-type fence-statu
 vulkan_test_extra(compute_wait_wait-fences compute_wait --wait-type wait-fences)
 vulkan_test_extra(compute_wait_wait-semaphores compute_wait --wait-type wait-semaphores)
 vulkan_test_extra(compute_wait_query-pool compute_wait --wait-type query-pool)
+vulkan_test(memory_tracking_race)
+vulkan_test_extra(memory_tracking_race_timeline memory_tracking_race --sync-type timeline-semaphore)
+vulkan_test_extra(memory_tracking_race_barrier memory_tracking_race --sync-type pipeline-barrier)
+vulkan_test_extra(memory_tracking_race_event memory_tracking_race --sync-type event)
 
 vulkan_test(compute_device_generated)
 
