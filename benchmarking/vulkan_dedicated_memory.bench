@@ -1,0 +1,22 @@
+{
+	"name": "vulkan_dedicated_memory",
+	"description": "Test dedicated allocation for a device-local-only Vulkan buffer using a staging copy",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}
