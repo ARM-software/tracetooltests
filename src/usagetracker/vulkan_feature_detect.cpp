@@ -394,6 +394,10 @@ static bool is_astc_ldr_format(VkFormat format)
 static void mark_external_memory_usage(VkExternalMemoryHandleTypeFlags handleTypes)
 {
 	if (handleTypes != 0) instance->has_VK_KHR_external_memory = true;
+	if (handleTypes & VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
+	{
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	}
 	if (handleTypes & (VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT | VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT))
 	{
 		instance->has_VK_KHR_external_memory_fd = true;
@@ -819,6 +823,8 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_maintenance1 && requested_instance_api_version >= VK_API_VERSION_1_1) removed.insert(exts.extract("VK_KHR_maintenance1"));
 	if (!has_VK_KHR_external_memory) removed.insert(exts.extract("VK_KHR_external_memory"));
 	if (!has_VK_KHR_external_memory_fd) removed.insert(exts.extract("VK_KHR_external_memory_fd"));
+	if (!has_VK_ANDROID_external_memory_android_hardware_buffer)
+		removed.insert(exts.extract("VK_ANDROID_external_memory_android_hardware_buffer"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
 	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
@@ -1043,6 +1049,8 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 {
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
+		if (get_extension(pCreateInfos[i].pNext, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
+			instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 		const VkPipelineRenderingCreateInfo* rendering_info =
 			(const VkPipelineRenderingCreateInfo*)get_extension(pCreateInfos[i].pNext, VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO);
 		if (rendering_info && uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
@@ -1062,6 +1070,28 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 		if (pCreateInfos[i].pViewportState) struct_check_VkPipelineViewportStateCreateInfo(pCreateInfos[i].pViewportState);
 	}
 	return VK_SUCCESS;
+}
+
+VkResult check_vkBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo* pBeginInfo)
+{
+	if (pBeginInfo && pBeginInfo->pInheritanceInfo &&
+	    get_extension(pBeginInfo->pInheritanceInfo->pNext, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateSamplerYcbcrConversion(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+						       const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion)
+{
+	if (pCreateInfo && get_extension(pCreateInfo->pNext, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkCreateSamplerYcbcrConversionKHR(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+							  const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion)
+{
+	return check_vkCreateSamplerYcbcrConversion(device, pCreateInfo, pAllocator, pYcbcrConversion);
 }
 
 VkResult check_vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
@@ -1252,6 +1282,12 @@ VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo*
 
 VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
+	assert(pCreateInfo->attachmentCount == 0 || pCreateInfo->pAttachments != nullptr);
+	for (uint32_t i = 0; i < pCreateInfo->attachmentCount; i++)
+	{
+		if (get_extension(pCreateInfo->pAttachments[i].pNext, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
+			instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	}
 	assert(pCreateInfo->subpassCount == 0 || pCreateInfo->pSubpasses != nullptr);
 	for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++)
 	{
@@ -1333,6 +1369,14 @@ VkResult check_vkGetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice phy
                                                             VkImageFormatProperties2* pImageFormatProperties)
 {
 	instance->has_VK_KHR_get_physical_device_properties2 = true;
+	return check_vkGetPhysicalDeviceImageFormatProperties2(physicalDevice, pImageFormatInfo, pImageFormatProperties);
+}
+
+VkResult check_vkGetPhysicalDeviceImageFormatProperties2(VkPhysicalDevice physicalDevice, const VkPhysicalDeviceImageFormatInfo2* pImageFormatInfo,
+							 VkImageFormatProperties2* pImageFormatProperties)
+{
+	if (pImageFormatProperties && get_extension(pImageFormatProperties->pNext, VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_USAGE_ANDROID))
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 	return VK_SUCCESS;
 }
 
@@ -1462,6 +1506,8 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
+	if (get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 	const VkExternalMemoryImageCreateInfo* external_info = (const VkExternalMemoryImageCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
 	if (external_info) mark_external_memory_usage(external_info->handleTypes);
 
@@ -1524,6 +1570,8 @@ VkResult check_vkCreateBuffer(VkDevice device, const VkBufferCreateInfo* info, c
 
 VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocateInfo, const VkAllocationCallbacks* pAllocator, VkDeviceMemory* pMemory)
 {
+	if (get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID))
+		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 	if (get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_TENSOR_ARM)) instance->has_VK_ARM_tensors = true;
 
 	const VkImportMemoryHostPointerInfoEXT* import_host_info = (const VkImportMemoryHostPointerInfoEXT*)get_extension(pAllocateInfo, VK_STRUCTURE_TYPE_IMPORT_MEMORY_HOST_POINTER_INFO_EXT);
@@ -1537,6 +1585,22 @@ VkResult check_vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAl
 
 	return VK_SUCCESS;
 }
+
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+VkResult check_vkGetAndroidHardwareBufferPropertiesANDROID(VkDevice device, const struct AHardwareBuffer* buffer,
+							   VkAndroidHardwareBufferPropertiesANDROID* pProperties)
+{
+	instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkGetMemoryAndroidHardwareBufferANDROID(VkDevice device, const VkMemoryGetAndroidHardwareBufferInfoANDROID* pInfo,
+							struct AHardwareBuffer** pBuffer)
+{
+	instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
+	return VK_SUCCESS;
+}
+#endif
 
 VkResult check_vkGetMemoryFdKHR(VkDevice device, const VkMemoryGetFdInfoKHR* pGetFdInfo, int* pFd)
 {

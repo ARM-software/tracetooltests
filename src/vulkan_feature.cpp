@@ -1308,6 +1308,43 @@ static void test_external_memory_fd_extension_adjustment()
 	assert(exts.size() == 1);
 }
 
+static void test_android_hardware_buffer_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_ANDROID_external_memory_android_hardware_buffer" };
+
+	assert(f->has_VK_ANDROID_external_memory_android_hardware_buffer == false);
+	assert_removed_device_extensions(f, exts, { "VK_ANDROID_external_memory_android_hardware_buffer" });
+	assert(exts.empty());
+
+	exts.insert("VK_ANDROID_external_memory_android_hardware_buffer");
+	VkExternalMemoryImageCreateInfo external_info = {
+		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, nullptr,
+		VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID
+	};
+	VkImageCreateInfo image_info = {
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &external_info, 0,
+		VK_IMAGE_TYPE_2D, VK_FORMAT_UNDEFINED, { 4, 4, 1 },
+		1, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_SAMPLED_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, nullptr,
+		VK_IMAGE_LAYOUT_UNDEFINED
+	};
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_ANDROID_external_memory_android_hardware_buffer == true);
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	VkBaseOutStructure import_info = {
+		VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID, nullptr
+	};
+	VkMemoryAllocateInfo alloc_info = {
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &import_info, 4096, 0
+	};
+	check_vkAllocateMemory(VK_NULL_HANDLE, &alloc_info, nullptr, nullptr);
+	assert(f->has_VK_ANDROID_external_memory_android_hardware_buffer == true);
+}
+
 static void test_external_memory_host_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2762,6 +2799,7 @@ int main()
 	test_map_memory2_extension_adjustment();
 	test_external_memory_extension_adjustment();
 	test_external_memory_fd_extension_adjustment();
+	test_android_hardware_buffer_extension_adjustment();
 	test_external_memory_host_extension_adjustment();
 	test_robustness2_extension_adjustment();
 	test_multiview_extension_adjustment();
