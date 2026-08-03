@@ -1487,6 +1487,64 @@ static void test_multiview_render_pass_detection()
 	assert(f->core11.multiview == true);
 }
 
+static void test_rasterization_order_attachment_access_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_EXT_rasterization_order_attachment_access" };
+	assert_removed_device_extensions(f, exts, { "VK_EXT_rasterization_order_attachment_access" });
+	assert(exts.empty());
+
+	const char* extension_names[] = { "VK_EXT_rasterization_order_attachment_access" };
+	VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_EXT, nullptr,
+		VK_TRUE, VK_TRUE, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = {
+		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features, 0, 0, nullptr, 0, nullptr, 1, extension_names
+	};
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_rasterization_order_attachment_access" }, false);
+
+	f = reset_detection();
+	VkPipelineColorBlendStateCreateInfo color_blend = {
+		VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO, nullptr,
+		VK_PIPELINE_COLOR_BLEND_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_BIT_EXT
+	};
+	struct_check_VkPipelineColorBlendStateCreateInfo(&color_blend);
+	assert(f->has_VK_EXT_rasterization_order_attachment_access == true);
+
+	f = reset_detection();
+	VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO, nullptr,
+		VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT
+	};
+	struct_check_VkPipelineDepthStencilStateCreateInfo(&depth_stencil);
+	assert(f->has_VK_EXT_rasterization_order_attachment_access == true);
+
+	f = reset_detection();
+	VkSubpassDescription subpass = {};
+	subpass.flags = VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_EXT;
+	VkRenderPassCreateInfo rpci = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, nullptr, 0, 0, nullptr, 1, &subpass
+	};
+	check_vkCreateRenderPass(VK_NULL_HANDLE, &rpci, nullptr, nullptr);
+	assert(f->has_VK_EXT_rasterization_order_attachment_access == true);
+
+	f = reset_detection();
+	VkSubpassDescription2 subpass2 = {
+		VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2, nullptr,
+		VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_EXT
+	};
+	VkRenderPassCreateInfo2 rpci2 = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2, nullptr, 0, 0, nullptr, 1, &subpass2
+	};
+	check_vkCreateRenderPass2(VK_NULL_HANDLE, &rpci2, nullptr, nullptr);
+	assert(f->has_VK_EXT_rasterization_order_attachment_access == true);
+
+	exts = { "VK_EXT_rasterization_order_attachment_access" };
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+}
+
 static void test_multiview_render_pass2_detection()
 {
 	feature_detection* f = reset_detection();
@@ -2708,6 +2766,7 @@ int main()
 	test_robustness2_extension_adjustment();
 	test_multiview_extension_adjustment();
 	test_multiview_render_pass_detection();
+	test_rasterization_order_attachment_access_extension_adjustment();
 	test_multiview_render_pass2_detection();
 	test_multiview_dynamic_rendering_detection();
 	test_maintenance1_extension_adjustment();

@@ -648,6 +648,8 @@ void struct_check_VkPipelineColorBlendAttachmentState(const VkPipelineColorBlend
 void struct_check_VkPipelineColorBlendStateCreateInfo(const VkPipelineColorBlendStateCreateInfo* info)
 {
 	if (info->logicOpEnable == VK_TRUE) instance->core10.logicOp = true;
+	if (info->flags & VK_PIPELINE_COLOR_BLEND_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_BIT_EXT)
+		instance->has_VK_EXT_rasterization_order_attachment_access = true;
 
 	if (info->attachmentCount > 1)
 	{
@@ -692,6 +694,9 @@ void struct_check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasteri
 void struct_check_VkPipelineDepthStencilStateCreateInfo(const VkPipelineDepthStencilStateCreateInfo* info)
 {
 	if (info->depthBoundsTestEnable == VK_TRUE) instance->core10.depthBounds = true;
+	if (info->flags & (VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT |
+	                   VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_EXT))
+		instance->has_VK_EXT_rasterization_order_attachment_access = true;
 }
 
 void struct_check_VkPipelineViewportStateCreateInfo(const VkPipelineViewportStateCreateInfo* info)
@@ -781,6 +786,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_ARM_pipeline_opacity_micromap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_OPACITY_MICROMAP_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_KHR_robustness2", "VK_EXT_robustness2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_rasterization_order_attachment_access"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -832,6 +839,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_robustness2) removed.insert(exts.extract("VK_EXT_robustness2"));
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	if (!has_VK_EXT_transform_feedback) removed.insert(exts.extract("VK_EXT_transform_feedback"));
+	if (!has_VK_EXT_rasterization_order_attachment_access) removed.insert(exts.extract("VK_EXT_rasterization_order_attachment_access"));
 	return removed;
 }
 
@@ -1225,6 +1233,15 @@ void check_vkDestroyMicromapEXT(VkDevice device, VkMicromapEXT micromap, const V
 
 VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
+	assert(pCreateInfo->subpassCount == 0 || pCreateInfo->pSubpasses != nullptr);
+	for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++)
+	{
+		if (pCreateInfo->pSubpasses[i].flags &
+		    (VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_EXT |
+		     VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT |
+		     VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_EXT))
+			instance->has_VK_EXT_rasterization_order_attachment_access = true;
+	}
 	if (render_pass_uses_multiview(pCreateInfo))
 	{
 		instance->core11.multiview = true;
@@ -1235,6 +1252,15 @@ VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo*
 
 VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
+	assert(pCreateInfo->subpassCount == 0 || pCreateInfo->pSubpasses != nullptr);
+	for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++)
+	{
+		if (pCreateInfo->pSubpasses[i].flags &
+		    (VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_EXT |
+		     VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT |
+		     VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_EXT))
+			instance->has_VK_EXT_rasterization_order_attachment_access = true;
+	}
 	if (render_pass_uses_multiview(pCreateInfo))
 	{
 		instance->core11.multiview = true;
