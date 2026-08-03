@@ -793,6 +793,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_EXT_rasterization_order_attachment_access"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_rgba10x6_formats"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_multisampled_render_to_single_sampled"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -848,6 +850,8 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_transform_feedback) removed.insert(exts.extract("VK_EXT_transform_feedback"));
 	if (!has_VK_EXT_rasterization_order_attachment_access) removed.insert(exts.extract("VK_EXT_rasterization_order_attachment_access"));
 	if (!has_VK_EXT_rgba10x6_formats) removed.insert(exts.extract("VK_EXT_rgba10x6_formats"));
+	if (!has_VK_EXT_multisampled_render_to_single_sampled)
+		removed.insert(exts.extract("VK_EXT_multisampled_render_to_single_sampled"));
 	return removed;
 }
 
@@ -1298,6 +1302,11 @@ VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo
 	assert(pCreateInfo->subpassCount == 0 || pCreateInfo->pSubpasses != nullptr);
 	for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++)
 	{
+		const VkMultisampledRenderToSingleSampledInfoEXT* multisampled_render =
+			(const VkMultisampledRenderToSingleSampledInfoEXT*)get_extension(
+				pCreateInfo->pSubpasses[i].pNext, VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT);
+		if (multisampled_render && multisampled_render->multisampledRenderToSingleSampledEnable)
+			instance->has_VK_EXT_multisampled_render_to_single_sampled = true;
 		if (pCreateInfo->pSubpasses[i].flags &
 		    (VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_EXT |
 		     VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT |
@@ -1513,6 +1522,8 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
+	if (info->flags & VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT)
+		instance->has_VK_EXT_multisampled_render_to_single_sampled = true;
 	if (get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
 		instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 	const VkExternalMemoryImageCreateInfo* external_info = (const VkExternalMemoryImageCreateInfo*)get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
@@ -2287,6 +2298,11 @@ void check_vkResetQueryPool(VkDevice device, VkQueryPool queryPool, uint32_t fir
 
 void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
 {
+	const VkMultisampledRenderToSingleSampledInfoEXT* multisampled_render =
+		(const VkMultisampledRenderToSingleSampledInfoEXT*)get_extension(
+			pRenderingInfo->pNext, VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT);
+	if (multisampled_render && multisampled_render->multisampledRenderToSingleSampledEnable)
+		instance->has_VK_EXT_multisampled_render_to_single_sampled = true;
 	instance->core13.dynamicRendering = true;
 	if (uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 	if (pRenderingInfo->viewMask != 0) instance->core11.multiview = true;

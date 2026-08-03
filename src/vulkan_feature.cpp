@@ -281,6 +281,50 @@ static void test_rgba10x6_formats_extension_adjustment()
 	assert_adjusted_device_create_info(f, dci, exts, {}, true);
 }
 
+static void test_multisampled_render_to_single_sampled_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_EXT_multisampled_render_to_single_sampled" };
+	assert_removed_device_extensions(f, exts, { "VK_EXT_multisampled_render_to_single_sampled" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_EXT, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	const char* extname = "VK_EXT_multisampled_render_to_single_sampled";
+	const char* namelist[] = { extname };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+	exts.insert(extname);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+	assert_removed_device_extensions(f, exts, { extname });
+	assert_adjusted_device_create_info(f, dci, exts, { extname }, false);
+
+	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, nullptr };
+	image_info.flags = VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT;
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_multisampled_render_to_single_sampled == true);
+	exts.insert(extname);
+	assert_removed_device_extensions(f, exts, {});
+
+	f = reset_detection();
+	VkMultisampledRenderToSingleSampledInfoEXT multisampled_render = {
+		VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT, nullptr, VK_TRUE, VK_SAMPLE_COUNT_4_BIT
+	};
+	VkRenderingInfo rendering_info = { VK_STRUCTURE_TYPE_RENDERING_INFO, &multisampled_render };
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	assert(f->has_VK_EXT_multisampled_render_to_single_sampled == true);
+
+	f = reset_detection();
+	VkSubpassDescription2 subpass = { VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2, &multisampled_render };
+	VkRenderPassCreateInfo2 render_pass = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2, nullptr };
+	render_pass.subpassCount = 1;
+	render_pass.pSubpasses = &subpass;
+	check_vkCreateRenderPass2(VK_NULL_HANDLE, &render_pass, nullptr, nullptr);
+	assert(f->has_VK_EXT_multisampled_render_to_single_sampled == true);
+}
+
 static void test_bind_memory2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2835,6 +2879,7 @@ int main()
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
 	test_rgba10x6_formats_extension_adjustment();
+	test_multisampled_render_to_single_sampled_extension_adjustment();
 	test_external_memory_extension_adjustment();
 	test_external_memory_fd_extension_adjustment();
 	test_android_hardware_buffer_extension_adjustment();
