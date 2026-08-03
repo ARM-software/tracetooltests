@@ -1,0 +1,1 @@
+{ "name": "vulkan_device_local_memory", "description": "Upload to and read back from a device-local-only Vulkan buffer through staging buffers" }
