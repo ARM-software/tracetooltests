@@ -792,6 +792,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_EXT_transform_feedback"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_rasterization_order_attachment_access"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_rgba10x6_formats"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -846,6 +847,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_shader_viewport_index_layer) removed.insert(exts.extract("VK_EXT_shader_viewport_index_layer"));
 	if (!has_VK_EXT_transform_feedback) removed.insert(exts.extract("VK_EXT_transform_feedback"));
 	if (!has_VK_EXT_rasterization_order_attachment_access) removed.insert(exts.extract("VK_EXT_rasterization_order_attachment_access"));
+	if (!has_VK_EXT_rgba10x6_formats) removed.insert(exts.extract("VK_EXT_rgba10x6_formats"));
 	return removed;
 }
 
@@ -1205,6 +1207,11 @@ VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCre
 	const VkPhysicalDeviceTransformFeedbackFeaturesEXT* pdtff = (const VkPhysicalDeviceTransformFeedbackFeaturesEXT*)get_extension(
 		pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT);
 	if (pdtff && (pdtff->transformFeedback || pdtff->geometryStreams)) instance->has_VK_EXT_transform_feedback = true;
+
+	const VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT* rgba10x6_features =
+		(const VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT*)get_extension(
+			pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT);
+	if (rgba10x6_features && rgba10x6_features->formatRgba10x6WithoutYCbCrSampler) instance->has_VK_EXT_rgba10x6_formats = true;
 
 	return VK_SUCCESS;
 }

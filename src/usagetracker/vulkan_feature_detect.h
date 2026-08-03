@@ -241,6 +241,7 @@ struct feature_detection
 	std::atomic_bool has_VK_EXT_transform_feedback { false };
 	std::atomic_bool has_VK_EXT_descriptor_indexing { false };
 	std::atomic_bool has_VK_EXT_rasterization_order_attachment_access { false };
+	std::atomic_bool has_VK_EXT_rgba10x6_formats { false };
 
 	// --- Remove unused feature bits from these structures ---
 	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const;

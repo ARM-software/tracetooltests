@@ -244,6 +244,43 @@ static void test_map_memory2_extension_adjustment()
 	assert(f->has_VK_KHR_map_memory2 == true);
 }
 
+static void test_rgba10x6_formats_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_EXT_rgba10x6_formats" };
+	assert(f->has_VK_EXT_rgba10x6_formats == false);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_rgba10x6_formats" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT, nullptr, VK_FALSE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	const char* extname = "VK_EXT_rgba10x6_formats";
+	const char* namelist[] = { extname };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_rgba10x6_formats == false);
+	exts.insert("VK_EXT_rgba10x6_formats");
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+	assert_removed_device_extensions(f, exts, { "VK_EXT_rgba10x6_formats" });
+	assert(exts.empty());
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_rgba10x6_formats" }, false);
+
+	f = reset_detection();
+	features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT, nullptr, VK_TRUE };
+	dci.pNext = &features;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_rgba10x6_formats == true);
+	exts.insert("VK_EXT_rgba10x6_formats");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+}
+
 static void test_bind_memory2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2797,6 +2834,7 @@ int main()
 	test_external_fence_capabilities_extension_adjustment();
 	test_get_memory_requirements2_extension_adjustment();
 	test_map_memory2_extension_adjustment();
+	test_rgba10x6_formats_extension_adjustment();
 	test_external_memory_extension_adjustment();
 	test_external_memory_fd_extension_adjustment();
 	test_android_hardware_buffer_extension_adjustment();
