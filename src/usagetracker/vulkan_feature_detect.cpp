@@ -97,6 +97,13 @@ static bool pipeline_flags2_uses_shader_instrumentation(const void* pNext)
 	return flags2 && (flags2->flags & VK_PIPELINE_CREATE_2_INSTRUMENT_SHADERS_BIT_ARM) != 0;
 }
 
+static bool pipeline_flags2_uses_fragment_density_map(const void* pNext)
+{
+	const VkPipelineCreateFlags2CreateInfo* flags2 =
+		(const VkPipelineCreateFlags2CreateInfo*)get_extension(pNext, VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO);
+	return flags2 && (flags2->flags & VK_PIPELINE_CREATE_2_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT) != 0;
+}
+
 inline bool is_ray_tracing_maintenance1_token_type(VkIndirectCommandsTokenTypeEXT type)
 {
 	return type == VK_INDIRECT_COMMANDS_TOKEN_TYPE_TRACE_RAYS2_EXT;
@@ -568,6 +575,7 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityStoragePushConstant16: instance->core11.storagePushConstant16 = true; break;
 			case SpvCapabilityStorageInputOutput16: instance->core11.storageInputOutput16 = true; break;
 			case SpvCapabilityMultiView: instance->core11.multiview = true; instance->has_VK_KHR_multiview = true; break;
+			case SpvCapabilityFragmentDensityEXT: instance->has_VK_EXT_fragment_density_map = true; break;
 			case SpvCapabilityVariablePointersStorageBuffer: instance->core11.variablePointersStorageBuffer = true; break;
 			case SpvCapabilityVariablePointers: instance->core11.variablePointers = true; break;
 			case SpvCapabilityDrawParameters: instance->core11.shaderDrawParameters = true; break;
@@ -795,6 +803,10 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_EXT_rgba10x6_formats"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RGBA10X6_FORMATS_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_multisampled_render_to_single_sampled"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_fragment_density_map"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_fragment_density_map2"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -852,6 +864,9 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_rgba10x6_formats) removed.insert(exts.extract("VK_EXT_rgba10x6_formats"));
 	if (!has_VK_EXT_multisampled_render_to_single_sampled)
 		removed.insert(exts.extract("VK_EXT_multisampled_render_to_single_sampled"));
+	if (!has_VK_EXT_fragment_density_map && !(exts.count("VK_EXT_fragment_density_map2") != 0 && has_VK_EXT_fragment_density_map2))
+		removed.insert(exts.extract("VK_EXT_fragment_density_map"));
+	if (!has_VK_EXT_fragment_density_map2) removed.insert(exts.extract("VK_EXT_fragment_density_map2"));
 	return removed;
 }
 
@@ -1055,6 +1070,10 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 {
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
+		if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT)
+			instance->has_VK_EXT_fragment_density_map = true;
+		if (pipeline_flags2_uses_fragment_density_map(pCreateInfos[i].pNext))
+			instance->has_VK_EXT_fragment_density_map = true;
 		if (get_extension(pCreateInfos[i].pNext, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
 			instance->has_VK_ANDROID_external_memory_android_hardware_buffer = true;
 		const VkPipelineRenderingCreateInfo* rendering_info =
@@ -1133,6 +1152,8 @@ VkResult check_vkCreateShadersEXT(VkDevice device, uint32_t createInfoCount, con
 	for (uint32_t i = 0; i < createInfoCount; i++)
 	{
 		if (pCreateInfos[i].flags & VK_SHADER_CREATE_INSTRUMENT_SHADER_BIT_ARM) instance->has_VK_ARM_shader_instrumentation = true;
+		if (pCreateInfos[i].flags & VK_SHADER_CREATE_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT)
+			instance->has_VK_EXT_fragment_density_map = true;
 	}
 	return VK_SUCCESS;
 }
@@ -1274,6 +1295,8 @@ void check_vkDestroyMicromapEXT(VkDevice device, VkMicromapEXT micromap, const V
 
 VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
+	if (get_extension(pCreateInfo->pNext, VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT))
+		instance->has_VK_EXT_fragment_density_map = true;
 	assert(pCreateInfo->subpassCount == 0 || pCreateInfo->pSubpasses != nullptr);
 	for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++)
 	{
@@ -1293,6 +1316,8 @@ VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo*
 
 VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass)
 {
+	if (get_extension(pCreateInfo->pNext, VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT))
+		instance->has_VK_EXT_fragment_density_map = true;
 	assert(pCreateInfo->attachmentCount == 0 || pCreateInfo->pAttachments != nullptr);
 	for (uint32_t i = 0; i < pCreateInfo->attachmentCount; i++)
 	{
@@ -1443,6 +1468,8 @@ VkResult check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfo
 
 VkResult check_vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler)
 {
+	if (pCreateInfo->flags & (VK_SAMPLER_CREATE_SUBSAMPLED_BIT_EXT | VK_SAMPLER_CREATE_SUBSAMPLED_COARSE_RECONSTRUCTION_BIT_EXT))
+		instance->has_VK_EXT_fragment_density_map = true;
 	if (pCreateInfo->anisotropyEnable == VK_TRUE) instance->core10.samplerAnisotropy = true;
 	if (pCreateInfo->addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
 	    || pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
@@ -1522,6 +1549,8 @@ VkResult check_vkCreateIndirectCommandsLayoutEXT(VkDevice device, const VkIndire
 
 VkResult check_vkCreateImage(VkDevice device, const VkImageCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImage* pImage)
 {
+	if ((info->flags & VK_IMAGE_CREATE_SUBSAMPLED_BIT_EXT) || (info->usage & VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT))
+		instance->has_VK_EXT_fragment_density_map = true;
 	if (info->flags & VK_IMAGE_CREATE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_BIT_EXT)
 		instance->has_VK_EXT_multisampled_render_to_single_sampled = true;
 	if (get_extension(info, VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID))
@@ -1636,6 +1665,10 @@ VkResult check_vkGetMemoryFdPropertiesKHR(VkDevice device, VkExternalMemoryHandl
 
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 {
+	if (info->flags & VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DYNAMIC_BIT_EXT)
+		instance->has_VK_EXT_fragment_density_map = true;
+	if (info->flags & VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DEFERRED_BIT_EXT)
+		instance->has_VK_EXT_fragment_density_map2 = true;
 	if (is_etc2_format(info->format)) instance->core10.textureCompressionETC2 = true;
 	if (is_astc_ldr_format(info->format)) instance->core10.textureCompressionASTC_LDR = true;
 	if (is_bc_format(info->format)) instance->core10.textureCompressionBC = true;
@@ -2298,6 +2331,8 @@ void check_vkResetQueryPool(VkDevice device, VkQueryPool queryPool, uint32_t fir
 
 void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
 {
+	if (get_extension(pRenderingInfo->pNext, VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_INFO_EXT))
+		instance->has_VK_EXT_fragment_density_map = true;
 	const VkMultisampledRenderToSingleSampledInfoEXT* multisampled_render =
 		(const VkMultisampledRenderToSingleSampledInfoEXT*)get_extension(
 			pRenderingInfo->pNext, VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT);

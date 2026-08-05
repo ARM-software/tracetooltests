@@ -1685,6 +1685,59 @@ static void test_multiview_render_pass2_detection()
 	assert(f->core11.multiview == true);
 }
 
+static void test_fragment_density_map_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_EXT_fragment_density_map", "VK_EXT_fragment_density_map2" };
+	assert_removed_device_extensions(f, exts, { "VK_EXT_fragment_density_map", "VK_EXT_fragment_density_map2" });
+
+	const char* extension_names[] = { "VK_EXT_fragment_density_map", "VK_EXT_fragment_density_map2" };
+	VkPhysicalDeviceFragmentDensityMap2FeaturesEXT features2 = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, nullptr, VK_TRUE
+	};
+	VkPhysicalDeviceFragmentDensityMapFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT, &features2, VK_TRUE, VK_TRUE, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	dci.enabledExtensionCount = 2;
+	dci.ppEnabledExtensionNames = extension_names;
+	assert_adjusted_device_create_info(f, dci, exts,
+	                                  { "VK_EXT_fragment_density_map", "VK_EXT_fragment_density_map2" }, false);
+
+	f = reset_detection();
+	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	image_info.usage = VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
+	check_vkCreateImage(VK_NULL_HANDLE, &image_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_fragment_density_map == true);
+
+	f = reset_detection();
+	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	view_info.flags = VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DEFERRED_BIT_EXT;
+	check_vkCreateImageView(VK_NULL_HANDLE, &view_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_fragment_density_map2 == true);
+	exts = { "VK_EXT_fragment_density_map", "VK_EXT_fragment_density_map2" };
+	assert_removed_device_extensions(f, exts, {});
+
+	f = reset_detection();
+	VkRenderPassFragmentDensityMapCreateInfoEXT density_info = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT
+	};
+	VkRenderPassCreateInfo render_pass_info = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, &density_info
+	};
+	check_vkCreateRenderPass(VK_NULL_HANDLE, &render_pass_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_fragment_density_map == true);
+
+	f = reset_detection();
+	const uint32_t spirv[] = {
+		SpvMagicNumber, 0x00010000, 0, 3, 0,
+		(uint32_t(2) << 16) | SpvOpCapability, SpvCapabilityFragmentDensityEXT,
+		(uint32_t(3) << 16) | SpvOpMemoryModel, SpvAddressingModelLogical, SpvMemoryModelGLSL450
+	};
+	check_shader_module_code(spirv, sizeof(spirv), 10);
+	assert(f->has_VK_EXT_fragment_density_map == true);
+}
+
 static void test_multiview_dynamic_rendering_detection()
 {
 	feature_detection* f = reset_detection();
@@ -2888,6 +2941,7 @@ int main()
 	test_multiview_extension_adjustment();
 	test_multiview_render_pass_detection();
 	test_rasterization_order_attachment_access_extension_adjustment();
+	test_fragment_density_map_extension_adjustment();
 	test_multiview_render_pass2_detection();
 	test_multiview_dynamic_rendering_detection();
 	test_maintenance1_extension_adjustment();
