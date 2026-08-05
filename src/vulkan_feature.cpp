@@ -1738,6 +1738,33 @@ static void test_fragment_density_map_extension_adjustment()
 	assert(f->has_VK_EXT_fragment_density_map == true);
 }
 
+static void test_astc_decode_mode_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_EXT_astc_decode_mode" };
+	assert_removed_device_extensions(f, exts, { "VK_EXT_astc_decode_mode" });
+
+	const char* extension_names[] = { "VK_EXT_astc_decode_mode" };
+	VkPhysicalDeviceASTCDecodeFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	dci.enabledExtensionCount = 1;
+	dci.ppEnabledExtensionNames = extension_names;
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_EXT_astc_decode_mode" }, false);
+
+	f = reset_detection();
+	VkImageViewASTCDecodeModeEXT decode_mode = {
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_ASTC_DECODE_MODE_EXT, nullptr, VK_FORMAT_R8G8B8A8_UNORM
+	};
+	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, &decode_mode };
+	view_info.format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
+	check_vkCreateImageView(VK_NULL_HANDLE, &view_info, nullptr, nullptr);
+	assert(f->has_VK_EXT_astc_decode_mode == true);
+	exts = { "VK_EXT_astc_decode_mode" };
+	assert_removed_device_extensions(f, exts, {});
+}
+
 static void test_multiview_dynamic_rendering_detection()
 {
 	feature_detection* f = reset_detection();
@@ -2942,6 +2969,7 @@ int main()
 	test_multiview_render_pass_detection();
 	test_rasterization_order_attachment_access_extension_adjustment();
 	test_fragment_density_map_extension_adjustment();
+	test_astc_decode_mode_extension_adjustment();
 	test_multiview_render_pass2_detection();
 	test_multiview_dynamic_rendering_detection();
 	test_maintenance1_extension_adjustment();

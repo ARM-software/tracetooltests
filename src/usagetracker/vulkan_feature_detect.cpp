@@ -807,6 +807,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_fragment_density_map2"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_astc_decode_mode"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -867,6 +869,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_fragment_density_map && !(exts.count("VK_EXT_fragment_density_map2") != 0 && has_VK_EXT_fragment_density_map2))
 		removed.insert(exts.extract("VK_EXT_fragment_density_map"));
 	if (!has_VK_EXT_fragment_density_map2) removed.insert(exts.extract("VK_EXT_fragment_density_map2"));
+	if (!has_VK_EXT_astc_decode_mode) removed.insert(exts.extract("VK_EXT_astc_decode_mode"));
 	return removed;
 }
 
@@ -1665,6 +1668,8 @@ VkResult check_vkGetMemoryFdPropertiesKHR(VkDevice device, VkExternalMemoryHandl
 
 VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* info, const VkAllocationCallbacks* pAllocator, VkImageView* pView)
 {
+	if (get_extension(info->pNext, VK_STRUCTURE_TYPE_IMAGE_VIEW_ASTC_DECODE_MODE_EXT))
+		instance->has_VK_EXT_astc_decode_mode = true;
 	if (info->flags & VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DYNAMIC_BIT_EXT)
 		instance->has_VK_EXT_fragment_density_map = true;
 	if (info->flags & VK_IMAGE_VIEW_CREATE_FRAGMENT_DENSITY_MAP_DEFERRED_BIT_EXT)
