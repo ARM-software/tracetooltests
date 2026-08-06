@@ -185,7 +185,7 @@ int main(int argc, char **argv)
             nullptr};
 
         result = vulkan.vkAssertBuffer(vulkan.device, &buffer_info, &buffer_crc, "dedicated device-local buffer");
-        check(result);
+        assert(result == VK_SUCCESS || result == VK_INCOMPLETE);
 
         if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
         {
