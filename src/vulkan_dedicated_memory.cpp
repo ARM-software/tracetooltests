@@ -187,7 +187,7 @@ int main(int argc, char **argv)
         result = vulkan.vkAssertBuffer(vulkan.device, &buffer_info, &buffer_crc, "dedicated device-local buffer");
         assert(result == VK_SUCCESS || result == VK_INCOMPLETE);
 
-        if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
+        if (result == VK_SUCCESS && get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
         {
             assert(buffer_crc == expected_crc);
         }
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
         result = vulkan.vkAssertBuffer(vulkan.device, &readback_info, &readback_crc, "dedicated memory readback buffer");
         check(result);
 
-        if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
+        if (result == VK_SUCCESS && get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
         {
             assert(readback_crc == expected_crc);
         }
