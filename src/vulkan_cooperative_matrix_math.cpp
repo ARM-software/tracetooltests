@@ -12,10 +12,10 @@ static bool test_cmdopt(int& i, int argc, char **argv, vulkan_req_t& reqs)
 {
 	return false;
 }
-
-typedef struct alignas(32) MatrixData {
-	int32_t signed_values[256];
-	uint32_t unsigned_values[256];
+// Fake a half-precision float with a uint16_t
+// Value should be 1 (0x3c00)
+typedef struct alignas(16) MatrixData {
+	uint16_t float_values[256];
 } MatrixData;
 
 int main(int argc, char** argv)
@@ -87,6 +87,8 @@ int main(int argc, char** argv)
 			continue;
 		if (p.MSize != 16 || p.NSize != 16 || p.KSize != 16)
 			continue;
+                if ( (p.AType & p.BType & p.CType & p.ResultType) != VK_COMPONENT_TYPE_FLOAT16_KHR) 
+                        continue;
 		variant = true;
 		break;
 	}
@@ -142,8 +144,7 @@ int main(int argc, char** argv)
 	MatrixData mData;
 	for(size_t i = 0; i < 256; ++i)
 	{
-		mData.signed_values[i] = -2;
-		mData.unsigned_values[i] = 3;
+                mData.float_values[i] = (uint16_t)0x3c00;
 	}
 	void* data;
 	r = vkMapMemory(vk.device, ssboMemory[0], 0, bufferSize, 0x0, &data);
@@ -370,16 +371,12 @@ int main(int argc, char** argv)
                 {
                         uint64_t row = i/16;
                         uint64_t col = i % 16;
-                        if (results->unsigned_values[i] != 1)
+                        // This is an FP16 value of 1 faked as a uint16_t
+                        // because there is no native FP16 support
+                        if (results->float_values[i] != (uint16_t)0x3c00)
                         {
                                 ok = false;
-                                printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->unsigned_values[i]);
-                                break;
-                        }
-                        if (results->signed_values[i] != 1)
-                        {
-                                ok = false;
-                                printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->signed_values[i]);
+                                printf("  coop-matrix mismatch at (%lu, %lu): got %d expected 1\n", row, col, results->float_values[i]);
                                 break;
                         }
                 }
@@ -415,7 +412,7 @@ int main(int argc, char** argv)
 
 	if(ok && !get_env_int("TOOLSTEST_NULL_RUN", 0))
 	{
-		printf("  coop-matrix compute verified: all 256 values == 1\n");
+		printf("  coop-matrix compute verified: all 256 values == FP16(1)\n");
 	}
         else if (get_env_int("TOOLSTEST_NULL_RUN", 0))
         {

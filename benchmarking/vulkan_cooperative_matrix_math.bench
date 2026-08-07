@@ -1,6 +1,6 @@
 {
 	"name": "vulkan_cooperative_matrix_math",
-	"description": "Run a compute shader that exercises instructions related to VK_KHR_cooperative_matrix",
+	"description": "Run a compute shader that exercises arithmetics instructions related to VK_KHR_cooperative_matrix",
 	"path": "build/vulkan_cooperative_matrix_math",
 	"capabilities": {
 		"non_interactive": {
