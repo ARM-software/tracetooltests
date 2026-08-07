@@ -161,15 +161,18 @@ static void populate_address_and_color_buffers()
 	{
 		const VkDeviceAddress address = p_benchmark->m_outputBuffer->getBufferDeviceAddress() + i * sizeof(VkDeviceAddress);
 
-		colorData[i * 2] = static_cast<uint32_t>(address & 0xFFFFFFFF);
-		colorData[i * 2 + 1] = static_cast<uint32_t>(address >> 32);
+		colorData[i * 2] = 0x12340000u + i;
+		colorData[i * 2 + 1] = 0x56780000u + i;
 		addressData[i * 2] = static_cast<uint32_t>(address & 0xFFFFFFFF);
 		addressData[i * 2 + 1] = static_cast<uint32_t>(address >> 32);
 		marked_offsets[i] = i * sizeof(VkDeviceAddress);
 	}
 
-	testFlushMemoryDeviceAddresses(p_benchmark->m_vulkanSetup, p_benchmark->m_colorBuffer->getMemory(), 0,
-		p_benchmark->m_colorBuffer->getSize(), marked_offsets, VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM, true);
+	if (p_benchmark->m_vulkanSetup.has_trace_helpers || p_benchmark->m_vulkanSetup.has_explicit_host_updates)
+	{
+		testFlushMemory(p_benchmark->m_vulkanSetup, p_benchmark->m_colorBuffer->getMemory(), 0,
+			p_benchmark->m_colorBuffer->getSize(), true);
+	}
 	testFlushMemoryDeviceAddresses(p_benchmark->m_vulkanSetup, p_benchmark->m_addressBuffer->getMemory(), 0,
 		p_benchmark->m_addressBuffer->getSize(), marked_offsets, VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM, true);
 
@@ -301,6 +304,20 @@ int main(int argc, char** argv)
 	render(vulkan);
 
 	vkDeviceWaitIdle(vulkan.device);
+	if (vulkan.vkAssertBuffer)
+	{
+		uint32_t checksum = 0;
+		const VkUpdateBufferInfoARM output_info {
+			VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM,
+			nullptr,
+			p_benchmark->m_outputBuffer->getHandle(),
+			0,
+			p_benchmark->m_outputBuffer->getSize(),
+			nullptr
+		};
+		VkResult result = vulkan.vkAssertBuffer(vulkan.device, &output_info, &checksum, "minimal copied-address output buffer");
+		check(result);
+	}
 	p_benchmark = nullptr;
 	return 0;
 }

@@ -9107,6 +9107,20 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR
 	return VK_SUCCESS;
 }
 
+// VK_EXT_cooperative_matrix_maintenance1
+
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceCooperativeMatrixProperties2EXT(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceCooperativeMatrixInfo2EXT* pCooperativeMatrixInfo,
+    uint32_t*                                   pPropertyCount,
+    VkCooperativeMatrixProperties2EXT*          pProperties)
+{
+	ENTRY(vkGetPhysicalDeviceCooperativeMatrixProperties2EXT);
+	cVkPhysicalDevice* cphysicalDevice = physicaldevice_cast(physicalDevice);
+	TBD_UNSUPPORTED;
+	return VK_SUCCESS;
+}
+
 // VK_KHR_ray_tracing_maintenance1
 
 VKAPI_ATTR void VKAPI_CALL vkCmdTraceRaysIndirect2KHR(
