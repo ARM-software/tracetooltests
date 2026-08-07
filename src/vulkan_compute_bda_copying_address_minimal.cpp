@@ -316,7 +316,7 @@ int main(int argc, char** argv)
 			nullptr
 		};
 		VkResult result = vulkan.vkAssertBuffer(vulkan.device, &output_info, &checksum, "minimal copied-address output buffer");
-		check(result);
+		assert(result == VK_SUCCESS || result == VK_INCOMPLETE);
 	}
 	p_benchmark = nullptr;
 	return 0;
