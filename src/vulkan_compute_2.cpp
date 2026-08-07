@@ -15,7 +15,13 @@ static unsigned nodes = 10;
 static vulkan_req_t req;
 static int sync_variant = 0;
 static bool maintenance5 = false; // use maintenance5 implicit shader module creation
-static bool pipeline_binary = false; // use VK_KHR_pipeline_binary
+enum pipeline_binary_mode
+{
+	PIPELINE_BINARY_DISABLED,
+	PIPELINE_BINARY_INTERNAL_CACHE,
+	PIPELINE_BINARY_APP_CACHE,
+};
+static pipeline_binary_mode pipeline_binary = PIPELINE_BINARY_DISABLED;
 
 // these must also be changed in the shader
 static int workgroup_size = 32;
@@ -23,6 +29,7 @@ static int width = 64;
 static int height = 48;
 static VkPhysicalDeviceMaintenance5Features maint5features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES, nullptr };
 static VkPhysicalDevicePipelineBinaryFeaturesKHR pipelineBinaryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_BINARY_FEATURES_KHR, nullptr };
+static VkPhysicalDevicePipelineBinaryPropertiesKHR pipelineBinaryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_BINARY_PROPERTIES_KHR, nullptr };
 
 struct resources
 {
@@ -37,7 +44,7 @@ struct resources
 	std::vector<VkDescriptorSet> descriptorSet;
 	std::vector<VkBuffer> buffer;
 	std::vector<VkCommandBuffer> commandBuffer;
-	VkPipelineBinaryKHR pipelineBinary;
+	std::vector<VkPipelineBinaryKHR> pipelineBinaries;
 	uint32_t buffer_size;
 };
 
@@ -60,7 +67,8 @@ static void show_usage()
 	printf("\t2 - synchronized with fences\n");
 	printf("-i/--image-output      Save an image of the output to disk\n");
 	printf("-m5/--maintenance5     Use maintenance5 extension for implicit shader module creation\n");
-	printf("-b/--pipeline-binary   Enable VK_KHR_pipeline_binary for pipeline creation\n");
+	printf("-b/--pipeline-binary-internal-cache  Test implementation-managed pipeline binary caching\n");
+	printf("-ba/--pipeline-binary-app-cache      Test application-managed pipeline binary caching\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -96,9 +104,10 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		output = true;
 		return true;
 	}
-	else if (match(argv[i], "-b", "--pipeline-binary"))
+	else if (match(argv[i], "-b", "--pipeline-binary-internal-cache") || strcmp(argv[i], "--pipeline-binary") == 0 ||
+	         match(argv[i], "-ba", "--pipeline-binary-app-cache"))
 	{
-		pipeline_binary = true;
+		pipeline_binary = match(argv[i], "-ba", "--pipeline-binary-app-cache") ? PIPELINE_BINARY_APP_CACHE : PIPELINE_BINARY_INTERNAL_CACHE;
 		reqs.device_extensions.push_back("VK_KHR_pipeline_binary");
 		reqs.device_extensions.push_back("VK_KHR_maintenance5"); // required by pipeline binary
 		reqs.device_extensions.push_back("VK_KHR_depth_stencil_resolve"); // maintenance5 dependency
@@ -175,78 +184,105 @@ void createComputePipeline(vulkan_setup_t& vulkan, resources& r)
         pipelineCreateInfo.stage = shaderStageCreateInfo;
         pipelineCreateInfo.layout = r.pipelineLayout;
 
-	VkPipelineBinaryInfoKHR pipelineBinaryInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_INFO_KHR, nullptr };
-	bool usingPipelineBinary = false;
-	if (pipeline_binary)
+	if (pipeline_binary == PIPELINE_BINARY_DISABLED)
 	{
-		MAKEDEVICEPROCADDR(vulkan, vkCreatePipelineBinariesKHR);
-		MAKEDEVICEPROCADDR(vulkan, vkGetPipelineBinaryDataKHR);
-		MAKEDEVICEPROCADDR(vulkan, vkGetPipelineKeyKHR);
-
-		VkPipelineCreateInfoKHR pipelineCreateInfoKHR = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_INFO_KHR, &pipelineCreateInfo };
-		VkPipelineBinaryKeyKHR createKey = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR, nullptr };
-		VkResult keyResult = pf_vkGetPipelineKeyKHR(vulkan.device, &pipelineCreateInfoKHR, &createKey);
-		if (keyResult == VK_SUCCESS)
-		{
-			printf("Pipeline binary key size from create info %u\n", createKey.keySize);
-		}
-		else
-		{
-			printf("vkGetPipelineKeyKHR failed: %s\n", errorString(keyResult));
-		}
-
-		VkPipelineBinaryHandlesInfoKHR handlesInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_HANDLES_INFO_KHR, nullptr };
-		handlesInfo.pipelineBinaryCount = 1;
-		handlesInfo.pPipelineBinaries = &r.pipelineBinary;
-
-		VkPipelineBinaryCreateInfoKHR binaryCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_CREATE_INFO_KHR, nullptr };
-		binaryCreateInfo.pPipelineCreateInfo = &pipelineCreateInfoKHR;
-
-		VkResult binaryResult = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
-		if (binaryResult == VK_SUCCESS && r.pipelineBinary != VK_NULL_HANDLE)
-		{
-			VkPipelineBinaryDataInfoKHR dataInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_DATA_INFO_KHR, nullptr };
-			dataInfo.pipelineBinary = r.pipelineBinary;
-			VkPipelineBinaryKeyKHR pipelineKey = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR, nullptr };
-			size_t pipelineBinarySize = 0;
-			VkResult dataResult = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &pipelineKey, &pipelineBinarySize, nullptr);
-			if (dataResult == VK_SUCCESS)
-			{
-				printf("Pipeline binary key size %u, data size %zu\n", pipelineKey.keySize, pipelineBinarySize);
-				if (pipelineBinarySize > 0)
-				{
-					std::vector<uint8_t> binaryData(pipelineBinarySize);
-					dataResult = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &pipelineKey, &pipelineBinarySize, binaryData.data());
-					if (dataResult == VK_SUCCESS) printf("Retrieved pipeline binary data\n");
-					else printf("vkGetPipelineBinaryDataKHR (data) failed: %s\n", errorString(dataResult));
-				}
-			}
-			else
-			{
-				printf("vkGetPipelineBinaryDataKHR failed: %s\n", errorString(dataResult));
-			}
-			pipelineBinaryInfo.binaryCount = 1;
-			pipelineBinaryInfo.pPipelineBinaries = &r.pipelineBinary;
-			pipelineCreateInfo.pNext = &pipelineBinaryInfo;
-			usingPipelineBinary = true;
-		}
-		else if (binaryResult == VK_PIPELINE_BINARY_MISSING_KHR)
-		{
-			printf("Pipeline binary missing, continuing without cached binary\n");
-		}
-		else
-		{
-			printf("vkCreatePipelineBinariesKHR failed: %s\n", errorString(binaryResult));
-		}
-	}
-
-	result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
-	if (result == VK_PIPELINE_BINARY_MISSING_KHR && usingPipelineBinary)
-	{
-		printf("Pipeline binary missing during pipeline creation, retrying without it\n");
-		pipelineCreateInfo.pNext = nullptr;
 		result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+		check(result);
+		return;
 	}
+
+	MAKEDEVICEPROCADDR(vulkan, vkCreatePipelineBinariesKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkDestroyPipelineBinaryKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkGetPipelineBinaryDataKHR);
+	MAKEDEVICEPROCADDR(vulkan, vkGetPipelineKeyKHR);
+
+	VkPipelineCreateInfoKHR pipelineCreateInfoKHR = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_INFO_KHR, &pipelineCreateInfo };
+	VkPipelineBinaryKeyKHR createKey = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR, nullptr };
+	result = pf_vkGetPipelineKeyKHR(vulkan.device, &pipelineCreateInfoKHR, &createKey);
+	check(result);
+	printf("Pipeline binary key size from create info %u\n", createKey.keySize);
+
+	VkPipelineBinaryCreateInfoKHR binaryCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_CREATE_INFO_KHR, nullptr };
+	if (pipeline_binary == PIPELINE_BINARY_INTERNAL_CACHE)
+	{
+		result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+		check(result);
+		vkDestroyPipeline(vulkan.device, r.pipeline, nullptr);
+		r.pipeline = VK_NULL_HANDLE;
+		binaryCreateInfo.pPipelineCreateInfo = &pipelineCreateInfoKHR;
+	}
+	else
+	{
+		VkPipelineCreateFlags2CreateInfo flags = { VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO, nullptr };
+		flags.flags = VK_PIPELINE_CREATE_2_CAPTURE_DATA_BIT_KHR;
+		pipelineCreateInfo.pNext = &flags;
+		result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
+		check(result);
+		pipelineCreateInfo.pNext = nullptr;
+		binaryCreateInfo.pipeline = r.pipeline;
+	}
+
+	VkPipelineBinaryHandlesInfoKHR handlesInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_HANDLES_INFO_KHR, nullptr };
+	result = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
+	check(result);
+	assert(handlesInfo.pipelineBinaryCount > 0);
+	r.pipelineBinaries.resize(handlesInfo.pipelineBinaryCount);
+	handlesInfo.pPipelineBinaries = r.pipelineBinaries.data();
+	result = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
+	check(result);
+	assert(handlesInfo.pipelineBinaryCount == r.pipelineBinaries.size());
+
+	if (pipeline_binary == PIPELINE_BINARY_APP_CACHE)
+	{
+		std::vector<VkPipelineBinaryKeyKHR> keys(r.pipelineBinaries.size());
+		std::vector<VkPipelineBinaryDataKHR> data(r.pipelineBinaries.size());
+		std::vector<std::vector<uint8_t>> storage(r.pipelineBinaries.size());
+		for (size_t i = 0; i < r.pipelineBinaries.size(); i++)
+		{
+			keys[i].sType = VK_STRUCTURE_TYPE_PIPELINE_BINARY_KEY_KHR;
+			VkPipelineBinaryDataInfoKHR dataInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_DATA_INFO_KHR, nullptr };
+			dataInfo.pipelineBinary = r.pipelineBinaries[i];
+			result = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &keys[i], &data[i].dataSize, nullptr);
+			check(result);
+			assert(data[i].dataSize > 0);
+			storage[i].resize(data[i].dataSize);
+			data[i].pData = storage[i].data();
+			result = pf_vkGetPipelineBinaryDataKHR(vulkan.device, &dataInfo, &keys[i], &data[i].dataSize, data[i].pData);
+			check(result);
+			printf("Pipeline binary %zu key size %u, data size %zu\n", i, keys[i].keySize, data[i].dataSize);
+			pf_vkDestroyPipelineBinaryKHR(vulkan.device, r.pipelineBinaries[i], nullptr);
+		}
+		r.pipelineBinaries.clear();
+		MAKEDEVICEPROCADDR(vulkan, vkReleaseCapturedPipelineDataKHR);
+		VkReleaseCapturedPipelineDataInfoKHR releaseInfo = { VK_STRUCTURE_TYPE_RELEASE_CAPTURED_PIPELINE_DATA_INFO_KHR, nullptr };
+		releaseInfo.pipeline = r.pipeline;
+		result = pf_vkReleaseCapturedPipelineDataKHR(vulkan.device, &releaseInfo, nullptr);
+		check(result);
+		vkDestroyPipeline(vulkan.device, r.pipeline, nullptr);
+		r.pipeline = VK_NULL_HANDLE;
+
+		VkPipelineBinaryKeysAndDataKHR keysAndData = {};
+		keysAndData.binaryCount = keys.size();
+		keysAndData.pPipelineBinaryKeys = keys.data();
+		keysAndData.pPipelineBinaryData = data.data();
+		binaryCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_CREATE_INFO_KHR, nullptr };
+		binaryCreateInfo.pKeysAndDataInfo = &keysAndData;
+		handlesInfo.pipelineBinaryCount = 0;
+		handlesInfo.pPipelineBinaries = nullptr;
+		result = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
+		check(result);
+		assert(handlesInfo.pipelineBinaryCount == keys.size());
+		r.pipelineBinaries.resize(handlesInfo.pipelineBinaryCount);
+		handlesInfo.pPipelineBinaries = r.pipelineBinaries.data();
+		result = pf_vkCreatePipelineBinariesKHR(vulkan.device, &binaryCreateInfo, nullptr, &handlesInfo);
+		check(result);
+	}
+
+	VkPipelineBinaryInfoKHR pipelineBinaryInfo = { VK_STRUCTURE_TYPE_PIPELINE_BINARY_INFO_KHR, nullptr };
+	pipelineBinaryInfo.binaryCount = r.pipelineBinaries.size();
+	pipelineBinaryInfo.pPipelineBinaries = r.pipelineBinaries.data();
+	pipelineCreateInfo.pNext = &pipelineBinaryInfo;
+	result = vkCreateComputePipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &r.pipeline);
 	check(result);
 }
 
@@ -256,6 +292,35 @@ int main(int argc, char** argv)
 	req.cmdopt = test_cmdopt;
 	req.queues = queues;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_compute_2", req);
+	if (pipeline_binary != PIPELINE_BINARY_DISABLED)
+	{
+		VkPhysicalDevicePipelineBinaryFeaturesKHR supportedFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_BINARY_FEATURES_KHR, nullptr };
+		VkPhysicalDeviceFeatures2 features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &supportedFeatures };
+		vkGetPhysicalDeviceFeatures2(vulkan.physical, &features);
+		printf("VkPhysicalDevicePipelineBinaryFeaturesKHR:\n");
+		printf("  pipelineBinaries: %u\n", supportedFeatures.pipelineBinaries);
+		if (!supportedFeatures.pipelineBinaries)
+		{
+			printf("Pipeline binaries are not supported\n");
+			test_done(vulkan);
+			exit(77);
+		}
+
+		VkPhysicalDeviceProperties2 properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, &pipelineBinaryProperties };
+		vkGetPhysicalDeviceProperties2(vulkan.physical, &properties);
+		printf("VkPhysicalDevicePipelineBinaryPropertiesKHR:\n");
+		printf("  pipelineBinaryInternalCache: %u\n", pipelineBinaryProperties.pipelineBinaryInternalCache);
+		printf("  pipelineBinaryInternalCacheControl: %u\n", pipelineBinaryProperties.pipelineBinaryInternalCacheControl);
+		printf("  pipelineBinaryPrefersInternalCache: %u\n", pipelineBinaryProperties.pipelineBinaryPrefersInternalCache);
+		printf("  pipelineBinaryPrecompiledInternalCache: %u\n", pipelineBinaryProperties.pipelineBinaryPrecompiledInternalCache);
+		printf("  pipelineBinaryCompressedData: %u\n", pipelineBinaryProperties.pipelineBinaryCompressedData);
+		if (pipeline_binary == PIPELINE_BINARY_INTERNAL_CACHE && !pipelineBinaryProperties.pipelineBinaryInternalCache)
+		{
+			printf("Pipeline binary internal cache is not supported\n");
+			test_done(vulkan);
+			exit(77);
+		}
+	}
 	VkResult result;
 	resources r{};
 
@@ -429,10 +494,10 @@ int main(int argc, char** argv)
 	vkDestroyDescriptorPool(vulkan.device, r.descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(vulkan.device, r.descriptorSetLayout, NULL);
 	vkDestroyPipelineLayout(vulkan.device, r.pipelineLayout, NULL);
-	if (pipeline_binary && r.pipelineBinary != VK_NULL_HANDLE)
+	if (!r.pipelineBinaries.empty())
 	{
 		MAKEDEVICEPROCADDR(vulkan, vkDestroyPipelineBinaryKHR);
-		pf_vkDestroyPipelineBinaryKHR(vulkan.device, r.pipelineBinary, nullptr);
+		for (VkPipelineBinaryKHR binary : r.pipelineBinaries) pf_vkDestroyPipelineBinaryKHR(vulkan.device, binary, nullptr);
 	}
 	vkDestroyPipeline(vulkan.device, r.pipeline, NULL);
 	vkDestroyCommandPool(vulkan.device, r.commandPool, NULL);
