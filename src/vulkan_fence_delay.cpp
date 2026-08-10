@@ -60,7 +60,14 @@ static void resubmitFence(VkFence fence)
 	VkResult r = vkResetFences(vulkan.device, 1, &fence);
 	check(r);
 
-	r = vkQueueSubmit(queue, 0, nullptr, fence);
+	if (vulkan.apiVersion >= VK_API_VERSION_1_3)
+	{
+		r = vkQueueSubmit2(queue, 0, nullptr, fence);
+	}
+	else
+	{
+		r = vkQueueSubmit(queue, 0, nullptr, fence);
+	}
 	check(r);
 }
 
@@ -68,6 +75,7 @@ static void submitFrame()
 {
 	static VkFrameBoundaryEXT frameBoundary = {};
 	static VkSubmitInfo submitInfo = {};
+	static VkSubmitInfo2 submitInfo2 = {};
 	static VkQueue queue = VK_NULL_HANDLE;
 
 	if (submitInfo.sType == 0)
@@ -77,12 +85,22 @@ static void submitFrame()
 
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.pNext = &frameBoundary;
+		submitInfo2.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+		submitInfo2.pNext = &frameBoundary;
 
 		vkGetDeviceQueue(vulkan.device, 0, 0, &queue);
 	}
 
 	++frameBoundary.frameID;
-	VkResult r = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+	VkResult r;
+	if (vulkan.apiVersion >= VK_API_VERSION_1_3)
+	{
+		r = vkQueueSubmit2(queue, 1, &submitInfo2, VK_NULL_HANDLE);
+	}
+	else
+	{
+		r = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+	}
 	check(r);
 }
 
