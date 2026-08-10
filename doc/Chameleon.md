@@ -74,6 +74,10 @@ You can change the verbosity of the report by changing CHAMELEON_VERBOSITY. Set 
 You can get more detailed output for specific frames by setting CHAMELEON_FRAMES. It can be set to a comma-
 separated list of frames.
 
+Set `CHAMELEON_ACQUIRE_ORDER` to `forward` or `reverse` to control the order in which
+available swapchain images are returned by `vkAcquireNextImageKHR` and
+`vkAcquireNextImage2KHR`. If it is not set, Chameleon uses forward order.
+
 How it works
 ============
 

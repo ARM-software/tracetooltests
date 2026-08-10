@@ -4475,13 +4475,22 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR(
 
 static VkResult internalAcquireNextImage(cVkDevice* dev, cVkSwapchainKHR* chain, uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t* pImageIndex)
 {
+	const char* acquire_order = getenv("CHAMELEON_ACQUIRE_ORDER");
+	const bool reverse = acquire_order && strcmp(acquire_order, "reverse") == 0;
+	assert(!acquire_order || strcmp(acquire_order, "forward") == 0 || reverse);
+
 	for (uint32_t offset = 0; offset < chain->imageCount; offset++)
 	{
-		const uint32_t index = (chain->currentImage + offset) % chain->imageCount;
+		const uint32_t index = reverse
+			? (chain->imageCount - 1 - chain->currentImage + chain->imageCount - offset) % chain->imageCount
+			: (chain->currentImage + offset) % chain->imageCount;
 		if (chain->imageStates.at(index) != cVkSwapchainKHR::Available) continue;
 		chain->imageStates.at(index) = cVkSwapchainKHR::Acquired;
-		chain->currentImage = (index + 1) % chain->imageCount;
+		chain->currentImage = reverse
+			? (chain->imageCount - 1 - index + 1) % chain->imageCount
+			: (index + 1) % chain->imageCount;
 		*pImageIndex = index;
+		XLOG("acquired swapchain image %u using %s order", index, reverse ? "reverse" : "forward");
 		if (semaphore != VK_NULL_HANDLE)
 		{
 			cVkSemaphore* acquired = semaphore_cast(semaphore);
