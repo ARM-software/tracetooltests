@@ -345,7 +345,9 @@ int main(int argc, char** argv)
 
 	resources.target = create_buffer(vulkan, requested_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 	                                 "memory_tracking_race_target");
-	resources.readback = create_buffer(vulkan, requested_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, "memory_tracking_race_readback");
+	resources.readback = create_buffer(vulkan, requested_size,
+	                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+	                                   "memory_tracking_race_readback");
 	expose_and_clear_buffer(vulkan, resources.target);
 	expose_and_clear_buffer(vulkan, resources.readback);
 
