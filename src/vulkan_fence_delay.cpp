@@ -11,7 +11,7 @@ enum class FenceDelayUnit
 static FenceDelayUnit fence_delay_unit = FenceDelayUnit::Calls;
 static uint64_t fence_delay_threshold = 0;
 static vulkan_setup_t vulkan;
-static const std::chrono::milliseconds sleep_duration(1);
+static const std::chrono::milliseconds sleep_duration(300);
 
 static void show_usage()
 {
@@ -62,8 +62,6 @@ static void resubmitFence(VkFence fence)
 
 	r = vkQueueSubmit(queue, 0, nullptr, fence);
 	check(r);
-
-	std::this_thread::sleep_for(sleep_duration);
 }
 
 static void submitFrame()
@@ -86,8 +84,6 @@ static void submitFrame()
 	++frameBoundary.frameID;
 	VkResult r = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 	check(r);
-
-	std::this_thread::sleep_for(sleep_duration);
 }
 
 int main(int argc, char** argv)
@@ -122,6 +118,7 @@ int main(int argc, char** argv)
 	// Test vkGetFenceStatus delay for 1 fence
 
 	resubmitFence(fence);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay; ++i)
 	{
@@ -137,6 +134,7 @@ int main(int argc, char** argv)
 	// Test "unit"
 
 	resubmitFence(fence);
+	std::this_thread::sleep_for(sleep_duration);
 
 	if (fence_delay_unit == FenceDelayUnit::Calls)
 	{
@@ -179,6 +177,7 @@ int main(int argc, char** argv)
 	// Test vkWaitForFences delay under threshold for 1 fence
 
 	resubmitFence(fence);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay; ++i)
 	{
@@ -194,6 +193,8 @@ int main(int argc, char** argv)
 	// Test vkWaitForFences delay over threshold and subsequent fence queries
 
 	resubmitFence(fence);
+	std::this_thread::sleep_for(sleep_duration);
+
 	r = vkWaitForFences(vulkan.device, 1, &fence, VK_TRUE, fence_delay_threshold + 1);
 	assert(r == VK_SUCCESS);
 	r = vkGetFenceStatus(vulkan.device, fence);
@@ -205,6 +206,7 @@ int main(int argc, char** argv)
 
 	resubmitFence(fence1);
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay; ++i)
 	{
@@ -234,6 +236,7 @@ int main(int argc, char** argv)
 
 	resubmitFence(fence1);
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay; ++i)
 	{
@@ -269,6 +272,7 @@ int main(int argc, char** argv)
 
 	resubmitFence(fence1);
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	r = vkWaitForFences(vulkan.device, 1, &fence1, VK_TRUE, fence_delay_threshold + 1);
 	assert(r == VK_SUCCESS);
@@ -291,6 +295,7 @@ int main(int argc, char** argv)
 
 	resubmitFence(fence1);
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay; ++i)
 	{
@@ -318,6 +323,7 @@ int main(int argc, char** argv)
 
 	resubmitFence(fence1);
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	r = vkWaitForFences(vulkan.device, 2, fences, VK_TRUE, fence_delay_threshold + 1);
 	assert(r == VK_SUCCESS);
@@ -329,6 +335,7 @@ int main(int argc, char** argv)
 	// Test fences not being submitted at the same time
 
 	resubmitFence(fence1);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay / 2; ++i)
 	{
@@ -340,6 +347,7 @@ int main(int argc, char** argv)
 	}
 
 	resubmitFence(fence2);
+	std::this_thread::sleep_for(sleep_duration);
 
 	for (uint64_t i = 0; i < reqs.fence_delay - reqs.fence_delay / 2; ++i)
 	{
