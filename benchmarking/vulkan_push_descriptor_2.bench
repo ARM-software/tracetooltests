@@ -1,0 +1,1 @@
+{ "name": "vulkan_push_descriptor_2", "description": "Test vkCmdPushDescriptorSetWithTemplate" }

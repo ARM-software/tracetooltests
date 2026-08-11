@@ -96,8 +96,8 @@ function demo
 	RTIME2=$(cat time.txt)
 	RFPS2=$(cat lavaresults.json | grep fps | sed 's/.*: //'| sed 's/,//')
 	convert -alpha off 3.ppm $REPORTDIR/$1_f3_replay_cpu_to_cpu.png
-	rm -f *.ppm
 	compare -alpha off $REPORTDIR/$1_f3_native_cpu.png $REPORTDIR/$1_f3_replay_cpu_to_cpu.png $REPORTDIR/$1_f3_compare_cpu_to_cpu.png || true
+	rm -f *.ppm lavaresults.json
 
 	# Replay - GPU to CPU
 	unset VK_INSTANCE_LAYERS
