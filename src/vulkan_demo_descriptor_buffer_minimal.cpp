@@ -437,8 +437,6 @@ int main(int argc, char** argv)
 	                                   desc_props.combinedImageSamplerDescriptorSize,
 	                                   image_ptr + p_benchmark->imageDesc.layoutOffset);
 
-	p_benchmark->uniformDesc.buffer->flush(true);
-	p_benchmark->imageDesc.buffer->flush(true);
 	if (vulkan.has_trace_helpers || vulkan.has_explicit_host_updates)
 	{
 		VkMarkedOffsetsARM* uniform_marks_ptr = nullptr;
@@ -477,6 +475,11 @@ int main(int argc, char** argv)
 
 		testFlushMemory(vulkan, p_benchmark->uniformDesc.buffer->getMemory(), 0, p_benchmark->uniformDesc.buffer->getSize(), true, uniform_marks_ptr);
 		testFlushMemory(vulkan, p_benchmark->imageDesc.buffer->getMemory(), 0, p_benchmark->imageDesc.buffer->getSize(), true, image_marks_ptr);
+	}
+	else
+	{
+		p_benchmark->uniformDesc.buffer->flush(true);
+		p_benchmark->imageDesc.buffer->flush(true);
 	}
 	p_benchmark->uniformDesc.buffer->unmap();
 	p_benchmark->imageDesc.buffer->unmap();
