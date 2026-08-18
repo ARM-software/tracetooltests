@@ -229,6 +229,7 @@ struct feature_detection
 	std::atomic_bool has_VK_ARM_shader_core_builtins { false };
 	std::atomic_bool has_VK_ARM_shader_instrumentation { false };
 	std::atomic_bool has_VK_ARM_tensors { false };
+	std::atomic_bool has_VK_ARM_render_pass_striped { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_pipeline { false };
 	std::atomic_bool has_VK_KHR_ray_tracing_maintenance1 { false };
 	std::atomic_bool has_VK_KHR_robustness2 { false };
@@ -287,6 +288,7 @@ void check_vkDestroyMicromapEXT(VkDevice device, VkMicromapEXT micromap, const V
 VkResult check_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass);
 VkResult check_vkCreateRenderPass2(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass);
 VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass);
+void check_vkCmdBeginRenderPass(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, VkSubpassContents contents);
 void check_vkCmdBeginRenderPass2(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo);
 void check_vkCmdBeginRenderPass2KHR(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo);
 void check_vkCmdNextSubpass2(VkCommandBuffer commandBuffer, const VkSubpassBeginInfo* pSubpassBeginInfo, const VkSubpassEndInfo* pSubpassEndInfo);

@@ -553,6 +553,69 @@ static void test_dynamic_rendering_extension_adjustment()
 	assert(f->has_VK_KHR_dynamic_rendering == true);
 }
 
+static void test_render_pass_striped_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_ARM_render_pass_striped" };
+	assert(exts.size() == 1);
+	assert(f->has_VK_ARM_render_pass_striped == false);
+	assert_removed_device_extensions(f, exts, { "VK_ARM_render_pass_striped" });
+	assert(exts.empty());
+
+	const char* extname = "VK_ARM_render_pass_striped";
+	const char* namelist[] = { extname };
+	VkPhysicalDeviceRenderPassStripedFeaturesARM striped_features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_FEATURES_ARM, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &striped_features };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+	assert_adjusted_device_create_info(f, dci, exts, { "VK_ARM_render_pass_striped" }, false);
+
+	f = reset_detection();
+	VkRenderPassStripeInfoARM stripe_info = { VK_STRUCTURE_TYPE_RENDER_PASS_STRIPE_INFO_ARM, nullptr, { { 0, 0 }, { 32, 32 } } };
+	VkRenderPassStripeBeginInfoARM stripe_begin = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_STRIPE_BEGIN_INFO_ARM, nullptr, 1, &stripe_info
+	};
+	VkRenderPassBeginInfo begin_render_pass = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, &stripe_begin };
+	VkSubpassBeginInfo begin_info = { VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO, nullptr, VK_SUBPASS_CONTENTS_INLINE };
+	check_vkCmdBeginRenderPass(VK_NULL_HANDLE, &begin_render_pass, VK_SUBPASS_CONTENTS_INLINE);
+	assert(f->has_VK_ARM_render_pass_striped == true);
+	exts.insert("VK_ARM_render_pass_striped");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	check_vkCmdBeginRenderPass2(VK_NULL_HANDLE, &begin_render_pass, &begin_info);
+	assert(f->has_VK_ARM_render_pass_striped == true);
+	exts.insert("VK_ARM_render_pass_striped");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	f = reset_detection();
+	VkRenderingInfo rendering_info = {
+		VK_STRUCTURE_TYPE_RENDERING_INFO, &stripe_begin, 0, {}, 1, 0, 0, nullptr, nullptr, nullptr
+	};
+	check_vkCmdBeginRendering(VK_NULL_HANDLE, &rendering_info);
+	assert(f->has_VK_ARM_render_pass_striped == true);
+
+	f = reset_detection();
+	VkSemaphoreSubmitInfo stripe_semaphore_info = { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr };
+	VkRenderPassStripeSubmitInfoARM stripe_submit = {
+		VK_STRUCTURE_TYPE_RENDER_PASS_STRIPE_SUBMIT_INFO_ARM, nullptr, 1, &stripe_semaphore_info
+	};
+	VkCommandBufferSubmitInfo command_buffer_info = {
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, &stripe_submit, VK_NULL_HANDLE, 0
+	};
+	VkSubmitInfo2 submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2, nullptr };
+	submit_info.commandBufferInfoCount = 1;
+	submit_info.pCommandBufferInfos = &command_buffer_info;
+	VkResult result = check_vkQueueSubmit2(VK_NULL_HANDLE, 1, &submit_info, VK_NULL_HANDLE);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_ARM_render_pass_striped == true);
+}
+
 static void test_synchronization2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -2692,6 +2755,7 @@ int main()
 	test_copy_commands2_extension_adjustment();
 	test_create_renderpass2_extension_adjustment();
 	test_dynamic_rendering_extension_adjustment();
+	test_render_pass_striped_extension_adjustment();
 	test_synchronization2_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_descriptor_indexing_extension_adjustment();

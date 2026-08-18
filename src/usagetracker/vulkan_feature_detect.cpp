@@ -222,6 +222,16 @@ static bool submit_info_uses_ray_tracing_maintenance1(const VkSubmitInfo2* info)
 	return false;
 }
 
+static bool render_pass_striped_begin_used(const void* pNext)
+{
+	return get_extension(pNext, VK_STRUCTURE_TYPE_RENDER_PASS_STRIPE_BEGIN_INFO_ARM) != nullptr;
+}
+
+static bool render_pass_striped_submit_used(const void* pNext)
+{
+	return get_extension(pNext, VK_STRUCTURE_TYPE_RENDER_PASS_STRIPE_SUBMIT_INFO_ARM) != nullptr;
+}
+
 static bool uses_pre13_dynamic_rendering()
 {
 	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_3;
@@ -785,6 +795,7 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_TENSOR_FEATURES_ARM, enabled_exts, found);
+	check_prune_device({"VK_ARM_render_pass_striped"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_FEATURES_ARM, enabled_exts, found);
 	return found;
 }
 
@@ -821,6 +832,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_ARM_shader_core_builtins) removed.insert(exts.extract("VK_ARM_shader_core_builtins"));
 	if (!has_VK_ARM_shader_instrumentation) removed.insert(exts.extract("VK_ARM_shader_instrumentation"));
 	if (!has_VK_ARM_tensors) removed.insert(exts.extract("VK_ARM_tensors"));
+	if (!has_VK_ARM_render_pass_striped) removed.insert(exts.extract("VK_ARM_render_pass_striped"));
 	if (!has_VK_KHR_ray_tracing_pipeline) removed.insert(exts.extract("VK_KHR_ray_tracing_pipeline"));
 	if (!has_VK_KHR_ray_tracing_maintenance1) removed.insert(exts.extract("VK_KHR_ray_tracing_maintenance1"));
 	if (!has_VK_KHR_robustness2) removed.insert(exts.extract("VK_KHR_robustness2"));
@@ -1249,13 +1261,22 @@ VkResult check_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateI
 	return check_vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
 }
 
+void check_vkCmdBeginRenderPass(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, VkSubpassContents contents)
+{
+	assert(pRenderPassBegin != nullptr);
+	if (render_pass_striped_begin_used(pRenderPassBegin->pNext)) instance->has_VK_ARM_render_pass_striped = true;
+}
+
 void check_vkCmdBeginRenderPass2(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo)
 {
+	assert(pRenderPassBegin != nullptr);
+	if (render_pass_striped_begin_used(pRenderPassBegin->pNext)) instance->has_VK_ARM_render_pass_striped = true;
 }
 
 void check_vkCmdBeginRenderPass2KHR(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo* pRenderPassBegin, const VkSubpassBeginInfo* pSubpassBeginInfo)
 {
 	instance->has_VK_KHR_create_renderpass2 = true;
+	check_vkCmdBeginRenderPass2(commandBuffer, pRenderPassBegin, pSubpassBeginInfo);
 }
 
 void check_vkCmdNextSubpass2(VkCommandBuffer commandBuffer, const VkSubpassBeginInfo* pSubpassBeginInfo, const VkSubpassEndInfo* pSubpassEndInfo)
@@ -1785,6 +1806,7 @@ VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmi
 	assert(submitCount == 0 || pSubmits != nullptr);
 	for (uint32_t i = 0; i < submitCount; i++)
 	{
+		assert(pSubmits[i].commandBufferInfoCount == 0 || pSubmits[i].pCommandBufferInfos != nullptr);
 		if (submit_info_uses_ray_tracing_maintenance1(&pSubmits[i])) instance->has_VK_KHR_ray_tracing_maintenance1 = true;
 		for (uint32_t j = 0; j < pSubmits[i].waitSemaphoreInfoCount; j++)
 		{
@@ -1793,6 +1815,10 @@ VkResult check_vkQueueSubmit2(VkQueue queue, uint32_t submitCount, const VkSubmi
 		for (uint32_t j = 0; j < pSubmits[i].signalSemaphoreInfoCount; j++)
 		{
 			if (uses_opacity_micromap_stage(pSubmits[i].pSignalSemaphoreInfos[j].stageMask)) instance->has_VK_EXT_opacity_micromap = true;
+		}
+		for (uint32_t j = 0; j < pSubmits[i].commandBufferInfoCount; j++)
+		{
+			if (render_pass_striped_submit_used(pSubmits[i].pCommandBufferInfos[j].pNext)) instance->has_VK_ARM_render_pass_striped = true;
 		}
 		if (submit_pnext_uses_tensors(pSubmits[i].pNext)) instance->has_VK_ARM_tensors = true;
 	}
@@ -2193,6 +2219,7 @@ void check_vkCmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingI
 	instance->core13.dynamicRendering = true;
 	if (uses_pre13_dynamic_rendering()) instance->has_VK_KHR_dynamic_rendering = true;
 	if (pRenderingInfo->viewMask != 0) instance->core11.multiview = true;
+	if (render_pass_striped_begin_used(pRenderingInfo->pNext)) instance->has_VK_ARM_render_pass_striped = true;
 }
 
 void check_vkCmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo)
