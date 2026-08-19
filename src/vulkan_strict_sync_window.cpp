@@ -18,8 +18,19 @@ int main(int argc, char** argv)
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_strict_sync_window", reqs);
 	testwindow window = test_window_create(vulkan, 0, 0, 320, 240);
 
+	VkBool32 present_support = VK_FALSE;
+	VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(vulkan.physical, vulkan.queue_family_index, window.surface, &present_support);
+	check(result);
+	if (!present_support)
+	{
+		printf("Selected queue family does not support presentation.\n");
+		test_window_destroy(vulkan, window);
+		test_done(vulkan);
+		return 77;
+	}
+
 	VkSurfaceCapabilitiesKHR capabilities = {};
-	VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkan.physical, window.surface, &capabilities);
+	result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkan.physical, window.surface, &capabilities);
 	check(result);
 	uint32_t format_count = 0;
 	result = vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan.physical, window.surface, &format_count, nullptr);
