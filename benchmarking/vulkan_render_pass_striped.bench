@@ -1,0 +1,1 @@
+{ "name": "vulkan_render_pass_striped", "description": "Exercise VK_ARM_render_pass_striped dynamic rendering stripes and stripe submit" }
