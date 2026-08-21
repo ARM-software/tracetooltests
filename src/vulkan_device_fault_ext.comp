@@ -1,0 +1,20 @@
+#version 460
+
+#extension GL_EXT_buffer_reference2 : require
+
+layout(local_size_x = 1) in;
+
+layout(buffer_reference, std430, buffer_reference_align = 4) buffer FaultBuffer
+{
+	uint values[];
+};
+
+layout(push_constant) uniform PushConstants
+{
+	FaultBuffer target;
+} push_constants;
+
+void main()
+{
+	atomicAdd(push_constants.target.values[0], 0xdeadbeef);
+}

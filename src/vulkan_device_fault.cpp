@@ -277,6 +277,7 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	reqs.device_extensions.push_back(VK_KHR_DEVICE_FAULT_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_KHR_SHADER_ABORT_EXTENSION_NAME);
+	reqs.device_extensions.push_back(VK_KHR_SHADER_CONSTANT_DATA_EXTENSION_NAME);
 	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&fault_features);
 
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_device_fault", reqs);

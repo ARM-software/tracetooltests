@@ -1,0 +1,1 @@
+{ "name": "vulkan_device_fault_ext", "description": "Exercise VK_EXT_device_fault count and fault-info retrieval" }
