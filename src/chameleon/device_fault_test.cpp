@@ -7,6 +7,9 @@
 
 #include <vulkan/vulkan.h>
 
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+
 struct test_device
 {
 	VkDevice device = VK_NULL_HANDLE;
