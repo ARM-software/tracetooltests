@@ -89,7 +89,8 @@ int main(int argc, char** argv)
 	cl_check(result);
 	assert(marker);
 	result = clEnqueueWaitForEvents(cl.commands, 1, &marker);
-	cl_check(result);
+	// PoCL leaves this deprecated entry point unimplemented.
+	assert(result == CL_SUCCESS || result == CL_INVALID_OPERATION);
 	result = clEnqueueBarrier(cl.commands);
 	cl_check(result);
 
@@ -107,6 +108,8 @@ int main(int argc, char** argv)
 	result = clEnqueueTask(cl.commands, kernel, 0, nullptr, &task);
 	cl_check(result);
 	assert(task);
+	result = clFinish(cl.commands);
+	cl_check(result);
 
 	result = clReleaseEvent(task);
 	cl_check(result);
