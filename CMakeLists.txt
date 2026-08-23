@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 enable_testing()
@@ -234,6 +234,10 @@ vulkan_test(shader_core_builtins)
 vulkan_test(shader_instrumentation)
 vulkan_test(device_fault)
 vulkan_test(device_fault_ext)
+if (NOT NO_CHAMELEON MATCHES "1")
+	set_tests_properties(chameleon_icd_device_fault chameleon_icd_device_fault_ext PROPERTIES
+		ENVIRONMENT_MODIFICATION "TOOLSTEST_NULL_RUN=set:0;CHAMELEON_DEVICE_LOST_AT_SUBMIT=set:0")
+endif()
 vulkan_test(opacity_micromap)
 vulkan_test(pipeline_opacity_micromap)
 vulkan_test_extra(general_test_2 general -V 2)
@@ -568,6 +572,14 @@ target_compile_options(chameleon_loader_icd_smoketest PRIVATE -Wall -g -std=c++2
 add_test(NAME chameleon_loader_icd_smoke COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_loader_icd_smoketest)
 set_tests_properties(chameleon_loader_icd_smoke PROPERTIES ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}" LABELS "chameleon;icd")
 
+add_executable(chameleon_device_fault_test src/chameleon/device_fault_test.cpp)
+add_dependencies(chameleon_device_fault_test chameleon_icd)
+target_include_directories(chameleon_device_fault_test PRIVATE ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include)
+target_link_libraries(chameleon_device_fault_test PRIVATE ${Vulkan_LIBRARY})
+target_compile_options(chameleon_device_fault_test PRIVATE -Wall -g -std=c++20 -Werror)
+add_test(NAME chameleon_device_fault COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_device_fault_test)
+set_tests_properties(chameleon_device_fault PROPERTIES ENVIRONMENT "VK_DRIVER_FILES=${CHAMELEON_ICD_JSON};CHAMELEON_GPU=${CHAMELEON_DEFAULT_GPU_PATH}" LABELS "chameleon;icd")
+
 add_test(NAME chameleon_vulkancore_1_4_general COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_general --gpu)
 set(ENABLE_JSON "{\"target\": \"chameleon_vulkancore_1_4_general\"}")
 set_tests_properties(chameleon_vulkancore_1_4_general PROPERTIES
@@ -579,6 +591,7 @@ add_custom_target(chameleon DEPENDS
 	chameleon_icd
 	chameleon_icd_light
 	chameleon_loader_icd_smoketest
+	chameleon_device_fault_test
 	chameleon_icd_init
 	chameleon_icd_general
 	chameleon_icd_multiinstance

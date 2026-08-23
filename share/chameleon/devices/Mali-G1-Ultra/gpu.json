@@ -300,6 +300,18 @@
                     "deviceFault": true,
                     "deviceFaultVendorBinary": true
                 },
+                "VkPhysicalDeviceFaultFeaturesKHR": {
+                    "deviceFault": true,
+                    "deviceFaultVendorBinary": true,
+                    "deviceFaultReportMasked": false,
+                    "deviceFaultDeviceLostOnMasked": false
+                },
+                "VkPhysicalDeviceShaderConstantDataFeaturesKHR": {
+                    "shaderConstantData": true
+                },
+                "VkPhysicalDeviceShaderAbortFeaturesKHR": {
+                    "shaderAbort": true
+                },
                 "VkPhysicalDeviceRGBA10X6FormatsFeaturesEXT": {
                     "formatRgba10x6WithoutYCbCrSampler": true
                 },
@@ -1118,6 +1130,12 @@
                     "pixelRate": 4,
                     "texelRate": 8
                 },
+                "VkPhysicalDeviceFaultPropertiesKHR": {
+                    "maxDeviceFaultCount": 1
+                },
+                "VkPhysicalDeviceShaderAbortPropertiesKHR": {
+                    "maxShaderAbortMessageSize": 16
+                },
                 "VkPhysicalDeviceFragmentDensityMapPropertiesEXT": {
                     "fragmentDensityInvocations": true,
                     "maxFragmentDensityTexelSize": {
@@ -1527,6 +1545,9 @@
                 "VK_EXT_image_compression_control_swapchain": 1,
                 "VK_EXT_subpass_merge_feedback": 2,
                 "VK_EXT_device_fault": 2,
+                "VK_KHR_device_fault": 1,
+                "VK_KHR_shader_constant_data": 1,
+                "VK_KHR_shader_abort": 1,
                 "VK_EXT_swapchain_maintenance1": 1,
                 "VK_EXT_image_sliced_view_of_3d": 1,
                 "VK_EXT_device_address_binding_report": 1,

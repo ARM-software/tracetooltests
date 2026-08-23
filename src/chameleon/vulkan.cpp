@@ -8,6 +8,8 @@
 
 #include <bitset>
 #include <algorithm>
+#include <chrono>
+#include <limits>
 
 #include "util.h"
 #include "vulkan_defs.h"
@@ -511,6 +513,26 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES] = { property, property_size };
 	}
 
+	if (propertiesRoot.isMember("VkPhysicalDeviceFaultPropertiesKHR"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceFaultPropertiesKHR"];
+		const size_t property_size = sizeof(VkPhysicalDeviceFaultPropertiesKHR);
+		VkPhysicalDeviceFaultPropertiesKHR* property =
+			reinterpret_cast<VkPhysicalDeviceFaultPropertiesKHR*>(malloc(property_size));
+		readVkPhysicalDeviceFaultPropertiesKHR(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_PROPERTIES_KHR] = { property, property_size };
+	}
+
+	if (propertiesRoot.isMember("VkPhysicalDeviceShaderAbortPropertiesKHR"))
+	{
+		const Json::Value& root = propertiesRoot["VkPhysicalDeviceShaderAbortPropertiesKHR"];
+		const size_t property_size = sizeof(VkPhysicalDeviceShaderAbortPropertiesKHR);
+		VkPhysicalDeviceShaderAbortPropertiesKHR* property =
+			reinterpret_cast<VkPhysicalDeviceShaderAbortPropertiesKHR*>(malloc(property_size));
+		readVkPhysicalDeviceShaderAbortPropertiesKHR(root, *property);
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ABORT_PROPERTIES_KHR] = { property, property_size };
+	}
+
 	if (gpu.extensions.count(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME) != 0)
 	{
 		const size_t property_size = sizeof(VkPhysicalDeviceDescriptorHeapPropertiesEXT);
@@ -976,6 +998,8 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 
 	cVkPhysicalDevice* pdevice = physicaldevice_cast(physicalDevice);
 	cVkDevice& dev = owner_create<cVkDevice, VkDevice>(pdevice->devices, pDevice, pAllocator);
+	dev.physicalDevice = pdevice;
+	dev.deviceLostAtSubmit = get_env_int("CHAMELEON_DEVICE_LOST_AT_SUBMIT", -1);
 	auto descriptor_buffer_properties_it = pdevice->extendedProperties.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT);
 	if (descriptor_buffer_properties_it != pdevice->extendedProperties.end())
 	{
@@ -1024,6 +1048,18 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 			report.callback = report_create_info->pfnUserCallback;
 			report.userData = report_create_info->pUserData;
 			dev.memory_report_callbacks.push_back(report);
+		}
+		else if (next->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT)
+		{
+			const VkPhysicalDeviceFaultFeaturesEXT* features =
+				reinterpret_cast<const VkPhysicalDeviceFaultFeaturesEXT*>(next);
+			dev.extDeviceFaultVendorBinary = features->deviceFaultVendorBinary;
+		}
+		else if (next->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_KHR)
+		{
+			const VkPhysicalDeviceFaultFeaturesKHR* features =
+				reinterpret_cast<const VkPhysicalDeviceFaultFeaturesKHR*>(next);
+			dev.khrDeviceFaultVendorBinary = features->deviceFaultVendorBinary;
 		}
 		next = next->pNext;
 	}
@@ -1261,6 +1297,30 @@ static void enqueue_submission(cVkQueue* queue, cVkPendingSubmission& submission
 	retire_pending_submissions(queue->device);
 }
 
+static bool queue_submit_device_lost(cVkDevice* device)
+{
+	cVkDeviceFaultState& state = *device->faultState;
+	std::unique_lock<std::mutex> lock(state.mutex);
+	if (state.deviceLost) return true;
+	if (device->deviceLostAtSubmit < 0) return false;
+
+	const uint64_t submit_index = state.queueSubmitCallCount++;
+	if (submit_index < static_cast<uint64_t>(device->deviceLostAtSubmit)) return false;
+
+	state.deviceLost = true;
+	state.reportAvailable = true;
+	lock.unlock();
+	state.condition.notify_all();
+	return true;
+}
+
+static bool device_is_lost(cVkDevice* device)
+{
+	cVkDeviceFaultState& state = *device->faultState;
+	std::lock_guard<std::mutex> lock(state.mutex);
+	return state.deviceLost;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
     VkQueue                                     queue,
     uint32_t                                    submitCount,
@@ -1271,6 +1331,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 	CLOG("queue=%p, submitCount=%u, pSubmits=%p, fence=" NHANDLE, queue, submitCount, pSubmits, fence);
 	cVkQueue* q = queue_cast(queue);
 	cVkDevice* device = q->device;
+	if (queue_submit_device_lost(device)) return VK_ERROR_DEVICE_LOST;
 	cVkFence* submit_fence = fence_cast(fence);
 	if (submit_fence)
 	{
@@ -7770,6 +7831,7 @@ VkResult internalQueueSubmit2(
 	ENTRY(vkQueueSubmit2KHR);
 	CLOG("queue=%p, submitCount=%u, pSubmits=%p, fence=" NHANDLE, queue, submitCount, pSubmits, fence);
 	cVkQueue* q = queue_cast(queue);
+	if (queue_submit_device_lost(q->device)) return VK_ERROR_DEVICE_LOST;
 	cVkFence* submit_fence = fence_cast(fence);
 	if (submit_fence) assert(!fence_is_signalled(submit_fence));
 
@@ -8594,6 +8656,60 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetAccelerationStructureOpaqueCaptureDescriptor
 
 // VK_EXT_device_fault
 
+static const char* mock_fault_description = "Chameleon injected device loss";
+static const char* mock_vendor_description = "Chameleon mock device fault";
+
+static VkDeviceFaultAddressInfoKHR mock_fault_address()
+{
+	return { VK_DEVICE_FAULT_ADDRESS_TYPE_WRITE_INVALID_KHR, 0xdead0000, 4 };
+}
+
+static VkDeviceFaultAddressInfoKHR mock_instruction_address()
+{
+	return { VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_FAULT_KHR, 0xbeef0000, 4 };
+}
+
+static VkDeviceFaultVendorInfoKHR mock_vendor_info()
+{
+	VkDeviceFaultVendorInfoKHR info = {};
+	strncpy(info.description, mock_vendor_description, VK_MAX_DESCRIPTION_SIZE - 1);
+	info.vendorFaultCode = 0x4348414d;
+	info.vendorFaultData = 1;
+	return info;
+}
+
+static VkDeviceFaultVendorBinaryHeaderVersionOneKHR mock_vendor_binary(const cVkDevice* device)
+{
+	static_assert(sizeof(VkDeviceFaultVendorBinaryHeaderVersionOneKHR) == 56);
+	assert(device->physicalDevice);
+	const VkPhysicalDeviceProperties& properties = device->physicalDevice->properties;
+	VkDeviceFaultVendorBinaryHeaderVersionOneKHR header = {};
+	header.headerSize = sizeof(header);
+	header.headerVersion = VK_DEVICE_FAULT_VENDOR_BINARY_HEADER_VERSION_ONE_KHR;
+	header.vendorID = properties.vendorID;
+	header.deviceID = properties.deviceID;
+	header.driverVersion = properties.driverVersion;
+	memcpy(header.pipelineCacheUUID, properties.pipelineCacheUUID, VK_UUID_SIZE);
+	return header;
+}
+
+static void populate_mock_fault_info(VkDeviceFaultInfoKHR& info)
+{
+	void* next = info.pNext;
+	info = {};
+	info.sType = VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_KHR;
+	info.pNext = next;
+	info.flags = VK_DEVICE_FAULT_FLAG_DEVICE_LOST_KHR |
+		VK_DEVICE_FAULT_FLAG_MEMORY_ADDRESS_KHR |
+		VK_DEVICE_FAULT_FLAG_INSTRUCTION_ADDRESS_KHR |
+		VK_DEVICE_FAULT_FLAG_VENDOR_KHR;
+	info.groupId = 1;
+	strncpy(info.description, mock_fault_description, VK_MAX_DESCRIPTION_SIZE - 1);
+	info.faultAddressInfo = mock_fault_address();
+	info.instructionAddressInfo = mock_instruction_address();
+	info.vendorInfo = mock_vendor_info();
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultInfoEXT(
     VkDevice                                    device,
     VkDeviceFaultCountsEXT*                     pFaultCounts,
@@ -8601,7 +8717,68 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultInfoEXT(
 {
 	ENTRY(vkGetDeviceFaultInfoEXT);
 	cVkDevice* dev = device_cast(device);
-	TBD_UNSUPPORTED;
+	assert(pFaultCounts);
+
+	if (!device_is_lost(dev))
+	{
+		pFaultCounts->addressInfoCount = 0;
+		pFaultCounts->vendorInfoCount = 0;
+		pFaultCounts->vendorBinarySize = 0;
+		if (pFaultInfo) pFaultInfo->description[0] = '\0';
+		return VK_SUCCESS;
+	}
+
+	const VkDeviceFaultVendorBinaryHeaderVersionOneKHR vendor_binary = mock_vendor_binary(dev);
+	const VkDeviceSize vendor_binary_size = dev->extDeviceFaultVendorBinary ? sizeof(vendor_binary) : 0;
+	if (!pFaultInfo)
+	{
+		pFaultCounts->addressInfoCount = 1;
+		pFaultCounts->vendorInfoCount = 1;
+		pFaultCounts->vendorBinarySize = vendor_binary_size;
+		return VK_SUCCESS;
+	}
+
+	const uint32_t address_capacity = pFaultCounts->addressInfoCount;
+	const uint32_t vendor_capacity = pFaultCounts->vendorInfoCount;
+	const VkDeviceSize binary_capacity = pFaultCounts->vendorBinarySize;
+	strncpy(pFaultInfo->description, mock_fault_description, VK_MAX_DESCRIPTION_SIZE - 1);
+	pFaultInfo->description[VK_MAX_DESCRIPTION_SIZE - 1] = '\0';
+	bool incomplete = false;
+	if (address_capacity > 0 && pFaultInfo->pAddressInfos)
+	{
+		pFaultInfo->pAddressInfos[0] = mock_fault_address();
+		pFaultCounts->addressInfoCount = 1;
+	}
+	else
+	{
+		pFaultCounts->addressInfoCount = 0;
+		incomplete = true;
+	}
+	if (vendor_capacity > 0 && pFaultInfo->pVendorInfos)
+	{
+		pFaultInfo->pVendorInfos[0] = mock_vendor_info();
+		pFaultCounts->vendorInfoCount = 1;
+	}
+	else
+	{
+		pFaultCounts->vendorInfoCount = 0;
+		incomplete = true;
+	}
+	if (vendor_binary_size == 0)
+	{
+		pFaultCounts->vendorBinarySize = 0;
+	}
+	else if (binary_capacity >= vendor_binary_size && pFaultInfo->pVendorBinaryData)
+	{
+		memcpy(pFaultInfo->pVendorBinaryData, &vendor_binary, sizeof(vendor_binary));
+		pFaultCounts->vendorBinarySize = vendor_binary_size;
+	}
+	else
+	{
+		pFaultCounts->vendorBinarySize = 0;
+		incomplete = true;
+	}
+	if (incomplete) return VK_INCOMPLETE;
 	return VK_SUCCESS;
 }
 
@@ -8615,17 +8792,36 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultReportsKHR(
 {
 	ENTRY(vkGetDeviceFaultReportsKHR);
 	cVkDevice* cdevice = device_cast(device);
-	(void)timeout;
-	TBD_UNSUPPORTED;
-	if (pFaultCounts)
+	assert(pFaultCounts);
+	cVkDeviceFaultState& state = *cdevice->faultState;
+	std::unique_lock<std::mutex> lock(state.mutex);
+	if (!state.reportAvailable && timeout > 0)
+	{
+		uint64_t remaining = timeout;
+		while (!state.reportAvailable && remaining > 0)
+		{
+			const uint64_t max_wait = static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+			const uint64_t wait = std::min(remaining, max_wait);
+			const std::cv_status status = state.condition.wait_for(lock, std::chrono::nanoseconds(wait));
+			if (status == std::cv_status::timeout) remaining -= wait;
+		}
+	}
+	if (!state.reportAvailable)
 	{
 		*pFaultCounts = 0;
+		return VK_TIMEOUT;
 	}
-	if (pFaultInfo)
+
+	if (!pFaultInfo)
 	{
-		memset(pFaultInfo, 0, sizeof(*pFaultInfo));
-		pFaultInfo->sType = VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_KHR;
+		*pFaultCounts = 1;
+		return VK_SUCCESS;
 	}
+
+	assert(*pFaultCounts > 0);
+	populate_mock_fault_info(pFaultInfo[0]);
+	*pFaultCounts = 1;
+	state.reportAvailable = false;
 	return VK_SUCCESS;
 }
 
@@ -8635,11 +8831,63 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetDeviceFaultDebugInfoKHR(
 {
 	ENTRY(vkGetDeviceFaultDebugInfoKHR);
 	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
-	if (pDebugInfo)
+	assert(pDebugInfo);
+	VkDeviceFaultShaderAbortMessageInfoKHR* message_info =
+		reinterpret_cast<VkDeviceFaultShaderAbortMessageInfoKHR*>(find_extension(
+			pDebugInfo, VK_STRUCTURE_TYPE_DEVICE_FAULT_SHADER_ABORT_MESSAGE_INFO_KHR));
+	if (!device_is_lost(cdevice))
+	{
+		pDebugInfo->vendorBinarySize = 0;
+		if (message_info) message_info->messageDataSize = 0;
+		return VK_SUCCESS;
+	}
+
+	const VkDeviceFaultVendorBinaryHeaderVersionOneKHR vendor_binary = mock_vendor_binary(cdevice);
+	const uint32_t binary_capacity = pDebugInfo->vendorBinarySize;
+	bool incomplete = false;
+	if (!cdevice->khrDeviceFaultVendorBinary)
 	{
 		pDebugInfo->vendorBinarySize = 0;
 	}
+	else if (pDebugInfo->pVendorBinaryData)
+	{
+		if (binary_capacity < sizeof(vendor_binary))
+		{
+			pDebugInfo->vendorBinarySize = 0;
+			return VK_ERROR_NOT_ENOUGH_SPACE_KHR;
+		}
+		memcpy(pDebugInfo->pVendorBinaryData, &vendor_binary, sizeof(vendor_binary));
+		pDebugInfo->vendorBinarySize = sizeof(vendor_binary);
+	}
+	else
+	{
+		pDebugInfo->vendorBinarySize = sizeof(vendor_binary);
+	}
+
+	if (message_info)
+	{
+		struct shader_abort_message
+		{
+			uint64_t payloadSize;
+			uint32_t payload;
+			uint32_t padding;
+		};
+		const shader_abort_message message = { sizeof(uint32_t), 0xdeadbeef, 0 };
+		const uint64_t message_capacity = message_info->messageDataSize;
+		if (message_info->pMessageData)
+		{
+			const uint64_t size = std::min<uint64_t>(message_capacity, sizeof(message));
+			memcpy(message_info->pMessageData, &message, size);
+			message_info->messageDataSize = size;
+			incomplete |= message_capacity < sizeof(message);
+		}
+		else
+		{
+			message_info->messageDataSize = sizeof(message);
+		}
+	}
+
+	if (incomplete) return VK_INCOMPLETE;
 	return VK_SUCCESS;
 }
 

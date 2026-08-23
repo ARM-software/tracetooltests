@@ -58,6 +58,12 @@ If you want to generate deterministic output every run, you can set the CHAMELEO
 variable to "1". This may reduce the amount of information generated where such output would not be generated,
 though.
 
+Set `CHAMELEON_DEVICE_LOST_AT_SUBMIT` to a non-negative integer to inject device loss after that many
+successful queue-submit calls. The counter is shared per device by `vkQueueSubmit`, `vkQueueSubmit2`, and
+`vkQueueSubmit2KHR`. A value of zero fails the first call. Once the threshold is reached, every later submit
+returns `VK_ERROR_DEVICE_LOST`, and the device-fault query extensions return deterministic mock fault data.
+Unset the variable, or set it to a negative value, to disable injection.
+
 Understanding output
 ====================
 

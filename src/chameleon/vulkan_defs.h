@@ -7,6 +7,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <vector>
 #include <list> // need to use linked lists since we return pointers to contents _and_ add stuff
 #include <string>
@@ -1060,6 +1063,15 @@ struct cVkMicromapEXT : cVkBase
 {
 };
 
+struct cVkDeviceFaultState
+{
+	std::mutex mutex;
+	std::condition_variable condition;
+	uint64_t queueSubmitCallCount = 0;
+	bool deviceLost = false;
+	bool reportAvailable = false;
+};
+
 struct cVkDevice : cVkBase
 {
 	std::list<cVkCommandPool> commandPools;
@@ -1098,6 +1110,11 @@ struct cVkDevice : cVkBase
 	std::list<cVkPrivateDataSlot> slots;
 
 	std::vector<std::string> enabledExtensions;
+	cVkPhysicalDevice* physicalDevice = nullptr;
+	std::shared_ptr<cVkDeviceFaultState> faultState = std::make_shared<cVkDeviceFaultState>();
+	int64_t deviceLostAtSubmit = -1;
+	bool extDeviceFaultVendorBinary = false;
+	bool khrDeviceFaultVendorBinary = false;
 	VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProperties = {
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT
 	};
