@@ -148,6 +148,7 @@
                 "CL_DEVICE_ERROR_CORRECTION_SUPPORT": false,
                 "CL_DEVICE_PROFILING_TIMER_RESOLUTION": 1000,
                 "CL_DEVICE_ENDIAN_LITTLE": true,
+                "CL_DEVICE_AVAILABLE": true,
                 "CL_DEVICE_COMPILER_AVAILABLE": true,
                 "CL_DEVICE_EXECUTION_CAPABILITIES": [
                     "CL_EXEC_KERNEL"

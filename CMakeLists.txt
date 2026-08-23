@@ -46,10 +46,12 @@ endif()
 set(IT_CFLAGS "-Wall -g -std=c++20 -Werror -Wshadow")
 
 set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G1-Ultra" CACHE STRING "Default Chameleon GPU profile directory")
+set(CHAMELEON_DEFAULT_OPENCL_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G715" CACHE STRING "Default Chameleon OpenCL GPU profile directory")
 set(CHAMELEON_VULKANCORE_1_4_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/VulkanCore-1.4")
 set(CHAMELEON_JSONCPP_DIR "${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist")
 set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
+set(CHAMELEON_OPENCL_ICD "${CMAKE_CURRENT_BINARY_DIR}/chameleon_opencl.icd")
 
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:
@@ -501,6 +503,8 @@ add_custom_command(
 add_custom_target(chameleon_codegen DEPENDS ${CHAMELEON_AUTOGEN_OUTPUTS})
 
 set(CHAMELEON_COMMON_SOURCES
+	src/chameleon/json_util.cpp
+	src/chameleon/json_util.h
 	src/chameleon/util.cpp
 	src/chameleon/util.h
 	src/chameleon/vulkan_defs.cpp
@@ -609,6 +613,88 @@ add_custom_target(chameleon_validate ALL
 endif() # chameleon
 endif() # vulkan
 
+if (NOT NO_CL MATCHES "1" AND NOT NO_CHAMELEON MATCHES "1")
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+if(CMAKE_NM)
+	set(CHAMELEON_OPENCL_NM_EXECUTABLE "${CMAKE_NM}")
+else()
+	find_program(CHAMELEON_OPENCL_NM_EXECUTABLE NAMES nm llvm-nm REQUIRED)
+endif()
+
+set(CHAMELEON_OPENCL_LIBRARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/libchameleon_opencl.so")
+configure_file(${PROJECT_SOURCE_DIR}/cmake/chameleon_opencl.icd.in ${CHAMELEON_OPENCL_ICD} @ONLY)
+
+set(CHAMELEON_OPENCL_AUTOGEN_OUTPUTS
+	${CHAMELEON_GENERATED_DIR}/opencl_auto.cpp
+	${CHAMELEON_GENERATED_DIR}/opencl_auto.h
+)
+add_custom_command(
+	OUTPUT ${CHAMELEON_OPENCL_AUTOGEN_OUTPUTS}
+	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/opencl_gen.py
+	WORKING_DIRECTORY ${CHAMELEON_GENERATED_DIR}
+	DEPENDS
+		${PROJECT_SOURCE_DIR}/scripts/opencl_gen.py
+		${PROJECT_SOURCE_DIR}/scripts/opencl_spec.py
+		${PROJECT_SOURCE_DIR}/external/OpenCL-Docs/xml/cl.xml
+	VERBATIM
+)
+add_custom_target(chameleon_opencl_codegen DEPENDS ${CHAMELEON_OPENCL_AUTOGEN_OUTPUTS})
+
+set(CHAMELEON_OPENCL_COMPILE_OPTIONS
+	-Wall
+	-g
+	-std=c++20
+	-Werror
+	-Wshadow
+	-fvisibility=hidden
+	-Wno-deprecated-declarations
+)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+	set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow;-Wno-maybe-uninitialized;-Wno-error=maybe-uninitialized")
+else()
+	set_source_files_properties(${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp PROPERTIES COMPILE_OPTIONS "-Wno-shadow;-Wno-error=shadow")
+endif()
+
+add_library(chameleon_opencl_icd SHARED
+	src/chameleon/opencl.cpp
+	src/chameleon/opencl_defs.h
+	src/chameleon/json_util.cpp
+	src/chameleon/json_util.h
+	${CHAMELEON_OPENCL_AUTOGEN_OUTPUTS}
+	${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp
+)
+add_dependencies(chameleon_opencl_icd chameleon_opencl_codegen)
+target_compile_options(chameleon_opencl_icd PRIVATE ${CHAMELEON_OPENCL_COMPILE_OPTIONS})
+target_compile_definitions(chameleon_opencl_icd PRIVATE CL_TARGET_OPENCL_VERSION=300 CHAMELEON_DEFAULT_OPENCL_GPU_PATH="${CHAMELEON_DEFAULT_OPENCL_GPU_PATH}")
+target_include_directories(chameleon_opencl_icd PRIVATE
+	${CHAMELEON_GENERATED_DIR}
+	${PROJECT_SOURCE_DIR}/src/chameleon
+	${PROJECT_SOURCE_DIR}/external/OpenCL-Headers
+	${CHAMELEON_JSONCPP_DIR}
+)
+target_link_options(chameleon_opencl_icd PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)
+set_target_properties(chameleon_opencl_icd PROPERTIES OUTPUT_NAME chameleon_opencl)
+
+add_executable(chameleon_opencl_loader_icd_smoketest src/chameleon/opencl_loader_icd_smoketest.cpp)
+add_dependencies(chameleon_opencl_loader_icd_smoketest chameleon_opencl_icd)
+target_compile_definitions(chameleon_opencl_loader_icd_smoketest PRIVATE CL_TARGET_OPENCL_VERSION=300)
+target_compile_options(chameleon_opencl_loader_icd_smoketest PRIVATE -Wall -g -std=c++20 -Werror -Wno-deprecated-declarations)
+target_include_directories(chameleon_opencl_loader_icd_smoketest PRIVATE ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
+target_link_libraries(chameleon_opencl_loader_icd_smoketest PRIVATE OpenCL)
+add_test(NAME chameleon_opencl_loader_icd_smoke COMMAND ${CMAKE_CURRENT_BINARY_DIR}/chameleon_opencl_loader_icd_smoketest)
+set_tests_properties(chameleon_opencl_loader_icd_smoke PROPERTIES
+	ENVIRONMENT "OCL_ICD_VENDORS=${CHAMELEON_OPENCL_ICD};CHAMELEON_GPU=${CHAMELEON_DEFAULT_OPENCL_GPU_PATH}"
+	LABELS "chameleon;opencl;icd")
+
+add_custom_target(chameleon_opencl DEPENDS chameleon_opencl_icd chameleon_opencl_loader_icd_smoketest)
+add_custom_target(chameleon_opencl_validate ALL
+	COMMAND ${CMAKE_COMMAND} -DNM_EXECUTABLE=${CHAMELEON_OPENCL_NM_EXECUTABLE} -DINPUT_LIB=$<TARGET_FILE:chameleon_opencl_icd> -P ${PROJECT_SOURCE_DIR}/cmake/validate_chameleon_opencl_symbols.cmake
+	DEPENDS chameleon_opencl_icd
+	USES_TERMINAL
+	VERBATIM
+)
+endif()
+
 function(cl_test_build test_name cl_version)
 	add_executable(opencl_${ARGV0}_v${ARGV1} src/opencl_${ARGV0}.cpp src/opencl_common.cpp src/opencl_common.h src/util.cpp src/util.h)
 	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL Threads::Threads)
@@ -640,7 +726,26 @@ if (NOT NO_CL MATCHES "1")
 cl_test(basic_1 100) # Simple OpenCL 1.0 test
 cl_test(basic_1 200) # Simple OpenCL 2.0 test
 cl_test(basic_1 300) # Simple OpenCL 3.0 test
+cl_test(api_contract 300) # OpenCL ICD object and deprecated entry-point contract
+target_compile_options(opencl_api_contract_v300 PRIVATE -Wno-deprecated-declarations)
 if (NOT NO_VULKAN MATCHES "1")
 cl_vulkan_test(vulkan_interop_1 300)
+endif()
+if (NOT NO_CHAMELEON MATCHES "1")
+foreach(CL_VERSION 100 200 300)
+	add_test(NAME chameleon_opencl_basic_v${CL_VERSION} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/opencl_basic_1_v${CL_VERSION} --gpu)
+	set_tests_properties(chameleon_opencl_basic_v${CL_VERSION} PROPERTIES
+		ENVIRONMENT "OCL_ICD_VENDORS=${CHAMELEON_OPENCL_ICD};CHAMELEON_GPU=${CHAMELEON_DEFAULT_OPENCL_GPU_PATH};TOOLSTEST_NULL_RUN=1"
+		LABELS "chameleon;opencl;icd")
+endforeach()
+add_dependencies(chameleon_opencl
+	opencl_basic_1_v100
+	opencl_basic_1_v200
+	opencl_basic_1_v300
+	opencl_api_contract_v300)
+add_test(NAME chameleon_opencl_api_contract COMMAND ${CMAKE_CURRENT_BINARY_DIR}/opencl_api_contract_v300 --gpu)
+set_tests_properties(chameleon_opencl_api_contract PROPERTIES
+	ENVIRONMENT "OCL_ICD_VENDORS=${CHAMELEON_OPENCL_ICD};CHAMELEON_GPU=${CHAMELEON_DEFAULT_OPENCL_GPU_PATH};TOOLSTEST_NULL_RUN=0"
+	LABELS "chameleon;opencl;icd")
 endif()
 endif()

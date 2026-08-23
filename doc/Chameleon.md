@@ -1,7 +1,7 @@
 What
 ====
 
-A fake Vulkan driver to run native applications on a fake GPU for fast testing or
+A fake Vulkan and OpenCL driver to run native applications on a fake GPU for fast testing or
 collecting content metrics. There is no visual output so the application needs to
 be fully automated.
 
@@ -39,6 +39,25 @@ You can also bypass the Vulkan loader to inject Chameleon though LD_PRELOAD:
 ```
 CHAMELEON_GPU=/path/to/chameleon/GPUs/Mali-G71 LD_PRELOAD=/path/to/chameleon/build/libvulkan.so ./my_application
 ```
+
+OpenCL
+======
+
+Chameleon also builds an independent OpenCL vendor ICD named
+`libchameleon_opencl.so`. It does not depend on Vulkan and can be built with
+`NO_VULKAN=1`. For build-tree testing with the ocl-icd loader, point the loader
+at the generated manifest and select a directory containing `opencl.json`:
+
+```
+OCL_ICD_VENDORS=/path/to/build/chameleon_opencl.icd \
+CHAMELEON_GPU=/path/to/share/chameleon/devices/Mali-G715 \
+TOOLSTEST_NULL_RUN=1 /path/to/build/opencl_basic_1_v300 --gpu
+```
+
+The OpenCL implementation exposes the profile's platform and device queries,
+uses host-backed fake buffers, and completes commands synchronously. Kernel
+programs and dispatches are tracked but not compiled or executed, so tests that
+inspect GPU results must set `TOOLSTEST_NULL_RUN=1`.
 
 Logging
 -------
@@ -103,3 +122,6 @@ Create a new directory under 'GPUs'. Populate it with the following files:
 2) gpu_override.json -- JSON definitions for this GPU that cannot fit in gpu.json because it does
    not belong to vkjson format. Includes for example memory heaps and memory types description. You must
    likely write this yourself, but the information is provided by the above page.
+3) opencl.json -- optional OpenCL platform, device, extension, and image-format
+   properties. Generate this from an OpenCL Hardware Database report with
+   `scripts/opencl_gpuinfo.py <displayreport URL> --gpu <directory name>`.

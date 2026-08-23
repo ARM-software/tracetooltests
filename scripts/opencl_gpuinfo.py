@@ -25,7 +25,6 @@ import json
 if _script_path is not None:
     sys.path.insert(0, _script_path)
 
-
 GPUINFO_HOST = "opencl.gpuinfo.org"
 GPUINFO_PATH = "/displayreport.php"
 TABLE_IDS = {
@@ -42,10 +41,8 @@ ACCESS_FLAGS = (
     "CL_MEM_KERNEL_READ_AND_WRITE",
 )
 
-
 class ScrapeError(RuntimeError):
     pass
-
 
 @dataclass
 class Cell:
@@ -58,7 +55,6 @@ class Cell:
 
     def add_break(self, classes):
         self.segments.append(("\n", frozenset(classes)))
-
 
 class ReportHTMLParser(HTMLParser):
     def __init__(self):
@@ -134,10 +130,8 @@ class ReportHTMLParser(HTMLParser):
             result.update(classes)
         return result
 
-
 def clean_text(text):
     return re.sub(r"\s+", " ", text).strip()
-
 
 def cell_groups(cell):
     groups = [[]]
@@ -151,10 +145,8 @@ def cell_groups(cell):
             groups[-1].append((text, classes))
     return [group for group in groups if group]
 
-
 def group_text(group):
     return clean_text(" ".join(text for text, _classes in group))
-
 
 def parse_scalar(text):
     text = clean_text(text)
@@ -183,7 +175,6 @@ def parse_scalar(text):
         if len(pairs) == int(php_array.group(1)) and sequential_keys:
             return [value for _key, value in pairs]
     return text
-
 
 def parse_cell(cell):
     groups = cell_groups(cell)
@@ -214,7 +205,6 @@ def parse_cell(cell):
         return values[0]
     return values
 
-
 def insert_unique(mapping, key, value, source):
     if key in mapping and mapping[key] != value:
         raise ScrapeError(
@@ -222,7 +212,6 @@ def insert_unique(mapping, key, value, source):
             f"{mapping[key]!r} versus {value!r}"
         )
     mapping[key] = value
-
 
 def rows_to_properties(rows, source):
     result = {}
@@ -234,7 +223,6 @@ def rows_to_properties(rows, source):
             continue
         insert_unique(result, key, parse_cell(row[1]), source)
     return result
-
 
 def rows_to_extensions(rows, source):
     result = {}
@@ -250,7 +238,6 @@ def rows_to_extensions(rows, source):
             version = None
         insert_unique(result, name, version, source)
     return result
-
 
 def rows_to_image_formats(rows):
     result = []
@@ -280,7 +267,6 @@ def rows_to_image_formats(rows):
         )
     )
     return result
-
 
 def parse_report(html):
     parser = ReportHTMLParser()
@@ -320,7 +306,6 @@ def parse_report(html):
         ),
     }
 
-
 def validate_url(url):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme not in ("http", "https"):
@@ -336,7 +321,6 @@ def validate_url(url):
     canonical_url = f"https://{GPUINFO_HOST}{GPUINFO_PATH}?id={report_id}"
     return report_id, canonical_url
 
-
 def download_report(url):
     request = urllib.request.Request(
         url,
@@ -348,7 +332,6 @@ def download_report(url):
             return response.read().decode(charset)
     except (urllib.error.URLError, UnicodeError) as error:
         raise ScrapeError(f"Failed to download {url}: {error}") from error
-
 
 def api_version(properties):
     numeric = properties.get("CL_DEVICE_NUMERIC_VERSION")
@@ -363,9 +346,43 @@ def api_version(properties):
             return f"{match.group(1)}.{match.group(2)}.{match.group(3) or '0'}"
     raise ScrapeError("Could not determine the OpenCL API version from the report")
 
+REQUIRED_PLATFORM_PROPERTIES = (
+    "CL_PLATFORM_PROFILE",
+    "CL_PLATFORM_VERSION",
+    "CL_PLATFORM_NAME",
+    "CL_PLATFORM_VENDOR",
+    "CL_PLATFORM_HOST_TIMER_RESOLUTION",
+)
+
+REQUIRED_DEVICE_PROPERTIES = (
+    "CL_DEVICE_NAME",
+    "CL_DEVICE_VENDOR",
+    "CL_DEVICE_VENDOR_ID",
+    "CL_DEVICE_VERSION",
+    "CL_DEVICE_NUMERIC_VERSION",
+    "CL_DEVICE_AVAILABLE",
+    "CL_DEVICE_MAX_COMPUTE_UNITS",
+    "CL_DEVICE_MAX_WORK_GROUP_SIZE",
+)
+
+def require_properties(properties, required, description):
+    missing = sorted(set(required).difference(properties))
+    if missing:
+        raise ScrapeError(
+            f"The report is missing required {description}: {', '.join(missing)}"
+        )
 
 def build_profile(report, report_id, source_url):
     properties = report["device_properties"]
+    # A submitted report necessarily came from an available device, but the
+    # site does not include this mandatory core query in every report.
+    properties.setdefault("CL_DEVICE_AVAILABLE", True)
+    require_properties(
+        report["platform_properties"],
+        REQUIRED_PLATFORM_PROPERTIES,
+        "platform properties",
+    )
+    require_properties(properties, REQUIRED_DEVICE_PROPERTIES, "device properties")
     device_name = properties.get("CL_DEVICE_NAME")
     if not isinstance(device_name, str) or not device_name:
         raise ScrapeError("The report does not contain a usable CL_DEVICE_NAME")
@@ -421,7 +438,6 @@ def build_profile(report, report_id, source_url):
         "source": source,
     }
 
-
 def default_gpu_name(device_name):
     ascii_name = (
         unicodedata.normalize("NFKD", device_name)
@@ -433,14 +449,12 @@ def default_gpu_name(device_name):
         raise ScrapeError("Could not derive a directory name from CL_DEVICE_NAME")
     return name
 
-
 def validate_gpu_name(name):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]*", name):
         raise ScrapeError(
             "The GPU directory name must be one path component containing only "
             "letters, digits, '.', '+', '_', or '-'"
         )
-
 
 def write_profile(profile, output_path, force):
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -464,7 +478,6 @@ def write_profile(profile, output_path, force):
         temporary_path.unlink(missing_ok=True)
         raise
 
-
 def parse_args(argv):
     repository = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
@@ -487,7 +500,6 @@ def parse_args(argv):
     )
     return parser.parse_args(argv)
 
-
 def main(argv=None):
     args = parse_args(argv)
     try:
@@ -509,7 +521,6 @@ def main(argv=None):
     except ScrapeError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

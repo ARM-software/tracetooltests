@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "json/json.h"
+#include "json_util.h"
 
 #pragma GCC visibility push(default)
 #include <vulkan/vulkan.h>
@@ -28,8 +28,6 @@ static inline const char* bool2str(bool val)
 }
 
 void readFormats(const Json::Value& formatsRoot, std::map<VkFormat, VkFormatProperties>& map);
-Json::Value readJson(const std::string& path);
-void mergeJson(Json::Value& node, const Json::Value& node_override);
 int android_hw_level(const VkPhysicalDeviceFeatures& f);
 std::string shader_name(VkShaderStageFlagBits bit);
 int get_env_int(const char* name, int fallback);

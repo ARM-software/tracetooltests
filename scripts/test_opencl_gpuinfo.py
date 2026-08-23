@@ -13,10 +13,14 @@ REPORT_HTML = """
 <tr><td>Operating system</td><td>Example OS</td></tr>
 <tr><td>Identifier</td><td>Example identifier</td></tr>
 <tr><td>CL_DEVICE_NAME</td><td>Example GPU r0p0</td></tr>
+<tr><td>CL_DEVICE_VENDOR</td><td>Example Vendor</td></tr>
+<tr><td>CL_DEVICE_VENDOR_ID</td><td>1234</td></tr>
 <tr><td>CL_DEVICE_VERSION</td><td><abbr title="OpenCL 3.0 full version">truncated</abbr></td></tr>
 <tr><td>CL_DRIVER_VERSION</td><td>3.0</td></tr>
 <tr><td>CL_DEVICE_NUMERIC_VERSION</td><td>3.0.0</td></tr>
 <tr><td>CL_DEVICE_GLOBAL_MEM_SIZE</td><td>4,194,304 bytes</td></tr>
+<tr><td>CL_DEVICE_MAX_COMPUTE_UNITS</td><td>4</td></tr>
+<tr><td>CL_DEVICE_MAX_WORK_GROUP_SIZE</td><td>256</td></tr>
 <tr><td>CL_DEVICE_IMAGE_SUPPORT</td><td><span class="supported">true</span></td></tr>
 <tr><td>CL_DEVICE_SINGLE_FP_CONFIG</td><td>
 <span class="supported">CL_FP_INF_NAN</span><br>
@@ -33,7 +37,11 @@ REPORT_HTML = """
 <td><img src="images/icons/check.png"></td><td><img src="images/icons/missing.png"></td></tr>
 </tbody></table>
 <table id="table_deviceplatforminfo"><tbody>
+<tr><td>CL_PLATFORM_PROFILE</td><td>FULL_PROFILE</td></tr>
+<tr><td>CL_PLATFORM_VERSION</td><td>OpenCL 3.0 Example</td></tr>
 <tr><td>CL_PLATFORM_NAME</td><td>Example Platform</td></tr>
+<tr><td>CL_PLATFORM_VENDOR</td><td>Example Vendor</td></tr>
+<tr><td>CL_PLATFORM_HOST_TIMER_RESOLUTION</td><td>1</td></tr>
 </tbody></table>
 <table id="table_deviceplatformextensions"><tbody>
 <tr><td>cl_khr_icd</td><td>1.0.0</td></tr>
@@ -54,6 +62,7 @@ class OpenCLGPUInfoTest(unittest.TestCase):
         device = profile["capabilities"]["device"]
         self.assertEqual(profile["profiles"]["CL_GPUINFO_7217"]["api-version"], "3.0.0")
         self.assertEqual(device["properties"]["CL_DEVICE_VERSION"], "OpenCL 3.0 full version")
+        self.assertTrue(device["properties"]["CL_DEVICE_AVAILABLE"])
         self.assertEqual(device["properties"]["CL_DRIVER_VERSION"], "3.0")
         self.assertEqual(device["properties"]["CL_DEVICE_GLOBAL_MEM_SIZE"], 4194304)
         self.assertIs(device["properties"]["CL_DEVICE_IMAGE_SUPPORT"], True)
@@ -93,6 +102,18 @@ class OpenCLGPUInfoTest(unittest.TestCase):
         )
         with self.assertRaises(opencl_gpuinfo.ScrapeError):
             opencl_gpuinfo.parse_report(duplicate)
+
+    def test_rejects_profile_missing_runtime_property(self):
+        report = opencl_gpuinfo.parse_report(REPORT_HTML)
+        del report["platform_properties"]["CL_PLATFORM_VENDOR"]
+        with self.assertRaisesRegex(
+            opencl_gpuinfo.ScrapeError, "CL_PLATFORM_VENDOR"
+        ):
+            opencl_gpuinfo.build_profile(
+                report,
+                "7217",
+                "https://opencl.gpuinfo.org/displayreport.php?id=7217",
+            )
 
 
 if __name__ == "__main__":

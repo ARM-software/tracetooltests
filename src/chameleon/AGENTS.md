@@ -1,10 +1,10 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Chameleon source lives primarily in `vulkan.cpp` with VkCommandBuffer evaluation in `commandbuffer.cpp`. Definitions are in `vulkan_defs.h`.
+- Chameleon Vulkan source lives primarily in `vulkan.cpp` with VkCommandBuffer evaluation in `commandbuffer.cpp`. OpenCL ICD behavior and handle definitions live in `opencl.cpp` and `opencl_defs.h`.
 - GPU definitions and overrides live in `share/chameleon/devices/<gpu>/` and are selected at runtime with `CHAMELEON_GPU`.
-- Chameleon codegen scripts live in `scripts/`: `chameleon_gen.py`, `tostring.py`, `json.py`, `vulkan_spec.py`.
-- Generated files are emitted into the build directory: `vulkan_auto.*`, `tostring.*`, and `vkjson.*`.
+- Chameleon codegen scripts live in `scripts/`: `chameleon_gen.py`, `opencl_gen.py`, `tostring.py`, `json.py`, `vulkan_spec.py`, and `opencl_spec.py`.
+- Generated files are emitted into the build directory: `vulkan_auto.*`, `opencl_auto.*`, `tostring.*`, and `vkjson.*`.
 - The ICD manifest template is `cmake/chameleon_icd.json.in`.
 - Chameleon-specific helper binaries currently include `chameleon_loader_icd_smoketest` and `chameleon_icd_*` test wrappers.
 - Vulkan headers come from this repo’s `external/Vulkan-Headers/`. JsonCpp is taken from `external/SPIRV-Headers/tools/buildHeaders/jsoncpp/dist/`.
@@ -12,6 +12,8 @@
 ## Build, Test, and Development Commands
 - Loader smoke test:
   `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json ./build/chameleon_loader_icd_smoketest`
+- OpenCL loader smoke test:
+  `env OCL_ICD_VENDORS=$PWD/build/chameleon_opencl.icd CHAMELEON_GPU=$PWD/share/chameleon/devices/Mali-G715 ./build/chameleon_opencl_loader_icd_smoketest`
 - Headless ICD test example:
   `env VK_DRIVER_FILES=$PWD/build/chameleon_icd.json ./build/chameleon_icd_general -v --gpu`
 - Window ICD test example:
