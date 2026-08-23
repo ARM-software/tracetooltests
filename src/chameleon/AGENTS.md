@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - Chameleon source lives primarily in `vulkan.cpp` with VkCommandBuffer evaluation in `commandbuffer.cpp`. Definitions are in `vulkan_defs.h`.
 - GPU definitions and overrides live in `share/chameleon/devices/<gpu>/` and are selected at runtime with `CHAMELEON_GPU`.
-- Chameleon codegen scripts live in `scripts/`: `chameleon_gen.py`, `tostring.py`, `json.py`, and shared parsing support in `spec.py`.
+- Chameleon codegen scripts live in `scripts/`: `chameleon_gen.py`, `tostring.py`, `json.py`, `vulkan_spec.py`.
 - Generated files are emitted into the build directory: `vulkan_auto.*`, `tostring.*`, and `vkjson.*`.
 - The ICD manifest template is `cmake/chameleon_icd.json.in`.
 - Chameleon-specific helper binaries currently include `chameleon_loader_icd_smoketest` and `chameleon_icd_*` test wrappers.

@@ -492,7 +492,7 @@ add_custom_command(
 		${PROJECT_SOURCE_DIR}/scripts/chameleon_gen.py
 		${PROJECT_SOURCE_DIR}/scripts/tostring.py
 		${PROJECT_SOURCE_DIR}/scripts/json.py
-		${PROJECT_SOURCE_DIR}/scripts/spec.py
+		${PROJECT_SOURCE_DIR}/scripts/vulkan_spec.py
 		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/vk.xml
 		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/video.xml
 	VERBATIM
@@ -611,7 +611,7 @@ endif() # vulkan
 
 function(cl_test_build test_name cl_version)
 	add_executable(opencl_${ARGV0}_v${ARGV1} src/opencl_${ARGV0}.cpp src/opencl_common.cpp src/opencl_common.h src/util.cpp src/util.h)
-	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL Threads::Threads vulkan_common ${Vulkan_LIBRARY})
+	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE OpenCL Threads::Threads)
 	target_compile_definitions(opencl_${ARGV0}_v${ARGV1} PUBLIC ${IT_DEFINES} CL_TARGET_OPENCL_VERSION=${ARGV1})
 	set_target_properties(opencl_${ARGV0}_v${ARGV1} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers)
@@ -631,9 +631,16 @@ function(cl_test test_name cl_version)
 	target_include_directories(opencl_${ARGV0}_v${ARGV1} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/OpenCL-Headers ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 endfunction()
 
+function(cl_vulkan_test test_name cl_version)
+	cl_test(${ARGV0} ${ARGV1})
+	target_link_libraries(opencl_${ARGV0}_v${ARGV1} PRIVATE vulkan_common ${Vulkan_LIBRARY})
+endfunction()
+
 if (NOT NO_CL MATCHES "1")
 cl_test(basic_1 100) # Simple OpenCL 1.0 test
 cl_test(basic_1 200) # Simple OpenCL 2.0 test
 cl_test(basic_1 300) # Simple OpenCL 3.0 test
-cl_test(vulkan_interop_1 300)
+if (NOT NO_VULKAN MATCHES "1")
+cl_vulkan_test(vulkan_interop_1 300)
+endif()
 endif()

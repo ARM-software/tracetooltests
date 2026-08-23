@@ -100,9 +100,12 @@ int main(int argc, char** argv)
 	r = clEnqueueReadBuffer(cl.commands, output, CL_TRUE, 0, sizeof(float) * count, results, 0, NULL, NULL);
 	cl_check(r);
 
-	for (unsigned i = 0; i < count; i++)
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
 	{
-		assert(results[i] == data[i] * data[i]);
+		for (unsigned i = 0; i < count; i++)
+		{
+			assert(results[i] == data[i] * data[i]);
+		}
 	}
 
 	clReleaseMemObject(input);

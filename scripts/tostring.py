@@ -7,7 +7,7 @@ import sys
 
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT_PATH)
-import spec
+import vulkan_spec as spec
 
 source = open('tostring.cpp', 'w')
 header = open('tostring.h', 'w')
