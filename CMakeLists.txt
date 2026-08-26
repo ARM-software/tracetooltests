@@ -427,6 +427,7 @@ vulkan_test(device_memory_report)
 vulkan_test(memory_budget)
 vulkan_test(aliasing_multilevel_containment)
 vulkan_test(device_local_memory)
+vulkan_test(calibrated_timestamps)
 
 if (NOT MOCK_DRIVER MATCHES "1")
 vulkan_test(cooperative_matrix)
