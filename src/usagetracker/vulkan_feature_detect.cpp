@@ -909,6 +909,7 @@ std::unordered_set<std::string> feature_detection::adjust_instance_extensions(st
 	if (!has_VK_EXT_swapchain_colorspace) removed.insert(exts.extract("VK_EXT_swapchain_colorspace"));
 	if (!has_VK_KHR_get_physical_device_properties2) removed.insert(exts.extract("VK_KHR_get_physical_device_properties2"));
 	if (!has_VK_KHR_external_fence_capabilities) removed.insert(exts.extract("VK_KHR_external_fence_capabilities"));
+	if (!has_VK_KHR_portability_enumeration) removed.insert(exts.extract("VK_KHR_portability_enumeration"));
 	return removed;
 }
 
@@ -1083,6 +1084,7 @@ VkResult check_vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo, const V
 {
 	assert(pCreateInfo && pCreateInfo->sType == VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
 	if (pCreateInfo && pCreateInfo->pApplicationInfo && pCreateInfo->pApplicationInfo->apiVersion != 0) instance->requested_instance_api_version = pCreateInfo->pApplicationInfo->apiVersion;
+	if (pCreateInfo && (pCreateInfo->flags & VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR)) instance->has_VK_KHR_portability_enumeration = true;
 	return VK_SUCCESS;
 }
 
