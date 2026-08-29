@@ -23,7 +23,9 @@ int main(int argc, char** argv)
 	vulkan_req_t reqs;
 	reqs.device_extensions.push_back("VK_KHR_cooperative_matrix");
 	reqs.apiVersion = VK_API_VERSION_1_3;
+	reqs.reqfeat11.storageBuffer16BitAccess = VK_TRUE;
 	reqs.reqfeat12.vulkanMemoryModel = VK_TRUE;
+	reqs.reqfeat12.shaderFloat16 = VK_TRUE;
 
 	VkPhysicalDeviceCooperativeMatrixFeaturesKHR coopFeatures = {
 		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR,
@@ -150,6 +152,7 @@ int main(int argc, char** argv)
 	r = vkMapMemory(vk.device, ssboMemory[0], 0, bufferSize, 0x0, &data);
         check(r);
 	memcpy(data, &mData, (size_t)bufferSize);
+	testFlushMemory(vk, ssboMemory[0], 0, bufferSize, vk.has_explicit_host_updates);
 	vkUnmapMemory(vk.device, ssboMemory[0]);
 
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
