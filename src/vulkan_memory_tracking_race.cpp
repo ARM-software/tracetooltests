@@ -8,8 +8,8 @@
 
 #include "vulkan_memory_tracking_race.inc"
 
-constexpr VkDeviceSize kDefaultBufferSize = 64 * 1024 * 1024;
-constexpr uint32_t kDefaultChunkCount = 1024;
+constexpr VkDeviceSize kDefaultBufferSize = 32 * 1024 * 1024;
+constexpr uint32_t kDefaultChunkCount = 256;
 constexpr uint32_t kRed = 0xff0000ff;
 constexpr uint32_t kGreen = 0xff00ff00;
 constexpr const char* kDefaultSyncType = "binary-semaphore";
