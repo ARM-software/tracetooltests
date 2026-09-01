@@ -435,6 +435,35 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		}
 	}
 
+	if (gpu.extensions.count(VK_ARM_RENDER_PASS_STRIPED_EXTENSION_NAME) != 0)
+	{
+		const size_t feature_size = sizeof(VkPhysicalDeviceRenderPassStripedFeaturesARM);
+		VkPhysicalDeviceRenderPassStripedFeaturesARM* feature = nullptr;
+		auto feature_it = gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_FEATURES_ARM);
+		if (feature_it == gpu.features.end())
+		{
+			feature = reinterpret_cast<VkPhysicalDeviceRenderPassStripedFeaturesARM*>(malloc(feature_size));
+			assert(feature);
+			gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_FEATURES_ARM] = {
+				feature, feature_size
+			};
+		}
+		else
+		{
+			feature = reinterpret_cast<VkPhysicalDeviceRenderPassStripedFeaturesARM*>(feature_it->second.first);
+		}
+		*feature = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_FEATURES_ARM,
+			nullptr,
+			VK_TRUE
+		};
+		if (deviceRoot["features"].isMember("VkPhysicalDeviceRenderPassStripedFeaturesARM"))
+		{
+			readVkPhysicalDeviceRenderPassStripedFeaturesARM(
+				deviceRoot["features"]["VkPhysicalDeviceRenderPassStripedFeaturesARM"], *feature);
+		}
+	}
+
 	// Force support for this, since it is really useful for learning
 	reinterpret_cast<VkPhysicalDeviceFeatures*>(gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2].first)->pipelineStatisticsQuery = true;
 
@@ -621,6 +650,28 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 			reinterpret_cast<VkPhysicalDeviceShaderCoreBuiltinsPropertiesARM*>(malloc(property_size));
 		readVkPhysicalDeviceShaderCoreBuiltinsPropertiesARM(root, *property);
 		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_PROPERTIES_ARM] = { property, property_size };
+	}
+
+	if (gpu.extensions.count(VK_ARM_RENDER_PASS_STRIPED_EXTENSION_NAME) != 0)
+	{
+		const size_t property_size = sizeof(VkPhysicalDeviceRenderPassStripedPropertiesARM);
+		VkPhysicalDeviceRenderPassStripedPropertiesARM* property =
+			reinterpret_cast<VkPhysicalDeviceRenderPassStripedPropertiesARM*>(malloc(property_size));
+		assert(property);
+		*property = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_PROPERTIES_ARM,
+			nullptr,
+			{ 1, 1 },
+			1
+		};
+		if (propertiesRoot.isMember("VkPhysicalDeviceRenderPassStripedPropertiesARM"))
+		{
+			readVkPhysicalDeviceRenderPassStripedPropertiesARM(
+				propertiesRoot["VkPhysicalDeviceRenderPassStripedPropertiesARM"], *property);
+		}
+		gpu.extendedProperties[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RENDER_PASS_STRIPED_PROPERTIES_ARM] = {
+			property, property_size
+		};
 	}
 
 	if (propertiesRoot.isMember("VkPhysicalDeviceTensorPropertiesARM"))
