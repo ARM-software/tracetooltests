@@ -3,7 +3,7 @@
 
 # If you are not using Ubuntu, you need to figure out these yourself
 if [ -n "$(uname -a | grep Ubuntu)" ]; then
-	sudo apt install lhasa libxxf86dga-dev libxxf86vm-dev git make gcc libsdl2-dev libvorbis-dev libmad0-dev libx11-xcb-dev
+	sudo apt install lhasa libxxf86dga-dev libxxf86vm-dev git make gcc libsdl2-dev libvorbis-dev libmad0-dev libx11-xcb-dev libmpg123-dev
 fi
 
 # This clone uses original Quake1 shareware files. These are not freely redistributable
@@ -12,7 +12,7 @@ git clone https://github.com/Novum/vkQuake.git external/vkquake1
 pushd external/vkquake1
 patch -p1 < ../../patches/vkquake1_patch.diff
 cd Quake
-make
+USE_SDL3=0 make
 wget -q https://ftp.gwdg.de/pub/misc/ftp.idsoftware.com/idstuff/quake/quake106.zip
 unzip quake106.zip
 lhasa x resource.1 id1/pak0.pak

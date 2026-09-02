@@ -151,8 +151,9 @@ static cl_version parse_version(const std::string& value)
 	unsigned major = 0;
 	unsigned minor = 0;
 	unsigned patch = 0;
-	int matched = sscanf(value.c_str(), "%u.%u.%u", &major, &minor, &patch);
+	const int matched = sscanf(value.c_str(), "%u.%u.%u", &major, &minor, &patch);
 	assert(matched >= 2);
+	(void)matched;
 	return CL_MAKE_VERSION(major, minor, patch);
 }
 
@@ -314,8 +315,9 @@ static cl_int copy_uuid(const Json::Value& value, size_t value_size, void* outpu
 	for (size_t i = 0; i < CL_UUID_SIZE_KHR; ++i)
 	{
 		unsigned byte = 0;
-		int matched = sscanf(text.substr(i * 2, 2).c_str(), "%02x", &byte);
+		const int matched = sscanf(text.substr(i * 2, 2).c_str(), "%02x", &byte);
 		assert(matched == 1);
+		(void)matched;
 		bytes[i] = static_cast<cl_uchar>(byte);
 	}
 	return copy_info(bytes, sizeof(bytes), value_size, output, output_size);

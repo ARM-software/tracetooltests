@@ -53,6 +53,27 @@ set(CHAMELEON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(CHAMELEON_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/chameleon_icd.json")
 set(CHAMELEON_OPENCL_ICD "${CMAKE_CURRENT_BINARY_DIR}/chameleon_opencl.icd")
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+set(TRACETOOLTESTS_TOSTRING_OUTPUTS
+	${CHAMELEON_GENERATED_DIR}/tostring.cpp
+	${CHAMELEON_GENERATED_DIR}/tostring.h
+)
+
+add_custom_command(
+	OUTPUT ${TRACETOOLTESTS_TOSTRING_OUTPUTS}
+	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/tostring.py
+	WORKING_DIRECTORY ${CHAMELEON_GENERATED_DIR}
+	DEPENDS
+		${PROJECT_SOURCE_DIR}/scripts/tostring.py
+		${PROJECT_SOURCE_DIR}/scripts/vulkan_spec.py
+		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/vk.xml
+		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/video.xml
+	VERBATIM
+)
+
+add_custom_target(tracetooltests_tostring_codegen DEPENDS ${TRACETOOLTESTS_TOSTRING_OUTPUTS})
+
 if (SANITIZE)
 	# before running test with sanitizer, recommend to run these two:
 	# export LSAN_OPTIONS='detect_leaks=0'
@@ -461,7 +482,6 @@ set_tests_properties(vulkan_feature_test PROPERTIES SKIP_RETURN_CODE 77 ENVIRONM
 target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)
 
 if (NOT NO_CHAMELEON MATCHES "1")
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
 if(CMAKE_NM)
 	set(CHAMELEON_NM_EXECUTABLE "${CMAKE_NM}")
 else()
@@ -479,8 +499,6 @@ configure_file(${PROJECT_SOURCE_DIR}/cmake/chameleon_icd.json.in ${CHAMELEON_ICD
 set(CHAMELEON_AUTOGEN_OUTPUTS
 	${CHAMELEON_GENERATED_DIR}/vulkan_auto.cpp
 	${CHAMELEON_GENERATED_DIR}/vulkan_auto.h
-	${CHAMELEON_GENERATED_DIR}/tostring.cpp
-	${CHAMELEON_GENERATED_DIR}/tostring.h
 	${CHAMELEON_GENERATED_DIR}/vkjson.cpp
 	${CHAMELEON_GENERATED_DIR}/vkjson.h
 )
@@ -488,12 +506,10 @@ set(CHAMELEON_AUTOGEN_OUTPUTS
 add_custom_command(
 	OUTPUT ${CHAMELEON_AUTOGEN_OUTPUTS}
 	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/chameleon_gen.py
-	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/tostring.py
 	COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/scripts/json.py
 	WORKING_DIRECTORY ${CHAMELEON_GENERATED_DIR}
 	DEPENDS
 		${PROJECT_SOURCE_DIR}/scripts/chameleon_gen.py
-		${PROJECT_SOURCE_DIR}/scripts/tostring.py
 		${PROJECT_SOURCE_DIR}/scripts/json.py
 		${PROJECT_SOURCE_DIR}/scripts/vulkan_spec.py
 		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/vk.xml
@@ -502,6 +518,7 @@ add_custom_command(
 )
 
 add_custom_target(chameleon_codegen DEPENDS ${CHAMELEON_AUTOGEN_OUTPUTS})
+add_dependencies(chameleon_codegen tracetooltests_tostring_codegen)
 
 set(CHAMELEON_COMMON_SOURCES
 	src/chameleon/json_util.cpp
