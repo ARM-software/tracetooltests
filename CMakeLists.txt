@@ -67,8 +67,10 @@ add_custom_command(
 	DEPENDS
 		${PROJECT_SOURCE_DIR}/scripts/tostring.py
 		${PROJECT_SOURCE_DIR}/scripts/vulkan_spec.py
+		${PROJECT_SOURCE_DIR}/scripts/opencl_spec.py
 		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/vk.xml
 		${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/registry/video.xml
+		${PROJECT_SOURCE_DIR}/external/OpenCL-Docs/xml/cl.xml
 	VERBATIM
 )
 
@@ -549,6 +551,7 @@ set(CHAMELEON_INCLUDE_DIRS
 	${PROJECT_SOURCE_DIR}/src/chameleon
 	${PROJECT_SOURCE_DIR}
 	${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include
+	${PROJECT_SOURCE_DIR}/external/OpenCL-Headers
 	${CHAMELEON_JSONCPP_DIR}
 )
 
@@ -679,15 +682,17 @@ add_library(chameleon_opencl_icd SHARED
 	src/chameleon/json_util.cpp
 	src/chameleon/json_util.h
 	${CHAMELEON_OPENCL_AUTOGEN_OUTPUTS}
+	${TRACETOOLTESTS_TOSTRING_OUTPUTS}
 	${CHAMELEON_JSONCPP_DIR}/jsoncpp.cpp
 )
-add_dependencies(chameleon_opencl_icd chameleon_opencl_codegen)
+add_dependencies(chameleon_opencl_icd chameleon_opencl_codegen tracetooltests_tostring_codegen)
 target_compile_options(chameleon_opencl_icd PRIVATE ${CHAMELEON_OPENCL_COMPILE_OPTIONS})
 target_compile_definitions(chameleon_opencl_icd PRIVATE CL_TARGET_OPENCL_VERSION=300 CHAMELEON_DEFAULT_OPENCL_GPU_PATH="${CHAMELEON_DEFAULT_OPENCL_GPU_PATH}")
 target_include_directories(chameleon_opencl_icd PRIVATE
 	${CHAMELEON_GENERATED_DIR}
 	${PROJECT_SOURCE_DIR}/src/chameleon
 	${PROJECT_SOURCE_DIR}/external/OpenCL-Headers
+	${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include
 	${CHAMELEON_JSONCPP_DIR}
 )
 target_link_options(chameleon_opencl_icd PRIVATE -Wl,-Bsymbolic-functions -Wl,--no-undefined)

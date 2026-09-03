@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,18 @@ import opencl_spec
 
 
 class OpenCLGeneratorTest(unittest.TestCase):
+
+    def test_tostring_generation(self):
+        script = Path(__file__).with_name("tostring.py")
+        with tempfile.TemporaryDirectory() as directory:
+            subprocess.run([sys.executable, str(script)], cwd=directory, check=True)
+            header = Path(directory, "tostring.h").read_text(encoding="utf-8")
+            source = Path(directory, "tostring.cpp").read_text(encoding="utf-8")
+        self.assertIn("cl_device_type_to_string(cl_device_type val)", source)
+        self.assertIn("cl_device_info_to_string(cl_device_info val)", source)
+        self.assertIn('#include <CL/cl.h>', header)
+        self.assertEqual(source.count("case CL_TRUE:"), 1)
+        self.assertNotIn("case CL_BLOCKING:", source)
     def test_registry_contains_supported_commands(self):
         commands = set(opencl_spec.command_names())
         self.assertGreater(len(commands), 100)

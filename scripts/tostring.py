@@ -5,7 +5,8 @@ import sys
 
 ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT_PATH)
-import vulkan_spec as spec
+import vulkan_spec as vkspec
+import opencl_spec as clspec
 
 source = open('tostring.cpp', 'w')
 header = open('tostring.h', 'w')
@@ -29,16 +30,21 @@ missing = []
 protected = {}
 platforms = {}
 
-spec.init()
+print('// --- Vulkan ---', file=source)
+print(file=source)
+print('// --- Vulkan ---', file=header)
+print(file=header)
+
+vkspec.init()
 
 # Find all platforms
-for v in spec.root.findall('platforms/platform'):
+for v in vkspec.root.findall('platforms/platform'):
 	name = v.attrib.get('name')
 	prot = v.attrib.get('protect')
 	platforms[name] = prot
 
 # Find all flag conversions
-for v in spec.root.findall('types/type'):
+for v in vkspec.root.findall('types/type'):
 	category = v.attrib.get('category')
 	requires = v.attrib.get('requires')
 	api = v.attrib.get('api')
@@ -54,7 +60,7 @@ for v in spec.root.findall('types/type'):
 			missing.append(name)
 
 # Find ifdef conditionals (that we want to recreate) and disabled extensions (that we want to ignore)
-for v in spec.root.findall('extensions/extension'):
+for v in vkspec.root.findall('extensions/extension'):
 	name = v.attrib.get('name')
 	conditional = v.attrib.get('platform')
 	if conditional:
@@ -64,12 +70,12 @@ for v in spec.root.findall('extensions/extension'):
 # -- Bit to string --
 
 added_case = []
-for v in spec.root.findall('enums'):
+for v in vkspec.root.findall('enums'):
 	rname = v.attrib.get('name')
 	type = v.attrib.get('type')
 	if not type or type != 'bitmask':
 		continue
-	if not rname in bitmask or not rname in spec.types:
+	if not rname in bitmask or not rname in vkspec.types:
 		continue
 	ename = bitmask[rname]
 	if ename in protected:
@@ -93,7 +99,7 @@ for v in spec.root.findall('enums'):
 			added_case.append(name)
 
 	# Find and add post-1.0 variants
-	for feat in spec.root.findall('feature'):
+	for feat in vkspec.root.findall('feature'):
 		api = feat.attrib.get('api', '').split(',')
 		if api and not 'vulkan' in api: continue
 		for bit in feat.findall('require/enum'):
@@ -106,7 +112,7 @@ for v in spec.root.findall('enums'):
 					added_case.append(name)
 
 	# Find and add extensions enums
-	for ext in spec.root.findall('extensions/extension'):
+	for ext in vkspec.root.findall('extensions/extension'):
 		supported = ext.attrib.get('supported', '').split(',')
 		if supported and not 'vulkan' in supported: continue
 		for vv in ext.findall('require'):
@@ -145,10 +151,10 @@ for name in missing: # create stubs for unused flags
 print(file=header)
 
 added_case = []
-for v in spec.root.findall('enums'):
+for v in vkspec.root.findall('enums'):
 	name = v.attrib.get('name')
 	type = v.attrib.get('type')
-	if not type or type != 'enum' or not name in spec.types:
+	if not type or type != 'enum' or not name in vkspec.types:
 		continue
 	if name in protected:
 		print('#ifdef %s // %s' % (protected[name], name), file=header)
@@ -165,7 +171,7 @@ for v in spec.root.findall('enums'):
 		print('\tcase %s: return "%s";' % (itemname, itemname), file=source)
 		added_case.append(itemname)
 	# Find and add extensions enums
-	for vv in spec.root.findall('extensions/extension'):
+	for vv in vkspec.root.findall('extensions/extension'):
 		extname = vv.attrib.get('name')
 		if vv.attrib.get('supported') in ['disabled', 'vulkansc']:
 			continue
@@ -181,6 +187,82 @@ for v in spec.root.findall('enums'):
 	print('\treturn "Error";', file=source)
 	print('}', file=source)
 	if name in protected:
+		print('#endif', file=header)
+		print('#endif', file=source)
+	print(file=source)
+
+print('// --- OpenCL ---', file=source)
+print(file=source)
+print(file=header)
+print('// --- OpenCL ---', file=header)
+print(file=header)
+
+clspec.init()
+
+print('#include <CL/cl.h>', file=header)
+print('#include <CL/cl_ext.h>', file=header)
+print(file=header)
+
+def opencl_value(item, values):
+	if item.attrib.get('bitpos') is not None:
+		return 1 << int(item.attrib['bitpos'])
+	value = item.attrib.get('value')
+	if value in values:
+		return values[value]
+	try:
+		return int(value, 0)
+	except (TypeError, ValueError):
+		return value
+
+for enums in clspec.root.findall('enums'):
+	name = enums.attrib.get('name')
+	if name not in clspec.types:
+		continue
+	items = enums.findall('enum')
+	values = {}
+	unique_items = []
+	for item in items:
+		if item.attrib['name'] not in clspec.symbols:
+			continue
+		value = opencl_value(item, values)
+		values[item.attrib['name']] = value
+		if value not in [entry[0] for entry in unique_items]:
+			unique_items.append((value, item))
+
+	guard = clspec.type_guards.get(name)
+	if guard:
+		print('#ifdef %s' % guard, file=header)
+		print('#ifdef %s' % guard, file=source)
+	print('std::string %s_to_string(%s val);' % (name, name), file=header)
+	print('std::string %s_to_string(%s val)' % (name, name), file=source)
+	print('{', file=source)
+	if enums.attrib.get('type') == 'bitmask':
+		print('\tstd::string result;', file=source)
+		for value, item in unique_items:
+			if item.attrib.get('bitpos') is None:
+				continue
+			itemname = item.attrib['name']
+			print('\tif (val & %s)' % itemname, file=source)
+			print('\t{', file=source)
+			print('\t\tif (!result.empty()) result += " | ";', file=source)
+			print('\t\tresult += "%s";' % itemname, file=source)
+			print('\t\tval &= ~%s;' % itemname, file=source)
+			print('\t}', file=source)
+		print('\tif (val)', file=source)
+		print('\t{', file=source)
+		print('\t\tif (!result.empty()) result += " | ";', file=source)
+		print('\t\tresult += "Bad bitfield value";', file=source)
+		print('\t}', file=source)
+		print('\treturn result;', file=source)
+	else:
+		print('\tswitch (val)', file=source)
+		print('\t{', file=source)
+		for value, item in unique_items:
+			print('\tcase %s: return "%s";' % (item.attrib['name'], item.attrib['name']), file=source)
+		print('\tdefault: return "Unhandled enum";', file=source)
+		print('\t}', file=source)
+	print('}', file=source)
+	if guard:
 		print('#endif', file=header)
 		print('#endif', file=source)
 	print(file=source)
