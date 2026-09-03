@@ -11,6 +11,7 @@
 
 // glslangValidator -V vulkan_as_populate_instance_buffer_process_instance.comp -o vulkan_as_populate_instance_buffer_process_instance.spirv --target-env vulkan1.2
 // xxd -i vulkan_as_populate_instance_buffer_process_instance.spirv > vulkan_as_populate_instance_buffer_process_instance.inc
+#include "vulkan_anki_as_process_instance.inc"
 #include "vulkan_as_populate_instance_buffer_process_instance.inc"
 
 using AsBuffer = acceleration_structures::Buffer;
@@ -19,6 +20,7 @@ using BackedAccelerationStructure = acceleration_structures::BackedAccelerationS
 using namespace tracetooltests;
 
 static uint32_t bl_as_create_count = 8;
+static bool device_local_instances = false;
 static constexpr uint32_t local_size_x = 64;
 
 struct Vertex
@@ -120,6 +122,7 @@ static void show_usage()
 {
     printf("Validate building a top level acceleration structure from shader-populated device addresses of N built bottom level acceleration structures.\n");
     printf("-cb/--count-bottom N   Create N bottom level acceleration structures, default is %u\n", bl_as_create_count);
+    printf("-dl/--device-local-instances Use a device-local instance buffer and scalar output shader\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -127,6 +130,11 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
     if (match(argv[i], "-cb", "--count-bottom"))
     {
         bl_as_create_count = get_arg(argv, ++i, argc);
+        return true;
+    }
+    if (match(argv[i], "-dl", "--device-local-instances"))
+    {
+        device_local_instances = true;
         return true;
     }
 
@@ -220,10 +228,15 @@ static void prepare_process_instance_pipeline(const vulkan_setup_t& vulkan, AsPo
     check(context.process_instance_pipeline_layout->create(set_layouts, push_constant_ranges));
 
     auto shader = std::make_unique<Shader>(vulkan.device);
-    check(shader->create(
-        vulkan_as_populate_instance_buffer_process_instance_spirv,
-        vulkan_as_populate_instance_buffer_process_instance_spirv_len
-    ));
+    if (device_local_instances)
+    {
+        check(shader->create(vulkan_anki_as_process_instance_spirv, vulkan_anki_as_process_instance_spirv_len));
+    }
+    else
+    {
+        check(shader->create(vulkan_as_populate_instance_buffer_process_instance_spirv,
+                             vulkan_as_populate_instance_buffer_process_instance_spirv_len));
+    }
 
     ShaderPipelineState shader_stage(VK_SHADER_STAGE_COMPUTE_BIT, std::move(shader));
     context.process_instance_pipeline = std::make_unique<ComputePipeline>(vulkan.device);
@@ -258,7 +271,8 @@ static void prepare_test_resources(const vulkan_setup_t& vulkan, AsPopulateInsta
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
         VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         sizeof(VkAccelerationStructureInstanceKHR) * bl_as_create_count,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        device_local_instances ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT :
+                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     ));
 
     context.process_instance_transforms_buffer = std::make_unique<Buffer>(vulkan);
@@ -730,6 +744,10 @@ static void verify_blas_address_words_buffer(AsPopulateInstanceBufferContext& co
 
 static void verify_instance_buffer_acceleration_structure_references(AsPopulateInstanceBufferContext& context)
 {
+	if (device_local_instances)
+	{
+		return;
+	}
     if (get_env_int("TOOLSTEST_NULL_RUN", 0))
     {
         printf("  skipping instance buffer output verification for null run\n");
