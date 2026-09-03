@@ -1,0 +1,50 @@
+#version 460
+
+// glslangValidator -V vulkan_anki_as_process_instance.comp -o vulkan_anki_as_process_instance.spirv --target-env vulkan1.2
+// xxd -i vulkan_anki_as_process_instance.spirv > vulkan_anki_as_process_instance.inc
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform ProcessParams
+{
+    uint numInstances;
+} pc;
+
+layout(set = 0, binding = 0, std430) buffer OutputInstances
+{
+    uint words[];
+} instances;
+
+layout(set = 0, binding = 1, std430) readonly buffer BlasAddressWords
+{
+    uint words[];
+} blasAddresses;
+
+layout(set = 0, binding = 2, std430) readonly buffer TransformRows
+{
+    vec4 rows[];
+} sceneTransforms;
+
+void main()
+{
+    uint instanceIndex = gl_GlobalInvocationID.x;
+    if (instanceIndex >= pc.numInstances)
+    {
+        return;
+    }
+
+    uint rowBase = instanceIndex * 3u;
+    uint outputBase = instanceIndex * 16u;
+    for (uint row = 0u; row < 3u; ++row)
+    {
+        vec4 values = sceneTransforms.rows[rowBase + row];
+        instances.words[outputBase + row * 4u + 0u] = floatBitsToUint(values.x);
+        instances.words[outputBase + row * 4u + 1u] = floatBitsToUint(values.y);
+        instances.words[outputBase + row * 4u + 2u] = floatBitsToUint(values.z);
+        instances.words[outputBase + row * 4u + 3u] = floatBitsToUint(values.w);
+    }
+    instances.words[outputBase + 12u] = (0xFFu << 24) | (instanceIndex & 0x00FFFFFFu);
+    instances.words[outputBase + 13u] = (0x2u << 24);
+    instances.words[outputBase + 14u] = blasAddresses.words[instanceIndex * 2u + 0u];
+    instances.words[outputBase + 15u] = blasAddresses.words[instanceIndex * 2u + 1u];
+}
