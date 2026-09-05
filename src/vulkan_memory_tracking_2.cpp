@@ -217,6 +217,12 @@ int main(int argc, char** argv)
 	}
 	result = vkWaitForFences(vulkan.device, 2, fences, VK_TRUE, UINT64_MAX);
 	check(result);
+	if (vulkan.has_explicit_host_updates)
+	{
+		testFlushMemory(vulkan, memory, 0, buffer_size, true);
+	}
+	// Submit the completed host and device writes as a normal buffer use before asserting them.
+	testQueueBuffer(vulkan, queues[0], { buffer });
 	bench_stop_iteration(vulkan.bench);
 	if (vulkan.vkAssertBuffer)
 	{
