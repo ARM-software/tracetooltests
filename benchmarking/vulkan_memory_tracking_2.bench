@@ -1,0 +1,4 @@
+{
+	"name": "vulkan_memory_tracking_2",
+	"description": "Concurrent host and BDA compute writes to one coherent mapped buffer"
+}

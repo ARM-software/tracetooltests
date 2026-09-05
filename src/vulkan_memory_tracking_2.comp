@@ -1,0 +1,30 @@
+#version 450
+#extension GL_EXT_buffer_reference : require
+
+layout(local_size_x = 64) in;
+
+layout(buffer_reference, std430, buffer_reference_align = 4) buffer Data
+{
+	uint words[];
+};
+
+layout(push_constant) uniform PushConstants
+{
+	Data data;
+	uint stride;
+	uint lane;
+	uint word_count;
+	uint iterations;
+} push_constants;
+
+void main()
+{
+	uint index = gl_GlobalInvocationID.x;
+	if (index >= push_constants.word_count) return;
+
+	for (uint iteration = 0; iteration < push_constants.iterations; iteration++)
+	{
+		push_constants.data.words[index * push_constants.stride + push_constants.lane] =
+			(push_constants.lane << 28) | iteration;
+	}
+}
