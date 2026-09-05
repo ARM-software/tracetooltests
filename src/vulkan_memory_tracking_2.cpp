@@ -232,7 +232,6 @@ int main(int argc, char** argv)
 		check(result);
 	}
 
-	bool success = true;
 	if (get_env_int("TOOLSTEST_NULL_RUN", 0) == 0)
 	{
 		for (uint32_t index = 0; index < word_count; index++)
@@ -241,12 +240,8 @@ int main(int argc, char** argv)
 			{
 				const uint32_t expected = (writer << 28) | (iterations - 1);
 				const uint32_t actual = mapped[index * writer_count + writer];
-				if (actual == expected) continue;
-				printf("Word %u for writer %u was 0x%08x, expected 0x%08x\n", index, writer, actual, expected);
-				success = false;
-				break;
+				if (actual != expected) ABORT("Fatal error: Word %u for writer %u was 0x%08x, expected 0x%08x", index, writer, actual, expected);
 			}
-			if (!success) break;
 		}
 	}
 
@@ -260,5 +255,5 @@ int main(int argc, char** argv)
 	vkDestroyBuffer(vulkan.device, buffer, nullptr);
 	testFreeMemory(vulkan, memory);
 	test_done(vulkan);
-	return success ? 0 : 1;
+	return 0;
 }
