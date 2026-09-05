@@ -448,6 +448,7 @@ vulkan_test(trace_helpers)
 vulkan_test(anki_scene2)
 vulkan_test(memory_tracking_1)
 vulkan_test(memory_tracking_2)
+vulkan_test_extra(memory_tracking_2_fill memory_tracking_2 --fill-buffer)
 vulkan_test(device_memory_report)
 vulkan_test(memory_budget)
 vulkan_test(aliasing_multilevel_containment)
@@ -551,6 +552,7 @@ set(CHAMELEON_FULL_SOURCES
 set(CHAMELEON_INCLUDE_DIRS
 	${CHAMELEON_GENERATED_DIR}
 	${PROJECT_SOURCE_DIR}/src/chameleon
+	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}
 	${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include
 	${PROJECT_SOURCE_DIR}/external/OpenCL-Headers
@@ -693,6 +695,7 @@ target_compile_definitions(chameleon_opencl_icd PRIVATE CL_TARGET_OPENCL_VERSION
 target_include_directories(chameleon_opencl_icd PRIVATE
 	${CHAMELEON_GENERATED_DIR}
 	${PROJECT_SOURCE_DIR}/src/chameleon
+	${PROJECT_SOURCE_DIR}/include
 	${PROJECT_SOURCE_DIR}/external/OpenCL-Headers
 	${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include
 	${CHAMELEON_JSONCPP_DIR}

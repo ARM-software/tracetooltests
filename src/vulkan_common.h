@@ -25,6 +25,7 @@
 #include "vulkan_utility.h"
 #include "util.h"
 #include "vulkan_ext.h"
+#include "vulkan_ext_hmw.h"
 
 // ---- Common code ----
 

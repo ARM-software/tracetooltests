@@ -180,6 +180,11 @@ void execute_command_buffer_command(const cVkCommand& cmd, cVkCmdState& cmdstate
 	case ENUM_vkCmdCopyQueryPoolResults:
 	{
 		cVkPayloadCopyQuery* q = (cVkPayloadCopyQuery*)cmd.payload;
+		std::unique_lock<std::mutex> deviceWriteLock;
+		if (q->dstBuffer->memory->hostWriteState)
+		{
+			deviceWriteLock = std::unique_lock<std::mutex>(q->dstBuffer->memory->hostWriteState->deviceWriteMutex);
+		}
 		void* pData = q->dstBuffer->memory->ptr + q->dstBuffer->memoryOffset + q->dstOffset;
 		size_t dataSize = q->dstBuffer->memory->allocationSize;
 		write_queries(q->queryPool, q->firstQuery, q->queryCount, dataSize, q->stride, pData, q->flags);
@@ -207,6 +212,12 @@ void execute_command_buffer_command(const cVkCommand& cmd, cVkCmdState& cmdstate
 		assert(payload->dstBuffer);
 		assert(payload->srcBuffer->memory);
 		assert(payload->dstBuffer->memory);
+		std::unique_lock<std::mutex> deviceWriteLock;
+		if (payload->dstBuffer->memory->hostWriteState)
+		{
+			deviceWriteLock = std::unique_lock<std::mutex>(
+				payload->dstBuffer->memory->hostWriteState->deviceWriteMutex);
+		}
 		for (const VkBufferCopy& region : payload->regions)
 		{
 			assert(region.srcOffset + region.size <= payload->srcBuffer->size);
@@ -217,6 +228,31 @@ void execute_command_buffer_command(const cVkCommand& cmd, cVkCmdState& cmdstate
 			char* dst = payload->dstBuffer->memory->ptr + payload->dstBuffer->memoryOffset + region.dstOffset;
 			memmove(dst, src, region.size);
 		}
+		break;
+	}
+	case ENUM_vkCmdFillBuffer:
+	{
+		const cVkPayloadFillBuffer* payload = static_cast<const cVkPayloadFillBuffer*>(cmd.payload);
+		assert(payload);
+		assert(payload->dstBuffer);
+		assert(payload->dstBuffer->memory);
+		assert(payload->dstOffset % sizeof(uint32_t) == 0);
+		assert(payload->dstOffset + sizeof(uint32_t) <= payload->dstBuffer->size);
+		const VkDeviceSize size = payload->size == VK_WHOLE_SIZE ?
+			(payload->dstBuffer->size - payload->dstOffset) & ~(static_cast<VkDeviceSize>(sizeof(uint32_t)) - 1) : payload->size;
+		assert(size % sizeof(uint32_t) == 0);
+		assert(payload->dstOffset + size <= payload->dstBuffer->size);
+		assert(payload->dstBuffer->memoryOffset + payload->dstOffset + size <=
+		       payload->dstBuffer->memory->allocationSize);
+		std::unique_lock<std::mutex> deviceWriteLock;
+		if (payload->dstBuffer->memory->hostWriteState)
+		{
+			deviceWriteLock = std::unique_lock<std::mutex>(
+				payload->dstBuffer->memory->hostWriteState->deviceWriteMutex);
+		}
+		uint32_t* dst = reinterpret_cast<uint32_t*>(payload->dstBuffer->memory->ptr +
+			payload->dstBuffer->memoryOffset + payload->dstOffset);
+		std::fill(dst, dst + size / sizeof(uint32_t), payload->data);
 		break;
 	}
 	case ENUM_vkCmdSetEvent:

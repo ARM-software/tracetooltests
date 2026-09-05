@@ -14,6 +14,8 @@
 #pragma GCC visibility push(default)
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_beta.h>
+#include "vulkan_ext.h"
+#include "vulkan_ext_hmw.h"
 #pragma GCC visibility pop
 
 template <typename T, unsigned N>

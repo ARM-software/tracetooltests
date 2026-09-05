@@ -193,7 +193,8 @@ int main(int argc, char** argv)
 	output_buffer.map();
 	const uint32_t* output_data = reinterpret_cast<const uint32_t*>(output_buffer.m_mappedAddress);
 	bool ok = true;
-	for (uint32_t i = 0; i < kOutputCount; ++i)
+	const bool null_run = get_env_int("TOOLSTEST_NULL_RUN", 0) != 0;
+	for (uint32_t i = 0; !null_run && i < kOutputCount; ++i)
 	{
 		if (output_data[i] != expected[i])
 		{
@@ -207,7 +208,14 @@ int main(int argc, char** argv)
 
 	if (ok)
 	{
-		printf("address_remap_test_1 verified %u writes\n", kOffsetCount);
+		if (null_run)
+		{
+			printf("TOOLSTEST_NULL_RUN: output verification was skipped\n");
+		}
+		else
+		{
+			printf("address_remap_test_1 verified %u writes\n", kOffsetCount);
+		}
 		if (vulkan.vkAssertBuffer)
 		{
 			uint32_t crc = 0;

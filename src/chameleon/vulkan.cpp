@@ -5,11 +5,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <linux/memfd.h>
+#include <linux/userfaultfd.h>
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
 
 #include <bitset>
 #include <algorithm>
 #include <chrono>
 #include <limits>
+#include <thread>
 
 #include "util.h"
 #include "vulkan_defs.h"
@@ -113,6 +121,321 @@ static bool atomics_initialized = false;
 
 /// Keep all memory allocations around, in case we want to dump their contents later.
 static bool store_allocations = false;
+
+class HostMemoryWriteTracker
+{
+public:
+	~HostMemoryWriteTracker()
+	{
+		running.store(false);
+		if (worker.joinable()) worker.join();
+		if (fd >= 0) close(fd);
+	}
+
+	bool available()
+	{
+		std::lock_guard<std::mutex> lock(initializationMutex);
+		if (initialized) return fd >= 0;
+		initialized = true;
+
+		fd = syscall(SYS_userfaultfd, O_CLOEXEC | O_NONBLOCK | UFFD_USER_MODE_ONLY);
+		if (fd < 0)
+		{
+			XLOG("userfaultfd unavailable: %s", strerror(errno));
+			return false;
+		}
+
+		const uint64_t requiredFeatures = UFFD_FEATURE_PAGEFAULT_FLAG_WP | UFFD_FEATURE_WP_HUGETLBFS_SHMEM;
+		struct uffdio_api api = {};
+		api.api = UFFD_API;
+		api.features = requiredFeatures;
+		if (ioctl(fd, UFFDIO_API, &api) < 0 || (api.features & requiredFeatures) != requiredFeatures)
+		{
+			XLOG("userfaultfd write protection for shared memory unavailable: %s", strerror(errno));
+			close(fd);
+			fd = -1;
+			return false;
+		}
+
+		running.store(true);
+		worker = std::thread(&HostMemoryWriteTracker::run, this);
+		return true;
+	}
+
+	bool registerMemory(const std::shared_ptr<cVkHostMemoryWriteState>& state)
+	{
+		assert(fd >= 0);
+		assert(state);
+		assert(state->hostPtr);
+		assert(state->mappedSize > 0);
+
+		struct uffdio_register registration = {};
+		registration.range.start = reinterpret_cast<uintptr_t>(state->hostPtr);
+		registration.range.len = state->mappedSize;
+		registration.mode = UFFDIO_REGISTER_MODE_WP;
+		if (ioctl(fd, UFFDIO_REGISTER, &registration) < 0)
+		{
+			ELOG("Failed to register host memory with userfaultfd: %s", strerror(errno));
+			return false;
+		}
+
+		if (!writeProtect(state->hostPtr, state->mappedSize, true))
+		{
+			struct uffdio_range range = registration.range;
+			ioctl(fd, UFFDIO_UNREGISTER, &range);
+			return false;
+		}
+
+		std::lock_guard<std::mutex> lock(rangesMutex);
+		states.push_back(state);
+		state->registered = true;
+		return true;
+	}
+
+	void unregisterMemory(const std::shared_ptr<cVkHostMemoryWriteState>& state)
+	{
+		if (!state || !state->registered) return;
+		struct uffdio_range range = {};
+		range.start = reinterpret_cast<uintptr_t>(state->hostPtr);
+		range.len = state->mappedSize;
+		if (ioctl(fd, UFFDIO_UNREGISTER, &range) < 0)
+		{
+			ELOG("Failed to unregister host memory from userfaultfd: %s", strerror(errno));
+		}
+
+		std::lock_guard<std::mutex> lock(rangesMutex);
+		for (auto it = states.begin(); it != states.end(); ++it)
+		{
+			if (it->get() != state.get()) continue;
+			states.erase(it);
+			break;
+		}
+		state->registered = false;
+	}
+
+	bool writeProtect(char* address, VkDeviceSize size, bool protect)
+	{
+		struct uffdio_writeprotect wp = {};
+		wp.range.start = reinterpret_cast<uintptr_t>(address);
+		wp.range.len = size;
+		wp.mode = protect ? UFFDIO_WRITEPROTECT_MODE_WP : 0;
+		if (ioctl(fd, UFFDIO_WRITEPROTECT, &wp) < 0)
+		{
+			ELOG("Failed to %s host memory: %s", protect ? "write-protect" : "unprotect", strerror(errno));
+			return false;
+		}
+		return true;
+	}
+
+	void protectMask(const std::shared_ptr<cVkHostMemoryWriteState>& state, const std::vector<uint8_t>& mask)
+	{
+		const VkDeviceSize pageSize = getpagesize();
+		const size_t pageCount = (state->mappedSize + pageSize - 1) / pageSize;
+		size_t first = 0;
+		while (first < pageCount)
+		{
+			while (first < pageCount && !maskBit(mask, first)) first++;
+			if (first == pageCount) break;
+			size_t last = first + 1;
+			while (last < pageCount && maskBit(mask, last)) last++;
+			const bool success = writeProtect(state->hostPtr + first * pageSize, (last - first) * pageSize, true);
+			assert(success);
+			first = last;
+		}
+	}
+
+private:
+	static bool maskBit(const std::vector<uint8_t>& mask, size_t page)
+	{
+		return (mask.at(page / 8) & (1u << (page % 8))) != 0;
+	}
+
+	std::shared_ptr<cVkHostMemoryWriteState> findState(uintptr_t address)
+	{
+		std::lock_guard<std::mutex> lock(rangesMutex);
+		for (const std::shared_ptr<cVkHostMemoryWriteState>& state : states)
+		{
+			const uintptr_t start = reinterpret_cast<uintptr_t>(state->hostPtr);
+			if (address >= start && address < start + state->mappedSize) return state;
+		}
+		return {};
+	}
+
+	void run()
+	{
+		struct pollfd pollFd = { fd, POLLIN, 0 };
+		while (running.load())
+		{
+			const int pollResult = poll(&pollFd, 1, 100);
+			if (pollResult == 0) continue;
+			if (pollResult < 0)
+			{
+				if (errno == EINTR) continue;
+				ELOG("Failed to poll userfaultfd: %s", strerror(errno));
+				break;
+			}
+
+			struct uffd_msg message = {};
+			const ssize_t readSize = read(fd, &message, sizeof(message));
+			if (readSize < 0 && errno == EAGAIN) continue;
+			if (readSize != sizeof(message) || message.event != UFFD_EVENT_PAGEFAULT ||
+			    !(message.arg.pagefault.flags & UFFD_PAGEFAULT_FLAG_WP))
+			{
+				ELOG("Unexpected userfaultfd event");
+				continue;
+			}
+
+			const VkDeviceSize pageSize = getpagesize();
+			const uintptr_t faultAddress = message.arg.pagefault.address;
+			std::shared_ptr<cVkHostMemoryWriteState> state = findState(faultAddress);
+			if (!state)
+			{
+				ELOG("No tracked allocation for userfaultfd address %p", reinterpret_cast<void*>(faultAddress));
+				continue;
+			}
+
+			const uintptr_t allocationStart = reinterpret_cast<uintptr_t>(state->hostPtr);
+			const size_t page = (faultAddress - allocationStart) / pageSize;
+			std::unique_lock<std::mutex> lock(state->mutex);
+			while (state->callbackActive && maskBit(state->callbackMask, page)) state->condition.wait(lock);
+			state->dirtyMask.at(page / 8) |= 1u << (page % 8);
+			const bool success = writeProtect(state->hostPtr + page * pageSize, pageSize, false);
+			assert(success);
+		}
+	}
+
+	std::mutex initializationMutex;
+	std::mutex rangesMutex;
+	std::vector<std::shared_ptr<cVkHostMemoryWriteState>> states;
+	std::atomic_bool running { false };
+	std::thread worker;
+	int fd = -1;
+	bool initialized = false;
+};
+
+static HostMemoryWriteTracker& hostMemoryWriteTracker()
+{
+	static HostMemoryWriteTracker tracker;
+	return tracker;
+}
+
+static VkDeviceSize hostMemoryPageAlignedSize(VkDeviceSize size)
+{
+	const VkDeviceSize pageSize = getpagesize();
+	return (size + pageSize - 1) & ~(pageSize - 1);
+}
+
+static bool createHostTrackedMemory(cVkDeviceMemory& memory, const std::vector<cVkHostMemoryWriteCallback>& callbacks)
+{
+	assert(!callbacks.empty());
+	if (!hostMemoryWriteTracker().available()) return false;
+
+	memory.mappedSize = hostMemoryPageAlignedSize(memory.allocationSize);
+	memory.backingFd = syscall(SYS_memfd_create, "chameleon-host-memory", MFD_CLOEXEC);
+	if (memory.backingFd < 0 || ftruncate(memory.backingFd, memory.mappedSize) < 0)
+	{
+		ELOG("Failed to create shared host memory: %s", strerror(errno));
+		if (memory.backingFd >= 0) close(memory.backingFd);
+		memory.backingFd = -1;
+		return false;
+	}
+
+	memory.ptr = reinterpret_cast<char*>(mmap(nullptr, memory.mappedSize, PROT_READ | PROT_WRITE,
+	                                            MAP_SHARED, memory.backingFd, 0));
+	char* hostPtr = reinterpret_cast<char*>(mmap(nullptr, memory.mappedSize, PROT_READ | PROT_WRITE,
+	                                              MAP_SHARED, memory.backingFd, 0));
+	if (memory.ptr == MAP_FAILED || hostPtr == MAP_FAILED)
+	{
+		ELOG("Failed to map shared host memory: %s", strerror(errno));
+		if (memory.ptr != MAP_FAILED) munmap(memory.ptr, memory.mappedSize);
+		if (hostPtr != MAP_FAILED) munmap(hostPtr, memory.mappedSize);
+		close(memory.backingFd);
+		memory.ptr = nullptr;
+		memory.backingFd = -1;
+		return false;
+	}
+
+	memset(memory.ptr, 0, memory.mappedSize);
+	memory.hostWriteState = std::make_shared<cVkHostMemoryWriteState>();
+	memory.hostWriteState->hostPtr = hostPtr;
+	memory.hostWriteState->mappedSize = memory.mappedSize;
+	memory.hostWriteState->callbacks = callbacks;
+	const size_t pageCount = memory.mappedSize / getpagesize();
+	memory.hostWriteState->dirtyMask.resize((pageCount + 7) / 8);
+	memory.hostWriteState->callbackMask.resize((pageCount + 7) / 8);
+	if (!hostMemoryWriteTracker().registerMemory(memory.hostWriteState))
+	{
+		munmap(memory.ptr, memory.mappedSize);
+		munmap(hostPtr, memory.mappedSize);
+		close(memory.backingFd);
+		memory.ptr = nullptr;
+		memory.backingFd = -1;
+		memory.hostWriteState.reset();
+		return false;
+	}
+	return true;
+}
+
+static bool hostMemoryMaskEmpty(const std::vector<uint8_t>& mask)
+{
+	for (uint8_t value : mask) if (value != 0) return false;
+	return true;
+}
+
+static void reportHostMemoryWrites(VkDevice device, VkDeviceMemory memory, cVkDeviceMemory* mem,
+	                               VkHostMemoryWriteTypeARM type, bool reportEmpty)
+{
+	if (!mem || !mem->hostWriteState) return;
+	const std::shared_ptr<cVkHostMemoryWriteState>& state = mem->hostWriteState;
+	std::unique_lock<std::mutex> deviceWriteLock(state->deviceWriteMutex);
+	std::vector<uint8_t> callbackMask;
+	{
+		std::lock_guard<std::mutex> lock(state->mutex);
+		assert(!state->callbackActive);
+		if (!reportEmpty && hostMemoryMaskEmpty(state->dirtyMask)) return;
+		callbackMask = state->dirtyMask;
+		state->callbackMask = callbackMask;
+		state->callbackActive = true;
+		hostMemoryWriteTracker().protectMask(state, callbackMask);
+		for (size_t i = 0; i < callbackMask.size(); i++) state->dirtyMask[i] &= ~callbackMask[i];
+	}
+
+	VkHostMemoryWriteCallbackInfoARM info = {
+		VK_STRUCTURE_TYPE_HOST_MEMORY_WRITE_CALLBACK_INFO_ARM,
+		nullptr,
+		memory,
+		type,
+		static_cast<VkDeviceSize>(getpagesize()),
+		static_cast<uint32_t>(callbackMask.size()),
+		callbackMask.empty() ? nullptr : callbackMask.data(),
+		nullptr
+	};
+	for (const cVkHostMemoryWriteCallback& callback : state->callbacks)
+	{
+		if (!callback.callback) continue;
+		info.pUserData = callback.userData;
+		callback.callback(device, &info);
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(state->mutex);
+		state->callbackActive = false;
+		std::fill(state->callbackMask.begin(), state->callbackMask.end(), 0);
+	}
+	state->condition.notify_all();
+}
+
+static void reportSubmitHostMemoryWrites(cVkDevice* device)
+{
+	// Chameleon cannot infer memory reached through buffer device addresses, so
+	// conservatively treat every dirty tracked allocation as touched by a submit.
+	for (cVkDeviceMemory& memory : device->deviceMemory)
+	{
+		if (!memory.hostWriteState || memory.destroyed) continue;
+		reportHostMemoryWrites(reinterpret_cast<VkDevice>(device), reinterpret_cast<VkDeviceMemory>(&memory),
+		                      &memory, VK_HOST_MEMORY_WRITE_TYPE_QUEUE_SUBMIT_ARM, false);
+	}
+}
 
 /// Keep track of last global UID number used.
 std::atomic_int cVkBase::last_uid;
@@ -403,11 +726,29 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		assert(gpu.extensions.find(extensionName) == gpu.extensions.end());
 		gpu.extensions[extensionName] = extensionsRoot[extensionName].asUInt();
 	}
+	if (hostMemoryWriteTracker().available())
+	{
+		gpu.extensions[VK_ARM_HOST_MEMORY_WRITES_EXTENSION_NAME] = VK_ARM_HOST_MEMORY_WRITES_SPEC_VERSION;
+	}
 
 	// Features
 
 	readVulkanFeatures(deviceRoot["features"], gpu.features);
 	assert(gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2) != gpu.features.end());
+	if (gpu.extensions.count(VK_ARM_HOST_MEMORY_WRITES_EXTENSION_NAME) != 0)
+	{
+		VkPhysicalDeviceHostMemoryWriteFeaturesARM* feature =
+			reinterpret_cast<VkPhysicalDeviceHostMemoryWriteFeaturesARM*>(malloc(sizeof(VkPhysicalDeviceHostMemoryWriteFeaturesARM)));
+		assert(feature);
+		*feature = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_MEMORY_WRITE_FEATURES_ARM,
+			nullptr,
+			VK_TRUE
+		};
+		gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_MEMORY_WRITE_FEATURES_ARM] = {
+			feature, sizeof(VkPhysicalDeviceHostMemoryWriteFeaturesARM)
+		};
+	}
 
 	if (gpu.extensions.count(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME) != 0)
 	{
@@ -1112,6 +1453,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice(
 				reinterpret_cast<const VkPhysicalDeviceFaultFeaturesKHR*>(next);
 			dev.khrDeviceFaultVendorBinary = features->deviceFaultVendorBinary;
 		}
+		else if (next->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_MEMORY_WRITE_FEATURES_ARM)
+		{
+			const VkPhysicalDeviceHostMemoryWriteFeaturesARM* features =
+				reinterpret_cast<const VkPhysicalDeviceHostMemoryWriteFeaturesARM*>(next);
+			if (features->hostMemoryWriteTracking && !hostMemoryWriteTracker().available())
+			{
+				return VK_ERROR_FEATURE_NOT_PRESENT;
+			}
+			dev.hostMemoryWriteTracking = features->hostMemoryWriteTracking;
+		}
 		next = next->pNext;
 	}
 
@@ -1383,6 +1734,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit(
 	cVkQueue* q = queue_cast(queue);
 	cVkDevice* device = q->device;
 	if (queue_submit_device_lost(device)) return VK_ERROR_DEVICE_LOST;
+	if (submitCount > 0) reportSubmitHostMemoryWrites(device);
 	cVkFence* submit_fence = fence_cast(fence);
 	if (submit_fence)
 	{
@@ -1477,8 +1829,31 @@ VKAPI_ATTR VkResult VKAPI_CALL vkAllocateMemory(
 	memory.allocationSize = pAllocateInfo->allocationSize;
 	memory.memoryTypeIndex = pAllocateInfo->memoryTypeIndex;
 	memory.heapIndex = dev->memory_type_heap_index[pAllocateInfo->memoryTypeIndex];
-	const int ret = posix_memalign((void**)&memory.ptr, 4096, memory.allocationSize);
-	if (ret != 0)
+	std::vector<cVkHostMemoryWriteCallback> hostWriteCallbacks;
+	const VkBaseInStructure* allocationNext = reinterpret_cast<const VkBaseInStructure*>(pAllocateInfo->pNext);
+	while (allocationNext)
+	{
+		if (allocationNext->sType == VK_STRUCTURE_TYPE_HOST_MEMORY_WRITE_CALLBACK_ARM)
+		{
+			const VkHostMemoryWriteCallbackARM* callback =
+				reinterpret_cast<const VkHostMemoryWriteCallbackARM*>(allocationNext);
+			assert(callback->flags == 0);
+			assert(callback->callback);
+			hostWriteCallbacks.push_back({ callback->flags, callback->callback, callback->pUserData });
+		}
+		allocationNext = allocationNext->pNext;
+	}
+
+	if (!hostWriteCallbacks.empty())
+	{
+		assert(dev->hostMemoryWriteTracking);
+		const VkMemoryPropertyFlags propertyFlags =
+			dev->physicalDevice->memoryProperties.memoryTypes[memory.memoryTypeIndex].propertyFlags;
+		assert((propertyFlags & (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) ==
+		       (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+		if (!createHostTrackedMemory(memory, hostWriteCallbacks)) return VK_ERROR_OUT_OF_HOST_MEMORY;
+	}
+	else if (posix_memalign(reinterpret_cast<void**>(&memory.ptr), 4096, memory.allocationSize) != 0)
 	{
 		memory.ptr = nullptr;
 		return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -1507,7 +1882,25 @@ VKAPI_ATTR void VKAPI_CALL vkFreeMemory(
 	cVkDevice* dev = device_cast(device);
 	auto* mem = destroy<cVkDeviceMemory, VkDeviceMemory>(memory, pAllocator);
 	report_device_memory(dev, mem, memory, VK_DEVICE_MEMORY_REPORT_EVENT_TYPE_FREE_EXT);
-	if (mem && !store_allocations)
+	if (mem && mem->hostWriteState)
+	{
+		hostMemoryWriteTracker().unregisterMemory(mem->hostWriteState);
+		munmap(mem->hostWriteState->hostPtr, mem->mappedSize);
+		mem->hostWriteState->hostPtr = nullptr;
+		mem->hostWriteState.reset();
+		if (!store_allocations)
+		{
+			munmap(mem->ptr, mem->mappedSize);
+			mem->ptr = nullptr;
+#ifndef FAST
+			dev->memory_allocated[mem->memoryTypeIndex] -= mem->allocationSize;
+			assert(dev->memory_allocated[mem->memoryTypeIndex] >= 0);
+#endif
+		}
+		close(mem->backingFd);
+		mem->backingFd = -1;
+	}
+	else if (mem && !store_allocations)
 	{
 		free(mem->ptr);
 		mem->ptr = nullptr;
@@ -1532,7 +1925,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkMapMemory(
 
 	cVkDevice* dev = device_cast(device);
 	cVkDeviceMemory* mem = devicememory_cast(memory);
-	*ppData = mem->ptr + offset;
+	*ppData = (mem->hostWriteState ? mem->hostWriteState->hostPtr : mem->ptr) + offset;
 	mem->mapped = true;
 	return VK_SUCCESS;
 }
@@ -1546,6 +1939,7 @@ VKAPI_ATTR void VKAPI_CALL vkUnmapMemory(
 
 	cVkDevice* dev = device_cast(device);
 	cVkDeviceMemory* mem = devicememory_cast(memory);
+	reportHostMemoryWrites(device, memory, mem, VK_HOST_MEMORY_WRITE_TYPE_UNMAP_ARM, true);
 	mem->mapped = false;
 }
 
@@ -3576,7 +3970,14 @@ VKAPI_ATTR void VKAPI_CALL vkCmdFillBuffer(
 	       commandBuffer, dstBuffer, (unsigned long long)dstOffset, (unsigned long long)size, data);
 
 	cVkCommandBuffer* p = commandbuffer_command(vkCmdFillBuffer, commandBuffer, MetricUnit(1));
-	p->commands.back().bindings.push_back(buffer_cast(dstBuffer));
+	cVkBuffer* dst = buffer_cast(dstBuffer);
+	p->commands.back().bindings.push_back(dst);
+	cVkPayloadFillBuffer* payload = new cVkPayloadFillBuffer;
+	payload->dstBuffer = dst;
+	payload->dstOffset = dstOffset;
+	payload->size = size;
+	payload->data = data;
+	p->commands.back().payload = payload;
 }
 
 VKAPI_ATTR void VKAPI_CALL vkCmdClearColorImage(
@@ -7883,6 +8284,7 @@ VkResult internalQueueSubmit2(
 	CLOG("queue=%p, submitCount=%u, pSubmits=%p, fence=" NHANDLE, queue, submitCount, pSubmits, fence);
 	cVkQueue* q = queue_cast(queue);
 	if (queue_submit_device_lost(q->device)) return VK_ERROR_DEVICE_LOST;
+	if (submitCount > 0) reportSubmitHostMemoryWrites(q->device);
 	cVkFence* submit_fence = fence_cast(fence);
 	if (submit_fence) assert(!fence_is_signalled(submit_fence));
 
@@ -8981,7 +9383,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkMapMemory2KHR(
 
 	cVkDevice* dev = device_cast(device);
 	cVkDeviceMemory* mem = devicememory_cast(pMemoryMapInfo->memory);
-	*ppData = mem->ptr + pMemoryMapInfo->offset;
+	*ppData = (mem->hostWriteState ? mem->hostWriteState->hostPtr : mem->ptr) + pMemoryMapInfo->offset;
 	mem->mapped = true;
 	return VK_SUCCESS;
 }
@@ -8994,6 +9396,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkUnmapMemory2KHR(
 	CLOG("device=%p, memory=" NHANDLE, device, pMemoryUnmapInfo->memory);
 	cVkDevice* dev = device_cast(device);
 	cVkDeviceMemory* mem = devicememory_cast(pMemoryUnmapInfo->memory);
+	reportHostMemoryWrites(device, pMemoryUnmapInfo->memory, mem, VK_HOST_MEMORY_WRITE_TYPE_UNMAP_ARM, true);
 	mem->mapped = false;
 	return VK_SUCCESS;
 }
@@ -10909,16 +11312,20 @@ VKAPI_ATTR void VKAPI_CALL vkGetDeviceImageSubresourceLayout(VkDevice device, co
 VKAPI_ATTR VkResult VKAPI_CALL vkMapMemory2(VkDevice device, const VkMemoryMapInfo* pMemoryMapInfo, void** ppData)
 {
 	ENTRY(vkMapMemory2);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
+	cVkDevice* dev = device_cast(device);
+	cVkDeviceMemory* mem = devicememory_cast(pMemoryMapInfo->memory);
+	*ppData = (mem->hostWriteState ? mem->hostWriteState->hostPtr : mem->ptr) + pMemoryMapInfo->offset;
+	mem->mapped = true;
 	return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkUnmapMemory2(VkDevice device, const VkMemoryUnmapInfo* pMemoryUnmapInfo)
 {
 	ENTRY(vkUnmapMemory2);
-	cVkDevice* cdevice = device_cast(device);
-	TBD_UNSUPPORTED;
+	cVkDevice* dev = device_cast(device);
+	cVkDeviceMemory* mem = devicememory_cast(pMemoryUnmapInfo->memory);
+	reportHostMemoryWrites(device, pMemoryUnmapInfo->memory, mem, VK_HOST_MEMORY_WRITE_TYPE_UNMAP_ARM, true);
+	mem->mapped = false;
 	return VK_SUCCESS;
 }
 

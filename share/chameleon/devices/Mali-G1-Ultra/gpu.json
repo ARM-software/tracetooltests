@@ -561,6 +561,9 @@
                 "VkPhysicalDeviceMaintenance5FeaturesKHR": {
                     "maintenance5": true
                 },
+                "VkPhysicalDeviceMaintenance6FeaturesKHR": {
+                    "maintenance6": true
+                },
                 "VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR": {
                     "rayTracingPositionFetch": true
                 },
@@ -1415,6 +1418,7 @@
                 "VK_KHR_sampler_mirror_clamp_to_edge": 3,
                 "VK_EXT_debug_marker": 4,
                 "VK_KHR_maintenance1": 2,
+                "VK_KHR_maintenance6": 1,
                 "VK_KHR_shader_draw_parameters": 1,
                 "VK_EXT_shader_subgroup_ballot": 1,
                 "VK_EXT_shader_subgroup_vote": 1,

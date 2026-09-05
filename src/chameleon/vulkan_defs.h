@@ -189,6 +189,14 @@ struct cVkPayloadCopyBuffer : cVkPayload
 	std::vector<VkBufferCopy> regions;
 };
 
+struct cVkPayloadFillBuffer : cVkPayload
+{
+	cVkBuffer* dstBuffer = nullptr;
+	VkDeviceSize dstOffset = 0;
+	VkDeviceSize size = 0;
+	uint32_t data = 0;
+};
+
 struct cVkPayloadWriteAccelerationStructuresPropertiesKHR : cVkPayload
 {
 	uint32_t accelerationStructureCount = 0;
@@ -401,12 +409,36 @@ struct cVkQueue : cVkBase
 	}
 };
 
+struct cVkHostMemoryWriteCallback
+{
+	VkHostMemoryWriteFlagsARM flags = 0;
+	PFN_vkHostMemoryWriteCallbackARM callback = nullptr;
+	void* userData = nullptr;
+};
+
+struct cVkHostMemoryWriteState
+{
+	char* hostPtr = nullptr;
+	VkDeviceSize mappedSize = 0;
+	std::vector<uint8_t> dirtyMask;
+	std::vector<uint8_t> callbackMask;
+	std::vector<cVkHostMemoryWriteCallback> callbacks;
+	std::mutex mutex;
+	std::mutex deviceWriteMutex;
+	std::condition_variable condition;
+	bool callbackActive = false;
+	bool registered = false;
+};
+
 struct cVkDeviceMemory : cVkBase
 {
 	VkDeviceSize allocationSize = 0;
 	uint32_t memoryTypeIndex = 0;
 	uint32_t heapIndex = 0;
 	char* ptr = nullptr;
+	int backingFd = -1;
+	VkDeviceSize mappedSize = 0;
+	std::shared_ptr<cVkHostMemoryWriteState> hostWriteState;
 	bool mapped = false;
 
 	cVkDeviceMemory()
@@ -1115,6 +1147,7 @@ struct cVkDevice : cVkBase
 	int64_t deviceLostAtSubmit = -1;
 	bool extDeviceFaultVendorBinary = false;
 	bool khrDeviceFaultVendorBinary = false;
+	bool hostMemoryWriteTracking = false;
 	VkPhysicalDeviceDescriptorBufferPropertiesEXT descriptorBufferProperties = {
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT
 	};
