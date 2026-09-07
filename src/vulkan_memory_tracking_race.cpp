@@ -259,6 +259,11 @@ static void record_read_commands(const TestResources& resources, SyncType sync_t
 	                        &resources.descriptorSet, 0, nullptr);
 	vkCmdPushConstants(resources.readCommandBuffer, resources.pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(parameters), parameters);
 	vkCmdDispatch(resources.readCommandBuffer, 1, 1, 1);
+	VkMemoryBarrier host_read_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
+	host_read_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	host_read_barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+	vkCmdPipelineBarrier(resources.readCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0,
+	                     1, &host_read_barrier, 0, nullptr, 0, nullptr);
 	result = vkEndCommandBuffer(resources.readCommandBuffer);
 	check(result);
 }
@@ -305,7 +310,7 @@ int main(int argc, char** argv)
 {
 	vulkan_req_t reqs;
 	reqs.queues = 1;
-	reqs.required_queue_flags = VK_QUEUE_TRANSFER_BIT;
+	reqs.required_queue_flags = VK_QUEUE_COMPUTE_BIT;
 	reqs.options["buffer_size"] = static_cast<int>(kDefaultBufferSize);
 	reqs.options["chunk_count"] = static_cast<int>(kDefaultChunkCount);
 	reqs.options["sync_type"] = std::string(kDefaultSyncType);

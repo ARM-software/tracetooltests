@@ -147,6 +147,14 @@ static void record_fill_commands(VkCommandBuffer command, VkBuffer buffer, uint3
 			vkCmdFillBuffer(command, buffer, (page_start + first) * sizeof(uint32_t),
 			                count * sizeof(uint32_t), (writer << 28) | iteration);
 		}
+		if (iteration + 1 < iterations)
+		{
+			VkMemoryBarrier barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+			                     1, &barrier, 0, nullptr, 0, nullptr);
+		}
 	}
 }
 
@@ -333,6 +341,12 @@ int main(int argc, char** argv)
 			push_constants_with_bda_marking(vulkan, commands[writer], layout, constants);
 			vkCmdDispatch(commands[writer], (word_count + workgroup_size - 1) / workgroup_size, 1, 1);
 		}
+		VkMemoryBarrier host_read_barrier = { VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr };
+		host_read_barrier.srcAccessMask = use_fill_buffer ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_SHADER_WRITE_BIT;
+		host_read_barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+		vkCmdPipelineBarrier(commands[writer],
+		                     use_fill_buffer ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		                     VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &host_read_barrier, 0, nullptr, 0, nullptr);
 		result = vkEndCommandBuffer(commands[writer]);
 		check(result);
 	}
