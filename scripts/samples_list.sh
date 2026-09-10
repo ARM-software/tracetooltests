@@ -11,12 +11,12 @@ run separate_image_sampler
 run terrain_tessellation
 run texture_mipmap_generation
 run buffer_device_address
-run conservative_rasterization
+( vulkaninfo | grep -e VK_EXT_conservative_rasterization > /dev/null ) && run conservative_rasterization
 run debug_utils
 run descriptor_indexing
 run dynamic_rendering
-run fragment_shading_rate
-run fragment_shading_rate_dynamic
+( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate
+( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate_dynamic
 #run open_gl_interop # hangs
 run portability
 run push_descriptors
@@ -55,12 +55,12 @@ run descriptor_buffer_basic
 run extended_dynamic_state2
 run hlsl_shaders
 run fragment_shader_barycentric
-run graphics_pipeline_library
+( vulkaninfo | grep -e VK_KHR_pipeline_library > /dev/null ) && run graphics_pipeline_library
 run logic_op_dynamic_state
 run memory_budget
 run mesh_shader_culling
 run mesh_shading
-run vertex_dynamic_state
+( vulkaninfo | grep -e VK_EXT_vertex_input_dynamic_state > /dev/null ) && run vertex_dynamic_state
 run hello_triangle_1_3
 run oit_depth_peeling
 run oit_linked_lists
@@ -89,3 +89,37 @@ run shader_object
 run shader_relaxed_extended_instruction
 run sparse_image
 #run tensor_and_data_graph
+run image_compression_control
+run swapchain_recreation
+run calibrated_timestamps
+run color_write_enable
+run compute_shader_derivatives
+run descriptor_buffer_basic
+run dynamic_blending
+run dynamic_line_rasterization
+run dynamic_multisample_rasterization
+run dynamic_primitive_clipping
+run dynamic_rendering_local_read
+run extended_dynamic_state2
+run fragment_density_map
+run fragment_shader_barycentric
+run full_screen_exclusive
+run gshader_to_mshader
+run host_image_copy
+run logic_op_dynamic_state
+run memory_budget
+run mesh_shader_culling
+run mesh_shading
+#run open_cl_common
+#run open_cl_interop
+#run open_cl_interop_arm
+run patch_control_points
+un rasterization_order_attachment_access
+run ray_tracing_basic
+run ray_tracing_extended
+run ray_tracing_invocation_reorder
+run ray_tracing_position_fetch
+run shader_debugprintf
+run shader_object
+run shader_relaxed_extended_instruction
+#run sparse_image
