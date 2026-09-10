@@ -378,6 +378,10 @@ int main(int argc, char** argv)
 	VkPipeline data_graph_pipeline = VK_NULL_HANDLE;
 	result = graph_funcs.create_pipelines(vulkan.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &data_graph_pipeline);
 	check(result);
+	if (result != VK_SUCCESS)
+	{
+		return 1;
+	}
 
 	data_graph_session graph_session = create_data_graph_session(vulkan, graph_funcs, data_graph_pipeline);
 
