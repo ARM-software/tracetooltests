@@ -30,6 +30,7 @@ static inline bool shader_has_device_addresses(const uint32_t* code, uint32_t co
 	do {
 		opcode = uint16_t(insn[0]);
 		word_count = uint16_t(insn[0] >> 16);
+		if (opcode == SpvOpCapability && insn[1] == SpvCapabilityPhysicalStorageBufferAddresses) return true;
 		if (opcode == SpvOpExtension && strcmp((char*)&insn[2], "KHR_physical_storage_buffer") == 0) return true;
 		insn += word_count;
 	}
