@@ -43,7 +43,7 @@ elseif (WINDOWSYSTEM MATCHES "android")
 else()
 	message(FATAL_ERROR "Invalid window system: ${WINDOWSYSTEM}")
 endif()
-set(IT_CFLAGS "-Wall -g -std=c++20 -Werror -Wshadow")
+set(IT_CFLAGS "-Wall -g -std=c++20 -Werror -Wshadow -Wextra -Wno-missing-field-initializers -Wno-unused-parameter")
 
 set(CHAMELEON_DEFAULT_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G1-Ultra")
 set(CHAMELEON_DEFAULT_OPENCL_GPU_PATH "${PROJECT_SOURCE_DIR}/share/chameleon/devices/Mali-G715")

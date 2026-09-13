@@ -98,6 +98,12 @@ static void window_fullscreen(testwindow& w, bool value)
 
 testwindow test_window_create(const vulkan_setup_t& vulkan, int32_t x, int32_t y, int32_t width, int32_t height, bool fullscreen)
 {
+	(void)x;
+	(void)y;
+	(void)width;
+	(void)height;
+	(void)fullscreen;
+
 #if VK_USE_PLATFORM_XCB_KHR
 	testwindow xcb = {};
 	int scr = 0;

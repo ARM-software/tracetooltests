@@ -16,6 +16,7 @@ static VkBool32 messenger_callback(
     const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
     void*                                            pUserData)
 {
+	(void)pUserData;
 	if (!is_debug() && (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT || messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)) return VK_TRUE;
 	fprintf(stderr, "messenger (s%d, t%d): %s\n", (int)messageSeverity, (int)messageTypes, pCallbackData->pMessage);
 	return VK_TRUE;
