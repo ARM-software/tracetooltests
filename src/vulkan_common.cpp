@@ -501,7 +501,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 	if (!found_matching_queue_family)
 	{
 		printf("Vulkan implementation does not have a queue family matching flags 0x%x with at least %u queues for this test\n",
-		       reqs.required_queue_flags, reqs.queues);
+		       (unsigned)reqs.required_queue_flags, reqs.queues);
 		exit(77);
 	}
 	vulkan.queue_family_index = selected_queue_family;

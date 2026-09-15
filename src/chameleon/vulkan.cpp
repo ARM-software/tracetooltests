@@ -1289,7 +1289,7 @@ static VkResult commonGetPhysicalDeviceImageFormatProperties(
 	pImageFormatProperties->maxExtent.depth = 4096;
 	pImageFormatProperties->maxMipLevels = 16;
 	pImageFormatProperties->maxArrayLayers = 256;
-	pImageFormatProperties->sampleCounts = 1;
+	pImageFormatProperties->sampleCounts = VK_SAMPLE_COUNT_1_BIT;
 	pImageFormatProperties->maxResourceSize = 2147483648;
 
 	return VK_SUCCESS;
