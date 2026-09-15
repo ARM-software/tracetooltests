@@ -2,16 +2,15 @@
 
 ## Project Structure & Module Organization
 - Root: `CMakeLists.txt` drives all builds and tests via CTest.
-- Source: `src/` (C++17), public headers in `include/`.
+- Source: `src/`, public headers in `include/`.
 - Bench configs: `benchmarking/*.bench`
-- Scripts: `scripts/` for demo, tracing, and benchmarking helpers.
-- Tooling: `cmake/` (modules, toolchains), `external/` (headers), `doc/` (standards), `asset/`, `patches/`.
+- Tooling: `cmake/` (modules, toolchains), `external/` (dependencies)
 - Vulkan headers: `external/Vulkan-Headers/include/vulkan/` (do not use the system headers)
 
 ## Build, Test, and Development Commands
-- Configure (choose window system):
+- Configure (choose window system for GLES):
   - `mkdir build && cd build`
-  - `cmake .. -DWINDOWSYSTEM=x11` (options: `sdl`, `fbdev`, `pbuffers`)
+  - `cmake .. -DWINDOWSYSTEM=x11` (options: `sdl`, `fbdev`, `pbuffers`, default is X11)
 - Build: `make -j`  | Run tests: `ctest --output-on-failure`
 - Example run: `./vulkan_general --help` (from `build/`).
 
@@ -31,8 +30,3 @@
 - Tests shall return error code 77 when a feature is not supported.
 - Tests shall check the environment variable `TOOLSTEST_NULL_RUN` before failing or asserting on the results of GPU work.
 - Tests should use `vkAssertBufferARM` (usually accessible as `vulkan.vkAssertBuffer`) to allow a 'burn in' of test assumptions into API traces.
-
-## Notes & Configuration Tips
-- For GLES, window system is selectable via `-DWINDOWSYSTEM=<x11|sdl|fbuffers|fbdev>`; default is X11.
-- Optional components can be toggled at configure time, e.g., `-DNO_VULKAN=1`, `-DNO_GLES=1`, `-DNO_CL=1`.
-- For Vulkan headers, install LunarG SDK or use provided `external/` headers as configured.

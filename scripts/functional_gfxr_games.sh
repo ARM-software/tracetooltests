@@ -25,30 +25,13 @@ export MESA_VK_ABORT_ON_DEVICE_LOSS=1
 HTMLIMGOPTS="width=200 height=200"
 
 echo "<html><head><style>table, th, td { border: 1px solid black; } th, td { padding: 10px; }</style></head>" > $REPORT
-echo "<body><h1>Comparison for vulkan games with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th><th>Replay -m remap</th><th>Replay -m realign</th><th>Replay -m rebind</th></tr>" >> $REPORT
+echo "<body><h1>Comparison for vulkan games with gfxreconstruct</h1><table><tr><th>Name</th><th>Original</th><th>Replay</th></tr>" >> $REPORT
 
 function replay
 {
 	echo
 	echo "** replay $2 **"
 	echo
-	# Replay
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} ${TRACEDIR}/$1.gfxr
-	convert -alpha off $3.ppm $REPORTDIR/$1_f${FRAME}_replay.png
-	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay.png $REPORTDIR/$1_f$3_compare.png || true
-	rm -f *.ppm
-
-	# Replay -m remap
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m remap ${TRACEDIR}/$1.gfxr
-	convert -alpha off $3.ppm $REPORTDIR/$1_f$3_replay_remap.png
-	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay_remap.png $REPORTDIR/$1_f$3_compare_remap.png || true
-	rm -f *.ppm
-
-	# Replay -m realign
-	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m realign ${TRACEDIR}/$1.gfxr
-	convert -alpha off $3.ppm $REPORTDIR/$1_f$3_replay_realign.png
-	compare -alpha off $REPORTDIR/$1_f$3_native.png $REPORTDIR/$1_f$3_replay_realign.png $REPORTDIR/$1_f$3_compare_realign.png || true
-	rm -f *.ppm
 
 	# Replay -m rebind
 	VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_screenshot VK_SCREENSHOT_FRAMES=$3 ${REPLAYER} -m rebind ${TRACEDIR}/$1.gfxr
@@ -58,9 +41,6 @@ function replay
 
 	echo "<tr><td>$2</td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f$3_native.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f$3_replay.png" /><img $HTMLIMGOPTS src="$1_f$3_compare.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f$3_replay_remap.png" /><img $HTMLIMGOPTS src="$1_f$3_compare_remap.png" /></td>" >> $REPORT
-	echo "<td><img $HTMLIMGOPTS src="$1_f$3_replay_realign.png" /><img $HTMLIMGOPTS src="$1_f$3_compare_realign.png" /></td>" >> $REPORT
 	echo "<td><img $HTMLIMGOPTS src="$1_f$3_replay_rebind.png" /><img $HTMLIMGOPTS src="$1_f$3_compare_rebind.png" /></td>" >> $REPORT
 
 }
