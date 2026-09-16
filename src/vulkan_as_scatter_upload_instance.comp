@@ -1,0 +1,51 @@
+#version 460
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant) uniform InstanceParams
+{
+	uint sceneAddressWordOffset;
+} pc;
+
+layout(set = 0, binding = 0, std430) writeonly buffer OutputInstances
+{
+	uint words[];
+} instances;
+
+layout(set = 0, binding = 1, std430) readonly buffer Scene
+{
+	uint words[];
+} scene;
+
+layout(set = 0, binding = 2, std430) buffer InstanceCounter
+{
+	uint value;
+} counter;
+
+void main()
+{
+	if (gl_GlobalInvocationID.x != 0u)
+	{
+		return;
+	}
+
+	uint instanceIndex = atomicAdd(counter.value, 1u);
+	uint outputBase = instanceIndex * 16u;
+
+	instances.words[outputBase + 0u] = floatBitsToUint(1.0);
+	instances.words[outputBase + 1u] = 0u;
+	instances.words[outputBase + 2u] = 0u;
+	instances.words[outputBase + 3u] = 0u;
+	instances.words[outputBase + 4u] = 0u;
+	instances.words[outputBase + 5u] = floatBitsToUint(1.0);
+	instances.words[outputBase + 6u] = 0u;
+	instances.words[outputBase + 7u] = 0u;
+	instances.words[outputBase + 8u] = 0u;
+	instances.words[outputBase + 9u] = 0u;
+	instances.words[outputBase + 10u] = floatBitsToUint(1.0);
+	instances.words[outputBase + 11u] = 0u;
+	instances.words[outputBase + 12u] = 0xff000000u;
+	instances.words[outputBase + 13u] = 0u;
+	instances.words[outputBase + 14u] = scene.words[pc.sceneAddressWordOffset + 0u];
+	instances.words[outputBase + 15u] = scene.words[pc.sceneAddressWordOffset + 1u];
+}

@@ -1,0 +1,1 @@
+{ "name": "vulkan_as_scatter_upload", "description": "Build a TLAS from a device-local instance whose BLAS address passes through a compute scatter upload" }

@@ -1,0 +1,40 @@
+#version 460
+
+// Each workgroup processes one patch. Using separate invocations for the two
+// words of a device address is intentional: this mirrors Anki's scatter upload
+// and requires the simulator to cover more than its representative invocation.
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct Patch
+{
+	uint sourceWordOffset;
+	uint destinationWordOffset;
+	uint wordCount;
+	uint unused;
+};
+
+layout(set = 0, binding = 0, std430) readonly buffer Patches
+{
+	Patch patches[];
+};
+
+layout(set = 0, binding = 1, std430) readonly buffer Source
+{
+	uint words[];
+} sourceData;
+
+layout(set = 0, binding = 2, std430) writeonly buffer Destination
+{
+	uint words[];
+} destinationData;
+
+void main()
+{
+	Patch patchData = patches[gl_WorkGroupID.x];
+	uint wordIndex = gl_LocalInvocationIndex;
+	if (wordIndex < patchData.wordCount)
+	{
+		destinationData.words[patchData.destinationWordOffset + wordIndex] =
+			sourceData.words[patchData.sourceWordOffset + wordIndex];
+	}
+}

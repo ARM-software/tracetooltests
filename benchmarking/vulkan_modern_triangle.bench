@@ -1,0 +1,1 @@
+{ "name": "vulkan_modern_triangle", "description": "Headless coloured triangle using Vulkan 1.4 shader objects, descriptor heaps, and device-address commands" }
