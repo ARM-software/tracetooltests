@@ -10,6 +10,11 @@
 #include <cstring>
 #include <string>
 
+static bool use_device_address_commands = false;
+static VkPhysicalDeviceShaderObjectFeaturesEXT shader_features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT, nullptr, VK_TRUE };
+static VkPhysicalDeviceDescriptorHeapFeaturesEXT heap_features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, &shader_features, VK_TRUE, VK_FALSE };
+static VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR address_command_features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR, &heap_features, VK_TRUE };
+
 struct buffer_allocation
 {
 	VkBuffer buffer = VK_NULL_HANDLE;
@@ -32,6 +37,7 @@ static void show_usage()
 	printf("-W/--width N           Output width (default 640)\n");
 	printf("-H/--height N          Output height (default 480)\n");
 	printf("-fb/--frame-boundary   Publish the output through VK_EXT_frame_boundary\n");
+	printf("-ac/--address-commands Use device address commands\n");
 }
 
 static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
@@ -54,6 +60,17 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	if (match(argv[i], "-fb", "--frame-boundary"))
 	{
 		return enable_frame_boundary(reqs);
+	}
+	if (match(argv[i], "-ac", "--address-commands"))
+	{
+		if (!use_device_address_commands)
+		{
+			use_device_address_commands = true;
+			reqs.device_extensions.push_back(VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME);
+			address_command_features.pNext = reqs.extension_features;
+			reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&address_command_features);
+		}
+		return true;
 	}
 	return false;
 }
@@ -148,13 +165,6 @@ static image_allocation create_image(const vulkan_setup_t& vulkan, uint32_t widt
 
 int main(int argc, char** argv)
 {
-	VkPhysicalDeviceShaderObjectFeaturesEXT shader_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_OBJECT_FEATURES_EXT, nullptr, VK_TRUE};
-	VkPhysicalDeviceDescriptorHeapFeaturesEXT heap_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, &shader_features, VK_TRUE, VK_FALSE};
-	VkPhysicalDeviceDeviceAddressCommandsFeaturesKHR address_command_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_ADDRESS_COMMANDS_FEATURES_KHR, &heap_features, VK_TRUE};
-
 	vulkan_req_t reqs{};
 	reqs.apiVersion = VK_API_VERSION_1_4;
 	reqs.minApiVersion = VK_API_VERSION_1_4;
@@ -165,8 +175,7 @@ int main(int argc, char** argv)
 	reqs.options["height"] = 480;
 	reqs.device_extensions.push_back(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
-	reqs.device_extensions.push_back(VK_KHR_DEVICE_ADDRESS_COMMANDS_EXTENSION_NAME);
-	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&address_command_features);
+	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&heap_features);
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 
@@ -180,8 +189,17 @@ int main(int argc, char** argv)
 	MAKEDEVICEPROCADDR(vulkan, vkCmdBindShadersEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkWriteResourceDescriptorsEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkCmdBindResourceHeapEXT);
-	MAKEDEVICEPROCADDR(vulkan, vkCmdBindVertexBuffers3KHR);
-	MAKEDEVICEPROCADDR(vulkan, vkCmdCopyImageToMemoryKHR);
+	PFN_vkCmdBindVertexBuffers3KHR pf_vkCmdBindVertexBuffers3KHR = nullptr;
+	PFN_vkCmdCopyImageToMemoryKHR pf_vkCmdCopyImageToMemoryKHR = nullptr;
+	if (use_device_address_commands)
+	{
+		pf_vkCmdBindVertexBuffers3KHR = reinterpret_cast<PFN_vkCmdBindVertexBuffers3KHR>(
+			vkGetDeviceProcAddr(vulkan.device, "vkCmdBindVertexBuffers3KHR"));
+		pf_vkCmdCopyImageToMemoryKHR = reinterpret_cast<PFN_vkCmdCopyImageToMemoryKHR>(
+			vkGetDeviceProcAddr(vulkan.device, "vkCmdCopyImageToMemoryKHR"));
+		assert(pf_vkCmdBindVertexBuffers3KHR);
+		assert(pf_vkCmdCopyImageToMemoryKHR);
+	}
 	MAKEDEVICEPROCADDR(vulkan, vkCmdSetVertexInputEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkCmdSetDepthClampEnableEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkCmdSetPolygonModeEXT);
@@ -207,11 +225,11 @@ int main(int argc, char** argv)
 	buffer_allocation position_buffer = create_buffer(
 		vulkan, sizeof(positions), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, "modern_triangle_positions");
 	std::memcpy(position_buffer.mapped, positions.data(), sizeof(positions));
-	testFlushMemory(vulkan, position_buffer.memory, 0, sizeof(positions));
+	testFlushMemory(vulkan, position_buffer.memory, 0, VK_WHOLE_SIZE);
 	buffer_allocation color_buffer = create_buffer(
 		vulkan, sizeof(colors), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, "modern_triangle_colors");
 	std::memcpy(color_buffer.mapped, colors.data(), sizeof(colors));
-	testFlushMemory(vulkan, color_buffer.memory, 0, sizeof(colors));
+	testFlushMemory(vulkan, color_buffer.memory, 0, VK_WHOLE_SIZE);
 
 	VkPhysicalDeviceDescriptorHeapPropertiesEXT heap_properties{
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT, nullptr};
@@ -384,10 +402,18 @@ int main(int argc, char** argv)
 	                                  VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	pf_vkCmdSetColorWriteMaskEXT(command_buffer, 0, 1, &color_mask);
 
-	VkBindVertexBuffer3InfoKHR vertex_bind{VK_STRUCTURE_TYPE_BIND_VERTEX_BUFFER_3_INFO_KHR, nullptr};
-	vertex_bind.setStride = VK_TRUE;
-	vertex_bind.addressRange = {position_buffer.address, position_buffer.size, sizeof(positions[0])};
-	pf_vkCmdBindVertexBuffers3KHR(command_buffer, 0, 1, &vertex_bind);
+	if (use_device_address_commands)
+	{
+		VkBindVertexBuffer3InfoKHR vertex_bind{VK_STRUCTURE_TYPE_BIND_VERTEX_BUFFER_3_INFO_KHR, nullptr};
+		vertex_bind.setStride = VK_TRUE;
+		vertex_bind.addressRange = {position_buffer.address, position_buffer.size, sizeof(positions[0])};
+		pf_vkCmdBindVertexBuffers3KHR(command_buffer, 0, 1, &vertex_bind);
+	}
+	else
+	{
+		VkDeviceSize vertex_offset = 0;
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &position_buffer.buffer, &vertex_offset);
+	}
 	vkCmdDraw(command_buffer, 3, 1, 0, 0);
 	vkCmdEndRendering(command_buffer);
 
@@ -403,17 +429,30 @@ int main(int argc, char** argv)
 	dependency.pImageMemoryBarriers = &to_copy;
 	vkCmdPipelineBarrier2(command_buffer, &dependency);
 
-	VkDeviceMemoryImageCopyKHR copy_region{VK_STRUCTURE_TYPE_DEVICE_MEMORY_IMAGE_COPY_KHR, nullptr};
-	copy_region.addressRange = {readback.address, readback_size};
-	copy_region.addressFlags = 0;
-	copy_region.addressRowLength = width;
-	copy_region.addressImageHeight = height;
-	copy_region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-	copy_region.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	copy_region.imageExtent = {width, height, 1};
-	VkCopyDeviceMemoryImageInfoKHR copy_info{
-		VK_STRUCTURE_TYPE_COPY_DEVICE_MEMORY_IMAGE_INFO_KHR, nullptr, target.image, 1, &copy_region};
-	pf_vkCmdCopyImageToMemoryKHR(command_buffer, &copy_info);
+	if (use_device_address_commands)
+	{
+		VkDeviceMemoryImageCopyKHR copy_region{VK_STRUCTURE_TYPE_DEVICE_MEMORY_IMAGE_COPY_KHR, nullptr};
+		copy_region.addressRange = {readback.address, readback_size};
+		copy_region.addressFlags = 0;
+		copy_region.addressRowLength = width;
+		copy_region.addressImageHeight = height;
+		copy_region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+		copy_region.imageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		copy_region.imageExtent = {width, height, 1};
+		VkCopyDeviceMemoryImageInfoKHR copy_info{
+			VK_STRUCTURE_TYPE_COPY_DEVICE_MEMORY_IMAGE_INFO_KHR, nullptr, target.image, 1, &copy_region};
+		pf_vkCmdCopyImageToMemoryKHR(command_buffer, &copy_info);
+	}
+	else
+	{
+		VkBufferImageCopy copy_region{};
+		copy_region.bufferRowLength = width;
+		copy_region.bufferImageHeight = height;
+		copy_region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+		copy_region.imageExtent = {width, height, 1};
+		vkCmdCopyImageToBuffer(command_buffer, target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		                       readback.buffer, 1, &copy_region);
+	}
 
 	VkMemoryBarrier2 host_barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2, nullptr};
 	host_barrier.srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT;

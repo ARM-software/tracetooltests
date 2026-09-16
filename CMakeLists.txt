@@ -385,6 +385,7 @@ vulkan_test(compute_descriptor_heap)
 vulkan_test(descriptor_buffer_double_copy)
 vulkan_test(descriptor_heap_1)
 vulkan_test(modern_triangle)
+vulkan_test_extra(modern_triangle_address_commands modern_triangle -ac)
 vulkan_test(descriptor_buffer_mutable_type)
 vulkan_test(aztec_simulator_slow_compute)
 
