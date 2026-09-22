@@ -434,6 +434,7 @@ vulkan_setup_t test_init(int argc, char** argv, const std::string& testname, vul
 		       VK_VERSION_MINOR(reqs.apiVersion), VK_VERSION_PATCH(reqs.apiVersion));
 		exit(77);
 	}
+	if (reqs.physical_device_supported && !reqs.physical_device_supported(physical_devices.at(selected_gpu))) exit(77);
 	vulkan.physical = physical_devices.at(selected_gpu);
 
 	uint32_t family_count = 0;

@@ -226,6 +226,7 @@ struct feature_detection
 	std::atomic_bool has_VK_KHR_synchronization2 { false };
 	std::atomic_bool has_VK_KHR_acceleration_structure { false };
 	std::atomic_bool has_VK_KHR_ray_query { false };
+	std::atomic_bool has_VK_KHR_ray_tracing_position_fetch { false };
 	std::atomic_bool has_VK_ARM_shader_core_properties { false };
 	std::atomic_bool has_VK_ARM_shader_core_builtins { false };
 	std::atomic_bool has_VK_ARM_shader_instrumentation { false };
@@ -375,6 +376,10 @@ VkResult check_vkBuildAccelerationStructuresKHR(VkDevice device, VkDeferredOpera
 void check_vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t infoCount,
                                                const VkAccelerationStructureBuildGeometryInfoKHR* pInfos,
                                                const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos);
+void check_vkCmdBuildAccelerationStructuresIndirectKHR(VkCommandBuffer commandBuffer, uint32_t infoCount,
+                                                       const VkAccelerationStructureBuildGeometryInfoKHR* pInfos,
+                                                       const VkDeviceAddress* pIndirectDeviceAddresses, const uint32_t* pIndirectStrides,
+                                                       const uint32_t* const* ppMaxPrimitiveCounts);
 VkResult check_vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize,
                                                     void* pData);
 VkResult check_vkGetRayTracingCaptureReplayShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount,

@@ -2,6 +2,7 @@
 #include "src/usagetracker/vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
 #include "vulkan_rayquery.frag.inc"
+#include "vulkan_raytracing_position.comp.inc"
 #include "vulkan_transform_feedback_vert.inc"
 #include "vulkan_demo_descriptor_indexing_frag.inc"
 
@@ -1974,6 +1975,55 @@ static void test_ray_query_extension_adjustment()
 	assert(rq_exts.size() == 1);
 }
 
+static void test_ray_tracing_position_fetch_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+
+	std::unordered_set<std::string> exts = { "VK_KHR_ray_tracing_position_fetch" };
+	assert_removed_device_extensions(f, exts, { "VK_KHR_ray_tracing_position_fetch" });
+	assert(exts.empty());
+
+	VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	const char* extension_name = "VK_KHR_ray_tracing_position_fetch";
+	dci.ppEnabledExtensionNames = &extension_name;
+	dci.enabledExtensionCount = 1;
+	assert_adjusted_device_create_info(f, dci, {}, { "VK_KHR_ray_tracing_position_fetch" }, false);
+}
+
+static void test_ray_tracing_position_fetch_build_flag()
+{
+	VkAccelerationStructureBuildGeometryInfoKHR info = {
+		VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr
+	};
+	info.flags = VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_BIT_KHR;
+
+	feature_detection* f = reset_detection();
+	check_vkGetAccelerationStructureBuildSizesKHR(VK_NULL_HANDLE, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+	                                             &info, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_position_fetch == true);
+
+	f = reset_detection();
+	check_vkBuildAccelerationStructuresKHR(VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &info, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_position_fetch == true);
+
+	f = reset_detection();
+	check_vkCmdBuildAccelerationStructuresKHR(VK_NULL_HANDLE, 1, &info, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_position_fetch == true);
+
+	std::unordered_set<std::string> exts = {
+		"VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_position_fetch"
+	};
+	assert_removed_device_extensions(f, exts, {});
+	assert_string_set_equals(exts, { "VK_KHR_acceleration_structure", "VK_KHR_ray_tracing_position_fetch" });
+
+	f = reset_detection();
+	check_vkCmdBuildAccelerationStructuresIndirectKHR(VK_NULL_HANDLE, 1, &info, nullptr, nullptr, nullptr);
+	assert(f->has_VK_KHR_ray_tracing_position_fetch == true);
+}
+
 static void test_ray_query_acceleration_structure_dependency()
 {
 	feature_detection* f = reset_detection();
@@ -3000,6 +3050,15 @@ static void test_ray_query_shader_module()
 	assert(vulkan_feature_detection_get()->has_VK_KHR_ray_query == true);
 }
 
+static void test_ray_tracing_position_fetch_shader_module()
+{
+	reset_detection();
+	check_shader_module_code((const uint32_t*)vulkan_raytracing_position_comp_spv,
+	                         long(ceil(vulkan_raytracing_position_comp_spv_len / 4.0)) * sizeof(uint32_t),
+	                         9);
+	assert(vulkan_feature_detection_get()->has_VK_KHR_ray_tracing_position_fetch == true);
+}
+
 int main()
 {
 	test_logic_op_adjustment();
@@ -3041,6 +3100,8 @@ int main()
 	test_ray_tracing_maintenance1_extension_adjustment();
 	test_acceleration_structure_extension_adjustment();
 	test_ray_query_extension_adjustment();
+	test_ray_tracing_position_fetch_extension_adjustment();
+	test_ray_tracing_position_fetch_build_flag();
 	test_ray_query_acceleration_structure_dependency();
 	test_ray_tracing_pipeline_acceleration_structure_dependency();
 	test_ray_tracing_maintenance1_acceleration_structure_dependency();
@@ -3064,5 +3125,6 @@ int main()
 	test_buffer_device_address_shader_module();
 	test_transform_feedback_shader_module();
 	test_ray_query_shader_module();
+	test_ray_tracing_position_fetch_shader_module();
 	return 0;
 }
