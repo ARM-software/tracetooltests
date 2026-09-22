@@ -1,0 +1,26 @@
+{
+	"name": "gles_unused_vertex_attrib",
+	"description": "Test an optimized-away client-side vertex attribute",
+	"capabilities": {
+		"non_interactive": {
+			"default": true,
+			"modifiable": false
+		},
+		"fixed_framerate": {
+			"default": true,
+			"modifiable": false
+		},
+		"loops": {
+			"default": 0,
+			"modifiable": true
+		},
+		"gpu_frame_deterministic": {
+			"default": true,
+			"modifiable": false
+		},
+		"gpu_fully_deterministic": {
+			"default": true,
+			"modifiable": false
+		}
+	}
+}
