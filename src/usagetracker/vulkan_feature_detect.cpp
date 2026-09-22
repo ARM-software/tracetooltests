@@ -129,6 +129,11 @@ static bool build_info_uses_opacity_micromap(const VkAccelerationStructureBuildG
 	                       VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT_EXT)) != 0;
 }
 
+static bool build_info_uses_ray_tracing_position_fetch(const VkAccelerationStructureBuildGeometryInfoKHR* info)
+{
+	return info && (info->flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_DATA_ACCESS_BIT_KHR) != 0;
+}
+
 static bool dependency_info_uses_ray_tracing_maintenance1(const VkDependencyInfo* info)
 {
 	if (!info) return false;
@@ -597,6 +602,10 @@ static void parse_SPIRV(const uint32_t* code, uint32_t code_size)
 			case SpvCapabilityExpectAssumeKHR: instance->core14.shaderExpectAssume = true; break;
 			case SpvCapabilityFloatControls2: instance->core14.shaderFloatControls2 = true; break;
 			case SpvCapabilityRayQueryKHR: instance->has_VK_KHR_ray_query = true; break;
+			case SpvCapabilityRayTracingPositionFetchKHR:
+			case SpvCapabilityRayQueryPositionFetchKHR:
+				instance->has_VK_KHR_ray_tracing_position_fetch = true;
+				break;
 			case SpvCapabilityRayCullMaskKHR: instance->has_VK_KHR_ray_tracing_maintenance1 = true; break;
 			case SpvCapabilityRayTracingKHR: instance->has_VK_KHR_ray_tracing_pipeline = true; break;
 			case SpvCapabilityRayTraversalPrimitiveCullingKHR:
@@ -746,6 +755,7 @@ static bool preserve_acceleration_structure_dependency(const std::unordered_set<
 {
 	if (exts.count("VK_KHR_acceleration_structure") == 0) return false;
 	if (exts.count("VK_KHR_ray_query") != 0 && instance->has_VK_KHR_ray_query) return true;
+	if (exts.count("VK_KHR_ray_tracing_position_fetch") != 0 && instance->has_VK_KHR_ray_tracing_position_fetch) return true;
 	if (exts.count("VK_KHR_ray_tracing_pipeline") != 0 && instance->has_VK_KHR_ray_tracing_pipeline) return true;
 	if (exts.count("VK_KHR_ray_tracing_maintenance1") != 0 && instance->has_VK_KHR_ray_tracing_maintenance1) return true;
 	if (exts.count("VK_EXT_opacity_micromap") != 0 && instance->has_VK_EXT_opacity_micromap) return true;
@@ -797,6 +807,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	check_prune_device({"VK_KHR_synchronization2"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES, enabled_exts, found);
 	check_prune_device({"VK_KHR_acceleration_structure"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_query"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, enabled_exts, found);
+	check_prune_device({"VK_KHR_ray_tracing_position_fetch"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_pipeline"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_KHR_ray_tracing_maintenance1"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_descriptor_heap"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT, enabled_exts, found);
@@ -858,6 +870,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
 	if (!has_VK_KHR_acceleration_structure && !preserve_acceleration_structure) removed.insert(exts.extract("VK_KHR_acceleration_structure"));
 	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
+	if (!has_VK_KHR_ray_tracing_position_fetch) removed.insert(exts.extract("VK_KHR_ray_tracing_position_fetch"));
 	if (!has_VK_ARM_shader_core_properties) removed.insert(exts.extract("VK_ARM_shader_core_properties"));
 	if (!has_VK_ARM_shader_core_builtins) removed.insert(exts.extract("VK_ARM_shader_core_builtins"));
 	if (!has_VK_ARM_shader_instrumentation) removed.insert(exts.extract("VK_ARM_shader_instrumentation"));
@@ -1796,6 +1809,7 @@ void check_vkGetAccelerationStructureBuildSizesKHR(VkDevice device, VkAccelerati
                                                    VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo)
 {
 	if (build_info_uses_opacity_micromap(pBuildInfo)) instance->has_VK_EXT_opacity_micromap = true;
+	if (build_info_uses_ray_tracing_position_fetch(pBuildInfo)) instance->has_VK_KHR_ray_tracing_position_fetch = true;
 }
 
 VkResult check_vkBuildAccelerationStructuresKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, uint32_t infoCount,
@@ -1806,6 +1820,7 @@ VkResult check_vkBuildAccelerationStructuresKHR(VkDevice device, VkDeferredOpera
 	for (uint32_t i = 0; i < infoCount; i++)
 	{
 		if (build_info_uses_opacity_micromap(&pInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
+		if (build_info_uses_ray_tracing_position_fetch(&pInfos[i])) instance->has_VK_KHR_ray_tracing_position_fetch = true;
 	}
 	return VK_SUCCESS;
 }
@@ -1818,6 +1833,19 @@ void check_vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, ui
 	for (uint32_t i = 0; i < infoCount; i++)
 	{
 		if (build_info_uses_opacity_micromap(&pInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
+		if (build_info_uses_ray_tracing_position_fetch(&pInfos[i])) instance->has_VK_KHR_ray_tracing_position_fetch = true;
+	}
+}
+
+void check_vkCmdBuildAccelerationStructuresIndirectKHR(VkCommandBuffer commandBuffer, uint32_t infoCount,
+	const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkDeviceAddress* pIndirectDeviceAddresses,
+	const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts)
+{
+	assert(infoCount == 0 || pInfos != nullptr);
+	for (uint32_t i = 0; i < infoCount; i++)
+	{
+		if (build_info_uses_opacity_micromap(&pInfos[i])) instance->has_VK_EXT_opacity_micromap = true;
+		if (build_info_uses_ray_tracing_position_fetch(&pInfos[i])) instance->has_VK_KHR_ray_tracing_position_fetch = true;
 	}
 }
 

@@ -50,6 +50,7 @@ inline void check(VkResult result)
 struct vulkan_req_t;
 typedef void (*TOOLSTEST_CALLBACK_USAGE)();
 typedef bool (*TOOLSTEST_CALLBACK_CMDOPT)(int& i, int argc, char **argv, vulkan_req_t& reqs);
+typedef bool (*TOOLSTEST_CALLBACK_PHYSICAL_DEVICE_SUPPORTED)(VkPhysicalDevice physical_device);
 
 struct vulkan_req_t // Vulkan context requirements
 {
@@ -70,6 +71,7 @@ struct vulkan_req_t // Vulkan context requirements
 	bool bufferDeviceAddress = false;
 	TOOLSTEST_CALLBACK_USAGE usage = nullptr;
 	TOOLSTEST_CALLBACK_CMDOPT cmdopt = nullptr;
+	TOOLSTEST_CALLBACK_PHYSICAL_DEVICE_SUPPORTED physical_device_supported = nullptr;
 	VkInstance instance = VK_NULL_HANDLE; // reuse existing instance if non-null
 	VkBaseInStructure* extension_features = nullptr;
 	uint32_t fence_delay = 0;

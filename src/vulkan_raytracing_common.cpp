@@ -47,11 +47,12 @@ void destroy_context(const vulkan_setup_t& vulkan, Context& context)
 }
 
 static void build_blas(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel,
-                       const VkAccelerationStructureGeometryKHR& geometry, uint32_t primitive_count)
+	                       const VkAccelerationStructureGeometryKHR& geometry, uint32_t primitive_count,
+	                       VkBuildAccelerationStructureFlagsKHR flags)
 {
 	VkAccelerationStructureBuildGeometryInfoKHR build_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr};
 	build_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-	build_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	build_info.flags = flags;
 	build_info.geometryCount = 1;
 	build_info.pGeometries = &geometry;
 
@@ -220,7 +221,8 @@ static void build_single_instance_tlas(const vulkan_setup_t& vulkan, Context& co
 	vkDestroyBuffer(vulkan.device, tlas_scratch.handle, nullptr);
 }
 
-void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel)
+void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel,
+	                          VkBuildAccelerationStructureFlagsKHR flags)
 {
 	accel.vertex_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
@@ -249,7 +251,7 @@ void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, Si
 	geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 	geometry.geometry.triangles.indexData = accel.index_buffer.address;
 
-	build_blas(vulkan, context, accel, geometry, 1);
+	build_blas(vulkan, context, accel, geometry, 1, flags);
 	build_single_instance_tlas(vulkan, context, accel);
 }
 
@@ -269,7 +271,7 @@ void build_simple_aabb_as(const vulkan_setup_t& vulkan, Context& context, Simple
 	geometry.geometry.aabbs.data = accel.geometry_buffer.address;
 	geometry.geometry.aabbs.stride = sizeof(VkAabbPositionsKHR);
 
-	build_blas(vulkan, context, accel, geometry, 1);
+	build_blas(vulkan, context, accel, geometry, 1, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 	build_single_instance_tlas(vulkan, context, accel);
 }
 

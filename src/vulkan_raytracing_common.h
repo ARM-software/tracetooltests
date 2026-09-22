@@ -27,7 +27,8 @@ namespace ray_tracing_common
 	void init_context(const vulkan_setup_t& vulkan, Context& context);
 	void destroy_context(const vulkan_setup_t& vulkan, Context& context);
 
-	void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel);
+	void build_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel,
+		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 	void build_simple_aabb_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel);
 	void destroy_simple_triangle_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel);
 	void destroy_simple_aabb_as(const vulkan_setup_t& vulkan, Context& context, SimpleAS& accel);
