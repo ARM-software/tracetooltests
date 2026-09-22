@@ -286,7 +286,7 @@ void compute_submit(vulkan_setup_t& vulkan, compute_resources& r, vulkan_req_t& 
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		result = vkBeginCommandBuffer(r.commandBufferFrameBoundary, &beginInfo);
 		check(result);
-		vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+		vkCmdPipelineBarrier(r.commandBufferFrameBoundary, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 		vkCmdCopyBufferToImage(r.commandBufferFrameBoundary, r.buffer, r.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
 		result = vkEndCommandBuffer(r.commandBufferFrameBoundary);
 		check(result);
@@ -396,7 +396,7 @@ void compute_create_pipeline(vulkan_setup_t& vulkan, compute_resources& r, vulka
 	const bool uses_flags2 = (pipeline_flags & ~VkPipelineCreateFlags2(UINT32_MAX)) != 0;
 	if (!uses_flags2)
 	{
-		pipelineCreateInfo.flags = static_cast<VkPipelineCreateFlags>(pipeline_flags);
+		pipelineCreateInfo.flags = static_cast<VkPipelineCreateFlagBits>(pipeline_flags);
 	}
 
 	VkPipelineCreationFeedback creationfeedback = { 0, 0 };

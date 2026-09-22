@@ -174,7 +174,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		build_size_info.accelerationStructureSize,
 		nullptr,
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	VkAccelerationStructureCreateInfoKHR create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
@@ -336,7 +336,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		as_build_size_info.accelerationStructureSize,
 		nullptr,
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	VkAccelerationStructureCreateInfoKHR as_create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
@@ -357,7 +357,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		as_build_size_info.buildScratchSize,
 		nullptr,
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 	scratch_buffer.address.deviceAddress = acceleration_structures::get_buffer_device_address(vulkan, scratch_buffer.handle);
 	as_build_info.scratchData.deviceAddress = scratch_buffer.address.deviceAddress;

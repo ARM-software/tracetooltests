@@ -487,7 +487,7 @@ vulkan_test_build(memory_mprotect)
 
 add_executable(vulkan_featuretest src/vulkan_feature.cpp src/usagetracker/vulkan_feature_detect.h src/usagetracker/vulkan_feature_detect.cpp)
 target_link_libraries(vulkan_featuretest Threads::Threads)
-target_compile_options(vulkan_featuretest PRIVATE ${IT_FLAGS})
+set_target_properties(vulkan_featuretest PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
 add_test(NAME vulkan_feature_test COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_featuretest)
 set_tests_properties(vulkan_feature_test PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "${TRACETOOLTESTS_TEST_ARGUMENTS}")
 target_include_directories(vulkan_featuretest PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/external/Vulkan-Headers/include ${PROJECT_SOURCE_DIR}/external/SPIRV-Headers/include)

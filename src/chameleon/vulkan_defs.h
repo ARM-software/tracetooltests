@@ -873,7 +873,7 @@ struct cVkPipelineCache : cVkBase
 
 struct cVkSubpass
 {
-	VkSubpassDescriptionFlags flags = VK_ATTACHMENT_DESCRIPTION_FLAG_BITS_MAX_ENUM;
+	VkSubpassDescriptionFlags flags = VK_SUBPASS_DESCRIPTION_FLAG_BITS_MAX_ENUM;
 	VkPipelineBindPoint pipelineBindPoint = VK_PIPELINE_BIND_POINT_MAX_ENUM;
 	std::vector<VkAttachmentReference> inputAttachments;
 	std::vector<VkAttachmentReference> colorAttachments;
@@ -1031,7 +1031,6 @@ struct cVkDisplayKHR : cVkBase
 	{
 		// Create default display mode
 		cVkDisplayModeKHR mode;
-		mode.flags = VK_DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR;
 		mode.parameters.visibleRegion = physicalResolution;
 		mode.parameters.refreshRate = 60;
 		displayModes.push_back(mode);

@@ -836,7 +836,7 @@ int main(int argc, char** argv)
 	optical_flow_create_info.flowVectorFormat = flow_format;
 	optical_flow_create_info.costFormat = cost_format;
 	optical_flow_create_info.outputGridSize = output_grid_size;
-	optical_flow_create_info.hintGridSize = enable_hint ? output_grid_size : 0;
+	if (enable_hint) optical_flow_create_info.hintGridSize = output_grid_size;
 	optical_flow_create_info.performanceLevel = VK_DATA_GRAPH_OPTICAL_FLOW_PERFORMANCE_LEVEL_MEDIUM_ARM;
 	if (enable_hint) optical_flow_create_info.flags |= VK_DATA_GRAPH_OPTICAL_FLOW_CREATE_ENABLE_HINT_BIT_ARM;
 	if (enable_cost) optical_flow_create_info.flags |= VK_DATA_GRAPH_OPTICAL_FLOW_CREATE_ENABLE_COST_BIT_ARM;
