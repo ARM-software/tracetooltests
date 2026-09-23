@@ -218,15 +218,16 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 
 #ifdef SDL
 	SDL_SetMainReady();
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_PROFILE_ES);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major_version);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		ELOG("SDL could not initialize! SDL_Error: %s", SDL_GetError());
 		return -2;
 	}
 	atexit(SDL_Quit);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+	                    SDL_GL_CONTEXT_PROFILE_ES);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major_version);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor_version);
 #else
 
 #if X11
@@ -520,18 +521,9 @@ void assert_fb(TOOLSTEST* handle)
 	if (!inject_asserts) return;
 
 	GLuint pbo;
-	GLenum internalformat = fb_internalformat();
-	int mult;
-	GLenum format;
-	GLenum type;
-
-	switch (internalformat)
-	{
-	case GL_RGB565: mult = 2; format = GL_RGB; type = GL_UNSIGNED_SHORT_5_6_5; break;
-	case GL_RGB8: mult = 3; format = GL_RGB; type = GL_UNSIGNED_BYTE; break;
-	case GL_RGBA8: mult = 4; format = GL_RGBA; type = GL_UNSIGNED_BYTE; break;
-	default: ELOG("Bad internal format"); abort(); break;
-	}
+	const int mult = 4;
+	const GLenum format = GL_RGBA;
+	const GLenum type = GL_UNSIGNED_BYTE;
 	glGenBuffers(1, &pbo);
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
 	glBufferData(GL_PIXEL_PACK_BUFFER, handle->width * handle->height * mult, NULL, GL_DYNAMIC_READ);
