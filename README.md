@@ -80,6 +80,23 @@ the following:
 * pbuffers
 * x11
 
+GLES tests built for X11 or pbuffers accept `-D/--device N` to select an
+enumerated EGL device by index. `-G/--gpu` and `-C/--cpu` select the first
+identifiable GPU or CPU device. Either can be combined with `--device N` to
+require that the indexed device has the requested type. Unknown device types
+are not selected by `--gpu` or `--cpu`. Classification uses
+`EGL_EXT_device_type` when available, with Mesa software-device and DRM
+render-node fallbacks. The test prints the available indices,
+device types, and active GL renderer. X11 selection requires
+`EGL_EXT_explicit_device`; pbuffer selection requires the
+`EGL_EXT_platform_device` client extension.
+If the X11 display binds a different device, the test skips rather than
+silently using it.
+On Mesa, `--cpu` enables `LIBGL_ALWAYS_SOFTWARE` and `--gpu` disables it before
+initializing EGL, so X11 selects the intended renderer. Selection is not
+supported by the SDL or fbdev builds; without these options, the usual display
+selection remains unchanged.
+
 The Vulkan tests are currently not using any window system.
 
 Modifying runs

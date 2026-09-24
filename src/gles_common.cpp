@@ -2,6 +2,7 @@
 #include <EGL/eglext.h>
 
 #include "external/json.hpp"
+#include <climits>
 #include <fstream>
 #include <vector>
 
@@ -132,6 +133,21 @@ static bool has_extension(const char* name)
 	return false;
 }
 
+#if defined(X11) || defined(PBUFFERS)
+static bool has_egl_extension(const char* extensions, const char* name)
+{
+	if (!extensions) return false;
+	const char* start = extensions;
+	const size_t length = strlen(name);
+	while ((extensions = strstr(extensions, name)))
+	{
+		if ((extensions == start || extensions[-1] == ' ') && (extensions[length] == ' ' || extensions[length] == '\0')) return true;
+		extensions += length;
+	}
+	return false;
+}
+#endif
+
 static void usage(TOOLSTEST_CALLBACK_USAGE usage)
 {
 	printf("Usage:\n");
@@ -139,6 +155,9 @@ static void usage(TOOLSTEST_CALLBACK_USAGE usage)
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default 0)\n");
 	printf("-t/--times N           Times to repeat (default 10)\n");
 	printf("-V/--variant M N       GLES major and minor versions for context initialization (default 3.2)\n");
+	printf("-G/--gpu               Select a hardware EGL device (X11 or pbuffers)\n");
+	printf("-C/--cpu               Select a software EGL device (X11 or pbuffers)\n");
+	printf("-D/--device N          Select EGL device by index (X11 or pbuffers)\n");
 	printf("-s/--step              Step mode\n");
 	printf("-i/--inject            Inject sanity checking\n");
 	printf("-n/--null-run          Skip testing of results\n");
@@ -158,6 +177,12 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 	handle.current_frame = 0;
 	int major_version = init.major_version;
 	int minor_version = init.minor_version;
+	int device_index = -1;
+	bool select_gpu = false;
+	bool select_cpu = false;
+#if defined(X11) || defined(PBUFFERS)
+	EGLDeviceEXT selected_device = EGL_NO_DEVICE_EXT;
+#endif
 
 	if (get_env_int("TOOLSTEST_STEP", 0) > 0) step_mode = true;
 	inject_asserts = (bool)p__sanity;
@@ -203,6 +228,26 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		{
 			handle.times = get_arg(argv, ++i, argc);
 		}
+		else if (match(argv[i], "-D", "--device"))
+		{
+			const char* argument = get_string_arg(argv, ++i, argc);
+			char* end = nullptr;
+			const long index = strtol(argument, &end, 10);
+			if (end == argument || *end != '\0' || index < 0 || index > INT_MAX)
+			{
+				ELOG("Invalid EGL device index: %s", argument);
+				return -1;
+			}
+			device_index = index;
+		}
+		else if (match(argv[i], "-G", "--gpu"))
+		{
+			select_gpu = true;
+		}
+		else if (match(argv[i], "-C", "--cpu"))
+		{
+			select_cpu = true;
+		}
 		else
 		{
 			if (!init.cmdopt || !init.cmdopt(i, argc, argv))
@@ -212,9 +257,144 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 			}
 		}
 	}
+	if (select_gpu && select_cpu)
+	{
+		ELOG("You cannot combine --gpu and --cpu");
+		return -1;
+	}
 
 	handle.bench.backend_name = "GLES " + std::to_string(major_version) + "." + std::to_string(minor_version);
 	check_bench(handle, init);
+
+#ifdef X11
+	Display* display = nullptr;
+#endif
+
+	if (device_index != -1 || select_gpu || select_cpu)
+	{
+#if defined(SDL) || defined(FBDEV)
+		ELOG("GLES device selection is not supported with this window system");
+		return 77;
+#else
+		const char* client_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+		if (!has_egl_extension(client_extensions, "EGL_EXT_device_enumeration"))
+		{
+			ELOG("EGL device enumeration is not supported");
+			return 77;
+		}
+#ifdef X11
+		if (!has_egl_extension(client_extensions, "EGL_EXT_explicit_device"))
+		{
+			ELOG("EGL_EXT_explicit_device is required for X11 device selection");
+			return 77;
+		}
+#else
+		if (!has_egl_extension(client_extensions, "EGL_EXT_platform_device"))
+		{
+			ELOG("EGL_EXT_platform_device is required for pbuffer device selection");
+			return 77;
+		}
+#endif
+		PFNEGLQUERYDEVICESEXTPROC query_devices = (PFNEGLQUERYDEVICESEXTPROC)eglGetProcAddress("eglQueryDevicesEXT");
+		if (!query_devices)
+		{
+			ELOG("eglQueryDevicesEXT is unavailable");
+			return 77;
+		}
+		EGLint num_devices = 0;
+		if (!query_devices(0, nullptr, &num_devices))
+		{
+			ELOG("Failed to poll EGL devices: 0x%04x", (unsigned)eglGetError());
+			return -3;
+		}
+		if (num_devices == 0)
+		{
+			ELOG("No EGL devices found");
+			return 77;
+		}
+		std::vector<EGLDeviceEXT> devices(num_devices);
+		if (!query_devices(num_devices, devices.data(), &num_devices))
+		{
+			ELOG("Failed to fetch EGL devices: 0x%04x", (unsigned)eglGetError());
+			return -4;
+		}
+		assert(num_devices <= (EGLint)devices.size());
+		PFNEGLQUERYDEVICESTRINGEXTPROC query_device_string = (PFNEGLQUERYDEVICESTRINGEXTPROC)eglGetProcAddress("eglQueryDeviceStringEXT");
+#ifdef EGL_EXT_device_type
+		PFNEGLQUERYDEVICEATTRIBEXTPROC query_device_attrib = (PFNEGLQUERYDEVICEATTRIBEXTPROC)eglGetProcAddress("eglQueryDeviceAttribEXT");
+#endif
+		bool mesa_software_available = false;
+		int matching_device = -1;
+		printf("Found %d EGL devices\n", (int)num_devices);
+		for (EGLint device = 0; device < num_devices; device++)
+		{
+			const char* extensions = query_device_string ? query_device_string(devices[device], EGL_EXTENSIONS) : nullptr;
+			const char* renderer = has_egl_extension(extensions, "EGL_EXT_device_query_name") ? query_device_string(devices[device], EGL_RENDERER_EXT) : nullptr;
+			const bool mesa_software = has_egl_extension(extensions, "EGL_MESA_device_software");
+			if (mesa_software) mesa_software_available = true;
+			bool is_cpu = mesa_software;
+			bool is_gpu = false;
+#ifdef EGL_EXT_device_type
+			EGLAttrib device_type = 0;
+			if (has_egl_extension(extensions, "EGL_EXT_device_type") && query_device_attrib &&
+			    query_device_attrib(devices[device], EGL_DEVICE_TYPE_EXT, &device_type))
+			{
+				is_cpu = device_type == EGL_DEVICE_TYPE_CPU_EXT;
+				is_gpu = device_type == EGL_DEVICE_TYPE_INTEGRATED_GPU_EXT || device_type == EGL_DEVICE_TYPE_DISCRETE_GPU_EXT;
+			}
+#endif
+			if (!is_cpu && !is_gpu && query_device_string)
+			{
+				const char* render_node = has_egl_extension(extensions, "EGL_EXT_device_drm_render_node") ?
+				                          query_device_string(devices[device], EGL_DRM_RENDER_NODE_FILE_EXT) : nullptr;
+				is_gpu = render_node && render_node[0];
+			}
+			printf("\t%d : %s (%s)\n", (int)device, renderer ? renderer : "<name unavailable>", is_cpu ? "CPU" : is_gpu ? "GPU" : "unknown");
+			if (((select_cpu && is_cpu) || (select_gpu && is_gpu)) && matching_device == -1 &&
+			    (device_index == -1 || device_index == device)) matching_device = device;
+		}
+		if (device_index >= num_devices)
+		{
+			ELOG("EGL device %d does not exist", device_index);
+			return -1;
+		}
+		if (select_gpu || select_cpu)
+		{
+			if (matching_device == -1)
+			{
+				ELOG("No EGL %s device found%s", select_cpu ? "CPU" : "GPU", device_index == -1 ? "" : " at the requested index");
+				return 77;
+			}
+			device_index = matching_device;
+			if (mesa_software_available && setenv("LIBGL_ALWAYS_SOFTWARE", select_cpu ? "1" : "0", 1) != 0)
+			{
+				ELOG("Unable to configure Mesa device selection");
+				return -1;
+			}
+		}
+		selected_device = devices[device_index];
+#ifdef X11
+		display = XOpenDisplay(nullptr);
+		if (!display)
+		{
+			ELOG("Unable to open X display");
+			return -5;
+		}
+		const EGLAttrib attributes[] = { EGL_DEVICE_EXT, reinterpret_cast<EGLAttrib>(selected_device), EGL_NONE };
+		handle.display = eglGetPlatformDisplay(EGL_PLATFORM_X11_KHR, display, attributes);
+#else
+		handle.display = eglGetPlatformDisplay(EGL_PLATFORM_DEVICE_EXT, selected_device, nullptr);
+#endif
+		if (handle.display == EGL_NO_DISPLAY)
+		{
+			ELOG("Unable to create display for EGL device %d: 0x%04x", device_index, (unsigned)eglGetError());
+#ifdef X11
+			XCloseDisplay(display);
+#endif
+			return 77;
+		}
+#endif
+	}
 
 #ifdef SDL
 	SDL_SetMainReady();
@@ -231,15 +411,15 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 #else
 
 #if X11
-	Display* display = XOpenDisplay(nullptr);
-	handle.display = eglGetPlatformDisplay(EGL_PLATFORM_X11_KHR, display, nullptr);
+	if (device_index == -1) display = XOpenDisplay(nullptr);
+	if (device_index == -1) handle.display = eglGetPlatformDisplay(EGL_PLATFORM_X11_KHR, display, nullptr);
 #else
-	handle.display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+	if (device_index == -1) handle.display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 #endif
 
 	PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT = (PFNEGLQUERYDEVICESEXTPROC)eglGetProcAddress("eglQueryDevicesEXT");
 	PFNEGLGETPLATFORMDISPLAYEXTPROC eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)eglGetProcAddress("eglGetPlatformDisplayEXT");
-	if (eglQueryDevicesEXT && eglGetPlatformDisplayEXT && handle.display == EGL_NO_DISPLAY)
+	if (device_index == -1 && eglQueryDevicesEXT && eglGetPlatformDisplayEXT && handle.display == EGL_NO_DISPLAY)
 	{
 		EGLint numDevices = 0;
 		if (eglQueryDevicesEXT(0, nullptr, &numDevices) == EGL_FALSE)
@@ -302,6 +482,24 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 		return -6;
 	}
 	DLOG("EGL version is %d.%d", majorVersion, minorVersion);
+#if defined(X11) || defined(PBUFFERS)
+	if (device_index != -1 && has_egl_extension(eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS), "EGL_EXT_device_query"))
+	{
+		PFNEGLQUERYDISPLAYATTRIBEXTPROC query_display_attrib = (PFNEGLQUERYDISPLAYATTRIBEXTPROC)eglGetProcAddress("eglQueryDisplayAttribEXT");
+		EGLAttrib active_device = 0;
+		if (!query_display_attrib || !query_display_attrib(handle.display, EGL_DEVICE_EXT, &active_device) ||
+		    active_device != reinterpret_cast<EGLAttrib>(selected_device))
+		{
+			ELOG("EGL display did not select device %d", device_index);
+			eglTerminate(handle.display);
+#ifdef X11
+			XCloseDisplay(display);
+#endif
+			return 77;
+		}
+	}
+	if (device_index != -1) printf("Selecting EGL device %d\n", device_index);
+#endif
 
 	EGLint numConfigs = 0;
 	if (!eglChooseConfig(handle.display, surface_attribs, nullptr, 0, &numConfigs))
@@ -408,7 +606,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 			ELOG("create surface failed: 0x%04x", (unsigned)eglGetError());
 			return -10;
 		}
-		handle.context[j] = eglCreateContext(handle.display, configs[0], (j == 0) ? EGL_NO_CONTEXT : handle.context[0], context_attribs);
+		handle.context[j] = eglCreateContext(handle.display, configs[selected], (j == 0) ? EGL_NO_CONTEXT : handle.context[0], context_attribs);
 		if (handle.context[j] == EGL_NO_CONTEXT)
 		{
 			ELOG("eglCreateContext() failed: 0x%04x", (unsigned)eglGetError());
@@ -436,6 +634,7 @@ int init(int argc, char** argv, const TOOLSTEST_INIT& init)
 	}
 #endif
 
+	printf("GL renderer: %s\n", (const char*)glGetString(GL_RENDERER));
 	my_glInsertEventMarkerEXT = (PFNGLINSERTEVENTMARKEREXTPROC)eglGetProcAddress("glInsertEventMarkerEXT");
 
 	// if a tool implements this function, replace our dummy with its real implementation
