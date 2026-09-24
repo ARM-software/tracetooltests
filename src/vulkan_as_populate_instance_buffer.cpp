@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <vector>
 
 // glslangValidator -V vulkan_as_populate_instance_buffer_copy_address.comp -o
 // vulkan_as_populate_instance_buffer_copy_address.spirv --target-env vulkan1.2
@@ -51,14 +52,6 @@ static void write_packed_address(PackedAddressPair &packed, uint32_t slot, VkDev
 {
 	assert(slot < 2);
 	std::memcpy(&packed.words[slot * 2], &address, sizeof(address));
-}
-
-static VkDeviceAddress read_packed_address(const PackedAddressPair &packed, uint32_t slot)
-{
-	VkDeviceAddress address = 0;
-	assert(slot < 2);
-	std::memcpy(&address, &packed.words[slot * 2], sizeof(address));
-	return address;
 }
 
 class AsPopulateInstanceBufferContext : public GraphicContext
@@ -599,70 +592,73 @@ static void create_build_top_level_acceleration_structure(const vulkan_setup_t &
 	acceleration_structures::destroy_buffer(vulkan, scratch_buffer);
 }
 
-static void verify_blas_address_words_buffer(AsPopulateInstanceBufferContext &context)
+static void assert_acceleration_structure_address_buffer(const vulkan_setup_t &vulkan,
+                                                         VkBuffer buffer,
+                                                         VkDeviceSize size,
+                                                         const std::vector<VkDeviceSize> &offsets,
+                                                         const char *name)
 {
-	if (get_env_int("TOOLSTEST_NULL_RUN", 0))
+	if (get_env_int("TOOLSTEST_NULL_RUN", 0) || !vulkan.vkAssertBuffer)
 	{
-		printf("  skipping BLAS address buffer output verification for null "
-		       "run\n");
 		return;
 	}
 
-	VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
-	check(vkResetCommandBuffer(command_buffer, 0));
-	check(context.m_defaultCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
-	context.m_defaultCommandBuffer->bufferMemoryBarrier(*context.blas_address_words_buffer, 0, context.blas_address_words_buffer->getSize(),
-	                                                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
-	                                                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
-	check(context.m_defaultCommandBuffer->end());
-	context.submit(context.m_defaultQueue, {context.m_defaultCommandBuffer}, VK_NULL_HANDLE, {}, {}, false);
-	check(vkQueueWaitIdle(context.m_defaultQueue));
+	std::vector<VkMarkingTypeARM> marking_types(offsets.size(), VK_MARKING_TYPE_DEVICE_ADDRESS_ARM);
+	std::vector<VkMarkingSubTypeARM> marking_subtypes(offsets.size());
+	for (auto &marking_subtype : marking_subtypes)
+	{
+		marking_subtype.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM;
+	}
 
-	const VkDeviceSize buffer_size = sizeof(PackedAddressPair) * get_copy_address_element_count();
-	check(context.blas_address_words_buffer->map(0, buffer_size));
+	VkMarkedOffsetsARM markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	markings.count = static_cast<uint32_t>(offsets.size());
+	markings.pMarkingTypes = marking_types.data();
+	markings.pSubTypes = marking_subtypes.data();
+	markings.pOffsets = offsets.data();
 
-	const auto *copied_addresses = static_cast<const PackedAddressPair *>(context.blas_address_words_buffer->m_mappedAddress);
+	const VkUpdateBufferInfoARM buffer_info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, &markings, buffer, 0, size, nullptr};
+	uint32_t checksum = 0;
+	const VkResult result = vulkan.vkAssertBuffer(vulkan.device, &buffer_info, &checksum, name);
+	assert(result == VK_SUCCESS || result == VK_INCOMPLETE);
+}
+
+static void verify_blas_address_words_buffer(const vulkan_setup_t &vulkan, AsPopulateInstanceBufferContext &context)
+{
+	std::vector<VkDeviceSize> offsets(bl_as_create_count);
 	for (uint32_t as_index = 0; as_index < bl_as_create_count; ++as_index)
 	{
 		const uint32_t packed_index = as_index / 2;
 		const uint32_t packed_slot = as_index % 2;
-		VkDeviceAddress copied_address = read_packed_address(copied_addresses[packed_index], packed_slot);
-		assert(copied_address == context.backed_bl_acc_structures[as_index].as.address.deviceAddress);
+		offsets[as_index] = packed_index * sizeof(PackedAddressPair) + packed_slot * sizeof(VkDeviceAddress);
 	}
 
-	context.blas_address_words_buffer->unmap();
+	assert_acceleration_structure_address_buffer(vulkan,
+	                                             context.blas_address_words_buffer->getHandle(),
+	                                             context.blas_address_words_buffer->getSize(),
+	                                             offsets,
+	                                             "BLAS address words buffer");
 }
 
-static void verify_instance_buffer_acceleration_structure_references(AsPopulateInstanceBufferContext &context)
+static void verify_instance_buffer_acceleration_structure_references(const vulkan_setup_t &vulkan,
+                                                                      AsPopulateInstanceBufferContext &context)
 {
 	if (device_local_instances)
 	{
 		return;
 	}
-	if (get_env_int("TOOLSTEST_NULL_RUN", 0))
-	{
-		printf("  skipping instance buffer output verification for null run\n");
-		return;
-	}
 
-	VkCommandBuffer command_buffer = context.m_defaultCommandBuffer->getHandle();
-	check(vkResetCommandBuffer(command_buffer, 0));
-	check(context.m_defaultCommandBuffer->begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
-	context.m_defaultCommandBuffer->bufferMemoryBarrier(*context.instance_buffer, 0, context.instance_buffer->getSize(),
-	                                                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT,
-	                                                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT);
-	check(context.m_defaultCommandBuffer->end());
-	context.submit(context.m_defaultQueue, {context.m_defaultCommandBuffer}, VK_NULL_HANDLE, {}, {}, false);
-	check(vkQueueWaitIdle(context.m_defaultQueue));
-
-	const VkDeviceSize instance_buffer_size = context.instance_buffer->getSize();
-	check(context.instance_buffer->map(0, instance_buffer_size));
-	const auto *instances = static_cast<const VkAccelerationStructureInstanceKHR *>(context.instance_buffer->m_mappedAddress);
+	std::vector<VkDeviceSize> offsets(bl_as_create_count);
 	for (uint32_t as_index = 0; as_index < bl_as_create_count; ++as_index)
 	{
-		assert(instances[as_index].accelerationStructureReference == context.backed_bl_acc_structures[as_index].as.address.deviceAddress);
+		offsets[as_index] = as_index * sizeof(VkAccelerationStructureInstanceKHR) +
+		                    offsetof(VkAccelerationStructureInstanceKHR, accelerationStructureReference);
 	}
-	context.instance_buffer->unmap();
+
+	assert_acceleration_structure_address_buffer(vulkan,
+	                                             context.instance_buffer->getHandle(),
+	                                             context.instance_buffer->getSize(),
+	                                             offsets,
+	                                             "TLAS instance buffer");
 }
 
 int main(int argc, char **argv)
@@ -691,11 +687,11 @@ int main(int argc, char **argv)
 	create_build_bottom_level_acceleration_structures(vulkan, *p_test);
 	populate_copy_address_shader_inputs(vulkan, *p_test);
 	dispatch_copy_address_pipeline(vulkan, *p_test);
-	verify_blas_address_words_buffer(*p_test);
+	verify_blas_address_words_buffer(vulkan, *p_test);
 
 	populate_process_instance_shader_inputs(vulkan, *p_test);
 	dispatch_process_instance_pipeline(vulkan, *p_test);
-	verify_instance_buffer_acceleration_structure_references(*p_test);
+	verify_instance_buffer_acceleration_structure_references(vulkan, *p_test);
 	create_build_top_level_acceleration_structure(vulkan, *p_test);
 	bench_stop_iteration(vulkan.bench);
 
