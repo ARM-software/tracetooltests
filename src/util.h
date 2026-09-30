@@ -35,9 +35,9 @@ extern int_fast8_t p__device;
 #define DLOG2(_format, ...) do { if (p__debug_level >= 2) { ((void)__android_log_print(ANDROID_LOG_DEBUG, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } } while(0)
 #define DLOG(_format, ...) do { if (p__debug_level >= 1) { ((void)__android_log_print(ANDROID_LOG_DEBUG, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } } while(0)
 #else
-#define DLOG3(_format, ...)
-#define DLOG2(_format, ...)
-#define DLOG(_format, ...)
+#define DLOG3(_format, ...) do {} while(0)
+#define DLOG2(_format, ...) do {} while(0)
+#define DLOG(_format, ...) do {} while(0)
 #endif
 
 #define ILOG(_format, ...) do { ((void)__android_log_print(ANDROID_LOG_INFO, OURNAME, "%s:%d: " _format, __FILE__, __LINE__, ## __VA_ARGS__)); } while(0)
@@ -65,9 +65,9 @@ int STOI(const std::string& value);
 #define DLOG2(_format, ...) do { if (p__debug_level >= 2) { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } } while(0)
 #define DLOG(_format, ...) do { if (p__debug_level >= 1) { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } } while(0)
 #else
-#define DLOG3(_format, ...)
-#define DLOG2(_format, ...)
-#define DLOG(_format, ...)
+#define DLOG3(_format, ...) do {} while(0)
+#define DLOG2(_format, ...) do {} while(0)
+#define DLOG(_format, ...) do {} while(0)
 #endif
 #define ILOG(_format, ...) do { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)
 #define WLOG(_format, ...) do { fprintf(stdout, "%s:%d " _format "\n", __FILE__, __LINE__, ## __VA_ARGS__); } while(0)

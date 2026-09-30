@@ -1,4 +1,5 @@
 #include "vulkan_utility.h"
+#include "vulkan_common.h"
 #include "src/usagetracker/vulkan_feature_detect.h"
 #include "vulkan_compute_bda_sc.inc"
 #include "vulkan_rayquery.frag.inc"
@@ -13,8 +14,6 @@
 #include <initializer_list>
 #include <string>
 #include <unordered_set>
-
-#pragma GCC diagnostic ignored "-Wunused-variable"
 
 feature_detection* feature_detection_instance = nullptr;
 
