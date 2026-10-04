@@ -762,6 +762,7 @@ cl_test(basic_1 100) # Simple OpenCL 1.0 test
 cl_test(basic_1 200) # Simple OpenCL 2.0 test
 cl_test(basic_1 300) # Simple OpenCL 3.0 test
 cl_test(api_contract 300) # OpenCL ICD object and deprecated entry-point contract
+cl_test(add_numbers 300) # Sum 64 floats using work-group local memory
 target_compile_options(opencl_api_contract_v300 PRIVATE -Wno-deprecated-declarations)
 if (NOT NO_VULKAN MATCHES "1")
 cl_vulkan_test(vulkan_interop_1 300)

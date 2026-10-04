@@ -1,0 +1,1 @@
+{ "name": "opencl_add_numbers", "description": "Sum 64 floats using two OpenCL work groups" }
