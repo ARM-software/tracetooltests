@@ -6,8 +6,8 @@ static void print_usage(const opencl_req_t& reqs)
 {
 	printf("Usage:\n");
 	printf("-h/--help              This help\n");
-	printf("-G/--gpu               Use the GPU (default), fails if not available\n");
-	printf("-C/--cpu               Use the CPU, fails if not available\n");
+	printf("-G/--gpu               Use a GPU implementation, fails if not available\n");
+	printf("-C/--cpu               Use a CPU implementation, fails if not available\n");
 	printf("-d/--debug level N     Set debug level [0,1,2,3] (default %d)\n", p__debug_level);
 	if (reqs.usage) reqs.usage();
 	exit(1);
@@ -142,8 +142,10 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		exit(-1);
 	}
 	printf("We found %d OpenCL platforms\n", (int)num_platforms);
-	cl_device_type device_type = CL_DEVICE_TYPE_GPU;
+	cl_device_type device_type = CL_DEVICE_TYPE_ALL;
+	if (force_native_gpu) device_type = CL_DEVICE_TYPE_GPU;
 	if (force_native_cpu) device_type = CL_DEVICE_TYPE_CPU;
+	cl_uint num_devices = 0;
 	// Print info
 	for (auto platform : platforms)
 	{
@@ -158,10 +160,28 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 #else
 		printf("Platform %s by %s supporting %s with version %s\n", name.c_str(), vendor.c_str(), profile.c_str(), version.c_str());
 #endif
+
+		r = clGetDeviceIDs(platform, device_type, 0, nullptr, &num_devices);
+		if (num_devices == 0 || r == CL_DEVICE_NOT_FOUND || r == CL_INVALID_DEVICE_TYPE)
+		{
+			printf("\tHas no devices of the chosen type\n");
+			continue;
+		}
+		cl_check(r);
+		std::vector<cl_device_id> devices(num_devices);
+		r = clGetDeviceIDs(platform, device_type, num_devices, devices.data(), nullptr);
+		cl_check(r);
+		for (const auto& device : devices)
+		{
+			std::string device_name = query_device_string(device, CL_DEVICE_NAME);
+			cl_bool available = query_device<cl_bool>(device, CL_DEVICE_AVAILABLE);
+			if (!available) continue;
+			cl_uint compute_units = query_device<cl_uint>(device, CL_DEVICE_MAX_COMPUTE_UNITS);
+			printf("\tDevice %s with %d compute units\n", device_name.c_str(), (int)compute_units);
+		}
 	}
 	// Platform selection
 	bool found = false;
-	cl_uint num_devices = 0;
 	for (auto platform : platforms)
 	{
 		const char* type_name = force_native_cpu ? "CPU" : "GPU";
@@ -193,7 +213,6 @@ opencl_setup_t cl_test_init(int argc, char** argv, const std::string& testname, 
 		std::vector<cl_device_id> devices(num_devices);
 		r = clGetDeviceIDs(platform, device_type, num_devices, devices.data(), nullptr);
 		cl_check(r);
-		printf("We found %d OpenCL %s devices on platform %s\n", (int)num_devices, type_name, platform_name.c_str());
 		for (const auto& device : devices)
 		{
 			std::string device_name = query_device_string(device, CL_DEVICE_NAME);
