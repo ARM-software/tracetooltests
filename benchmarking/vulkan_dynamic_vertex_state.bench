@@ -1,0 +1,1 @@
+{ "name": "vulkan_dynamic_vertex_state", "description": "Tests dynamic vertex input state using VK_EXT_vertex_input_dynamic_state" }

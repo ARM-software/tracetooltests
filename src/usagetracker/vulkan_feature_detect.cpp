@@ -831,6 +831,9 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_astc_decode_mode"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_EXT_vertex_input_dynamic_state"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT,
+	                   enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_core_builtins"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_shader_instrumentation"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INSTRUMENTATION_FEATURES_ARM, enabled_exts, found);
 	check_prune_device({"VK_ARM_tensors"}, info, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TENSOR_FEATURES_ARM, enabled_exts, found);
@@ -895,6 +898,8 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 		removed.insert(exts.extract("VK_EXT_fragment_density_map"));
 	if (!has_VK_EXT_fragment_density_map2) removed.insert(exts.extract("VK_EXT_fragment_density_map2"));
 	if (!has_VK_EXT_astc_decode_mode) removed.insert(exts.extract("VK_EXT_astc_decode_mode"));
+	if (!has_VK_EXT_vertex_input_dynamic_state && exts.count("VK_EXT_legacy_vertex_attributes") == 0)
+		removed.insert(exts.extract("VK_EXT_vertex_input_dynamic_state"));
 	return removed;
 }
 
@@ -1121,8 +1126,30 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 		if (pCreateInfos[i].pRasterizationState) struct_check_VkPipelineRasterizationStateCreateInfo(pCreateInfos[i].pRasterizationState);
 		if (pCreateInfos[i].pDepthStencilState) struct_check_VkPipelineDepthStencilStateCreateInfo(pCreateInfos[i].pDepthStencilState);
 		if (pCreateInfos[i].pViewportState) struct_check_VkPipelineViewportStateCreateInfo(pCreateInfos[i].pViewportState);
+		if (pCreateInfos[i].pDynamicState)
+		{
+			assert(pCreateInfos[i].pDynamicState->dynamicStateCount == 0 ||
+			       pCreateInfos[i].pDynamicState->pDynamicStates != nullptr);
+			for (uint32_t state_index = 0;
+			     state_index < pCreateInfos[i].pDynamicState->dynamicStateCount; state_index++)
+			{
+				if (pCreateInfos[i].pDynamicState->pDynamicStates[state_index] ==
+				    VK_DYNAMIC_STATE_VERTEX_INPUT_EXT)
+				{
+					instance->has_VK_EXT_vertex_input_dynamic_state = true;
+				}
+			}
+		}
 	}
 	return VK_SUCCESS;
+}
+
+void check_vkCmdSetVertexInputEXT(VkCommandBuffer commandBuffer, uint32_t vertexBindingDescriptionCount,
+                                  const VkVertexInputBindingDescription2EXT* pVertexBindingDescriptions,
+                                  uint32_t vertexAttributeDescriptionCount,
+                                  const VkVertexInputAttributeDescription2EXT* pVertexAttributeDescriptions)
+{
+	instance->has_VK_EXT_vertex_input_dynamic_state = true;
 }
 
 VkResult check_vkBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo* pBeginInfo)
