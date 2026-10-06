@@ -822,6 +822,59 @@ static void test_synchronization2_extension_adjustment()
 	assert(f->has_VK_KHR_synchronization2 == true);
 }
 
+static void test_vertex_input_dynamic_state_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	const char* extname = "VK_EXT_vertex_input_dynamic_state";
+	std::unordered_set<std::string> exts = { extname };
+	assert(f->has_VK_EXT_vertex_input_dynamic_state == false);
+	assert_removed_device_extensions(f, exts, { extname });
+	assert(exts.empty());
+
+	exts = { extname, "VK_EXT_legacy_vertex_attributes" };
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.count(extname) == 1);
+	assert(exts.count("VK_EXT_legacy_vertex_attributes") == 1);
+	exts.clear();
+
+	VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT, nullptr, VK_TRUE
+	};
+	VkDeviceCreateInfo dci = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	const char* namelist[] = { extname };
+	dci.ppEnabledExtensionNames = namelist;
+	dci.enabledExtensionCount = 1;
+	check_vkCreateDevice(VK_NULL_HANDLE, &dci, nullptr, nullptr);
+	assert(f->has_VK_EXT_vertex_input_dynamic_state == false);
+	assert_adjusted_device_create_info(f, dci, exts, { extname }, false);
+
+	f = reset_detection();
+	check_vkCmdSetVertexInputEXT(VK_NULL_HANDLE, 0, nullptr, 0, nullptr);
+	assert(f->has_VK_EXT_vertex_input_dynamic_state == true);
+	exts.insert(extname);
+	assert_removed_device_extensions(f, exts, {});
+
+	f = reset_detection();
+	VkDynamicState dynamic_state = VK_DYNAMIC_STATE_VERTEX_INPUT_EXT;
+	VkPipelineDynamicStateCreateInfo dynamic_state_info = {
+		VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, nullptr, 0, 1, &dynamic_state
+	};
+	VkGraphicsPipelineCreateInfo pipeline_info = {
+		VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, nullptr
+	};
+	pipeline_info.pDynamicState = &dynamic_state_info;
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkResult result = check_vkCreateGraphicsPipelines(
+		VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_EXT_vertex_input_dynamic_state == true);
+
+	exts.insert(extname);
+	assert_removed_device_extensions(f, exts, {});
+	dci.pNext = &features;
+	assert_adjusted_device_create_info(f, dci, exts, {}, true);
+}
+
 static void test_transform_feedback_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -3071,6 +3124,7 @@ int main()
 	test_dynamic_rendering_extension_adjustment();
 	test_render_pass_striped_extension_adjustment();
 	test_synchronization2_extension_adjustment();
+	test_vertex_input_dynamic_state_extension_adjustment();
 	test_transform_feedback_extension_adjustment();
 	test_descriptor_indexing_extension_adjustment();
 	test_get_physical_device_properties2_extension_adjustment();

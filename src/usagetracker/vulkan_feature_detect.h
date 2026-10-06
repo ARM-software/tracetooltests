@@ -248,6 +248,7 @@ struct feature_detection
 	std::atomic_bool has_VK_EXT_fragment_density_map { false };
 	std::atomic_bool has_VK_EXT_fragment_density_map2 { false };
 	std::atomic_bool has_VK_EXT_astc_decode_mode { false };
+	std::atomic_bool has_VK_EXT_vertex_input_dynamic_state { false };
 
 	// --- Remove unused feature bits from these structures ---
 	std::unordered_set<std::string> adjust_VkDeviceCreateInfo(VkDeviceCreateInfo* info, const std::unordered_set<std::string>& enabled_exts) const;
@@ -277,6 +278,10 @@ VkResult check_vkCreateInstance(const VkInstanceCreateInfo* pCreateInfo, const V
 VkResult check_vkCreateShaderModule(VkDevice device, const VkShaderModuleCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkShaderModule* pShaderModule);
 VkResult check_vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore);
 VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines);
+void check_vkCmdSetVertexInputEXT(VkCommandBuffer commandBuffer, uint32_t vertexBindingDescriptionCount,
+                                  const VkVertexInputBindingDescription2EXT* pVertexBindingDescriptions,
+                                  uint32_t vertexAttributeDescriptionCount,
+                                  const VkVertexInputAttributeDescription2EXT* pVertexAttributeDescriptions);
 VkResult check_vkBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo* pBeginInfo);
 VkResult check_vkCreateSamplerYcbcrConversion(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
 VkResult check_vkCreateSamplerYcbcrConversionKHR(VkDevice device, const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSamplerYcbcrConversion* pYcbcrConversion);
