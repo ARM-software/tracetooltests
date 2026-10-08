@@ -232,11 +232,12 @@ int main(int argc, char** argv)
 		if (!quiet) printf("Case 6: vkCmdExecuteCommands waiting for other thread\n");
 		result = vkBeginCommandBuffer(cmd1, &command_buffer_begin_info);
 		check(result);
-		command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+		VkCommandBufferBeginInfo secondary_begin_info = command_buffer_begin_info;
+		secondary_begin_info.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 		VkCommandBufferInheritanceInfo inhinfo = {};
 		inhinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-		command_buffer_begin_info.pInheritanceInfo = &inhinfo;
-		result = vkBeginCommandBuffer(cmd2_2, &command_buffer_begin_info);
+		secondary_begin_info.pInheritanceInfo = &inhinfo;
+		result = vkBeginCommandBuffer(cmd2_2, &secondary_begin_info);
 		check(result);
 		dummy_cmd(cmd1);
 		dummy_cmd(cmd1);
