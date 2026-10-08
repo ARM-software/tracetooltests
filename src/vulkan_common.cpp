@@ -155,8 +155,8 @@ static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* 
 	else return false;
 
 	nlohmann::json data = nlohmann::json::parse(content);
-	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); return false; }
-	if (data.value("target", "no target") != testname) { printf("Name in benchmarking enable file is not ours - skipping\n"); return false; }
+	if (!data.count("target")) { printf("No app name in benchmarking enable file - skipping!\n"); free(content); return false; }
+	if (data.value("target", "no target") != testname) { printf("Name in benchmarking enable file is not ours - skipping\n"); free(content); return false; }
 
 	if (data.count("capabilities"))
 	{
@@ -180,7 +180,7 @@ static bool check_bench(vulkan_setup_t& vulkan, vulkan_req_t& reqs, const char* 
 			else if (api == "1.2") reqs.apiVersion = VK_API_VERSION_1_2;
 			else if (api == "1.3") reqs.apiVersion = VK_API_VERSION_1_3;
 			else if (api == "1.4") reqs.apiVersion = VK_API_VERSION_1_4;
-			else { printf("Bad vulkan_variant: %s\n", api.c_str()); return false; }
+			else { printf("Bad vulkan_variant: %s\n", api.c_str()); free(content); return false; }
 		}
 
 		if (settings.count("queue_count")) reqs.queues = settings.value("queue_count", 1);

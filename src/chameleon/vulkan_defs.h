@@ -148,7 +148,7 @@ struct cVkDataGraphPipelineSession : cVkBase
 
 struct cVkPayload // _not_ based on cVkBase
 {
-	// nothing
+	virtual ~cVkPayload() = default;
 };
 
 struct cVkPayloadMarker : cVkPayload // _not_ based on VkBase

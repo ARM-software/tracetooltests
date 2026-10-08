@@ -1213,6 +1213,13 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyInstance(
 		}
 		for (auto& elt: gpu.extendedProperties)
 		{
+			if (elt.first == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES)
+			{
+				VkPhysicalDeviceHostImageCopyPropertiesEXT* property =
+					reinterpret_cast<VkPhysicalDeviceHostImageCopyPropertiesEXT*>(elt.second.first);
+				free(property->pCopySrcLayouts);
+				free(property->pCopyDstLayouts);
+			}
 			free(elt.second.first);
 		}
 	}
