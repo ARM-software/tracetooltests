@@ -65,6 +65,10 @@ function run
 	export VK_INSTANCE_LAYERS=VK_LAYER_ARM_lavatube
 	( cd external/vulkan-samples ; $APP sample $1 $PARAMS )
 	mv external/vulkan-samples/sample_$1.api $TRACEDIR/
+	unset VK_LAYER_PATH
+	unset LD_LIBRARY_PATH
+	unset VK_INSTANCE_LAYERS
+	unset LAVATUBE_DESTINATION
 
 	echo
 	echo "** replay $1 virtual **"

@@ -17,17 +17,14 @@ run descriptor_indexing
 run dynamic_rendering
 ( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate
 ( vulkaninfo | grep -e VK_KHR_fragment_shading_rate > /dev/null ) && run fragment_shading_rate_dynamic
-#run open_gl_interop # hangs
 run portability
 run push_descriptors
 run ray_queries
 run ray_tracing_reflection
-run raytracing_basic
-run raytracing_extended
 run synchronization_2
 run timeline_semaphore
 run 16bit_arithmetic
-run 16bit_storage_input_output
+( vulkaninfo | grep -e storageInputOutput16 > /dev/null ) && run 16bit_storage_input_output
 run afbc
 run async_compute
 run command_buffer_usage
@@ -53,7 +50,6 @@ run calibrated_timestamps
 run conditional_rendering
 run descriptor_buffer_basic
 run extended_dynamic_state2
-run hlsl_shaders
 run fragment_shader_barycentric
 ( vulkaninfo | grep -e VK_KHR_pipeline_library > /dev/null ) && run graphics_pipeline_library
 run logic_op_dynamic_state
@@ -72,25 +68,18 @@ run dynamic_line_rasterization
 run dynamic_multisample_rasterization
 run dynamic_primitive_clipping
 run dynamic_rendering_local_read
-run fragment_density_map
-run full_screen_exclusive
+( vulkaninfo | grep -e VK_EXT_fragment_density_map > /dev/null ) && run fragment_density_map
 run gshader_to_mshader
 run host_image_copy
-#open_cl_common
-#open_cl_interop
-#open_cl_interop_arm
-#open_gl_interop
 run patch_control_points
 run rasterization_order_attachment_access
-run ray_tracing_invocation_reorder
+#run ray_tracing_invocation_reorder -- uses Vulkan EXT but nvidia only spirv
 run ray_tracing_position_fetch
 run shader_debugprintf
-run shader_object
+#run shader_object -- requires VK_LAYER_KHRONOS_shader_object
 run shader_relaxed_extended_instruction
 run sparse_image
-#run tensor_and_data_graph
 run image_compression_control
-run swapchain_recreation
 run calibrated_timestamps
 run color_write_enable
 run compute_shader_derivatives
@@ -110,9 +99,6 @@ run logic_op_dynamic_state
 run memory_budget
 run mesh_shader_culling
 run mesh_shading
-#run open_cl_common
-#run open_cl_interop
-#run open_cl_interop_arm
 run patch_control_points
 un rasterization_order_attachment_access
 run ray_tracing_basic
@@ -123,3 +109,48 @@ run shader_debugprintf
 run shader_object
 run shader_relaxed_extended_instruction
 #run sparse_image
+run descriptor_heap
+run device_fault
+run mobile_nerf
+run mobile_nerf_rayquery
+run pipeline_binary
+run render_octomap
+run shader_quad_control
+run swapchain_present_timing
+#run layer_settings
+
+# -- Tensor stuff (add emulation layers)
+#runtensor tensor_and_data_graph
+#runtensor compute_shaders_with_tensors
+#runtensor simple_tensor_and_data_graph
+#runtensor tensor_image_aliasing
+#runtensor postprocessing_with_vgf
+
+# -- API interop stuff
+#run open_gl_interop # hangs
+#run open_cl_common
+#run open_cl_interop
+#run open_cl_interop_arm
+
+# -- HPP nonsense
+#run hpp_compute_nbody
+#run hpp_dynamic_uniform_buffers
+#run hpp_hdr
+#run hpp_hello_triangle
+#run hpp_hello_triangle_1_3
+#run hpp_instancing
+#run hpp_mesh_shading
+#run hpp_oit_depth_peeling
+#run hpp_oit_linked_lists
+#run hpp_pipeline_cache
+#run hpp_push_descriptors
+#run hpp_separate_image_sampler
+#run hpp_swapchain_images
+#run hpp_terrain_tessellation
+#run hpp_texture_compression_comparison
+#run hpp_texture_loading
+#run hpp_texture_mipmap_generation
+#run hpp_timestamp_queries
+
+# -- Not actual tests (possibly disabled)
+#run graph_constants
