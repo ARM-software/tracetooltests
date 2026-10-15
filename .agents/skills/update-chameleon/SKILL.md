@@ -1,46 +1,20 @@
 ---
 name: update-chameleon
-description: Use this skill to update chameleon to the latest Khronos specs
-metadata:
-  short-description: Use whenever we update our Khronos headers submodule to also update Chameleon to match
+description: Update the Vulkan-Headers submodule and adapt Chameleon's Vulkan implementation to its registry.
 ---
 
-# Update Chameleon
+Update `external/Vulkan-Headers` to the requested revision, or its tracked upstream revision with
+`git submodule update --remote external/Vulkan-Headers`. Preserve local submodule work; avoid forced or unrelated
+recursive updates.
 
-## Overview
+CMake generates Chameleon registry code through `scripts/chameleon_gen.py` and `scripts/json.py`. Build with the updated
+headers to identify missing entry points and registry incompatibilities.
 
-Use git to update the Vulkan headers dependency, then build the source to find issues caused by the update.
-Typical issues include missing implementations of new functions defined in the Vulkan spec.
+Adapt `src/chameleon/vulkan.cpp` and related implementation files following neighboring commands. Entry points use
+`ENTRY(vk<name>)` and touch Vulkan object parameters through the appropriate casts, such as `device_cast()` and
+`commandbuffer_cast()`. For deliberately incomplete commands, follow existing `TBD_UNSUPPORTED` stub conventions and
+keep their incomplete status explicit.
 
-## Instructions
-
-1. `git submodule update --force --remote --recursive external/Vulkan-Headers`
-	- If sandboxed auth status fails, rerun the command with `sandbox_permissions=require_escalated` to allow network/keyring access.
-2. `( cd build ; make -j 6 )`
-	- Build with the updated submodule and look for issues. Typically problems would be due to missing functions.
-	- Create function stubs in `src/chameleon/vulkan.cpp` for any missing functions defined in the Vulkan spec and not implemented yet by us.
-
-Minimal example stub function that is not `vkCmd` type:
-```cpp
-VKAPI_ATTR VkResult VKAPI_CALL vk<name>(<function parameters>)
-{
-        ENTRY(vk<name>);
-        cVkDevice* cdevice = device_cast(device); // for each Vulkan object passed in as parameter, touch it in this way
-        TBD_UNSUPPORTED; // mark function as incomplete
-        return VK_SUCCESS; // fake success
-}
-```
-
-Minimal example stub function that is `vkCmd` type:
-
-```cpp
-VKAPI_ATTR void VKAPI_CALL vkCmd<name>(VkCommandBuffer commandBuffer, <rest of function parameters>)
-{
-	ENTRY(vkCmd<name>);
-	cVkCommandBuffer* ccommandBuffer = commandbuffer_cast(commandBuffer);
-	// TBD touch any other function parameters that are Vulkan objects
-	TBD_UNSUPPORTED; // mark function as incomplete
-}
-```
-
-3. Build again with ``( cd build ; make -j 6 )` and verify that it now works correctly.
+Build the affected Chameleon targets, including symbol validation (`chameleon_validate`), and run relevant binaries
+directly with `VK_DRIVER_FILES` pointing to the build's `chameleon_icd.json`. Report the submodule revision and any
+remaining unsupported functionality; a successful build alone does not prove implementation completeness.

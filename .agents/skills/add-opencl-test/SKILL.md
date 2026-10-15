@@ -1,37 +1,16 @@
 ---
 name: add-opencl-test
-description: Add an OpenCL test or microbenchmark
-metadata:
-  short-description: Add an OpenCL test
+description: Add an OpenCL test or microbenchmark to this repository.
 ---
 
-## Add A New OpenCL Test
-- Create source file `src/opencl_<name>.cpp`.
-- Add a bench file `benchmarking/opencl_<name>.bench`.
-- Register the test in `CMakeLists.txt` with `cl_test(<name> 300)`.
-- Use the cl_check() function to test OpenCL call return values. Put it on a separate line after the OpenCL call. Do not wrap the OpenCL call.
-- Build with 'make -j6'
-- Run from build directory without GPU: `./opencl_<name> -v --cpu`.
-- Run from build directory with GPU: `./opencl_<name> -v --gpu`.
-- Fix any errors shown in the output from the above runs.
+Create `src/opencl_<name>.cpp` and `benchmarking/opencl_<name>.bench`, and register `cl_test(<name> <version>)` in
+`CMakeLists.txt`, with the required header version (e.g. `300`). The resulting target and binary are
+`opencl_<name>_v<version>`.
 
-Minimal `src/opencl_<name>.cpp`:
-```cpp
-#include "opencl_common.h"
+Use `opencl_common.h`, `cl_test_init()` and `cl_test_done()`; see `src/opencl_basic_1.cpp`. Bracket measured work with
+`bench_start_iteration(cl.bench)` and `bench_stop_iteration(cl.bench)`.
 
-int main(int argc, char** argv)
-{
-    opencl_req_t reqs{}; // Set reqs.usage and reqs.cmdopt for cmd line options
-    opencl_setup_t cl = cl_test_init(argc, argv, "opencl_<name>", reqs);
-    bench_start_iteration(cl.bench);
-    // ... do work here ...
-    bench_stop_iteration(cl.bench);
-    cl_test_done(cl);
-    return 0;
-}
-```
+Check return values with `cl_check(result)` on a separate line after the OpenCL call, rather than wrapping the call.
 
-Minimal `benchmarking/opencl_<name>.bench`:
-```json
-{ "name": "opencl_<name>", "description": "<short description of test>" }
-```
+Run the binary directly with `--cpu` and/or `--gpu` on available implementations. Report unsupported-device skips
+separately from passes.

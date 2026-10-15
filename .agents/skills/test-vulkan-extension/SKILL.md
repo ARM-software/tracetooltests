@@ -1,36 +1,21 @@
 ---
 name: test-vulkan-extension
-description: Add a test case for a particular Vulkan extension
-metadata:
-  short-description: Generate a new Vulkan extension test case
+description: Add or extend a test exercising a named Vulkan extension.
 ---
 
-1. Check that we were told which Vulkan extension we are supposed to check. If this was not specified, ask.
-2. Check that we were told which test or common code to use as a starting point or if we should make a test
-   from scratch. If this was not specified, ask.
-3. Download the extension text from `https://docs.vulkan.org/refpages/latest/refpages/source/<extension name>.html` and read it.
-4. If you cannot download the extension text due to sandbox permission issues, ask user to add the following to their `~/.codex/config.toml`:
-```
-[network]
-enable_domain_allowlist = true
-domain_allowlist = [
-  "docs.vulkan.org",
-  "github.com",
-  "api.github.com"
-]
-```
-5. Check that we have a test for each new Vulkan command and struct defined in the given extension, if possible. If there are
-   features gated by enable flags, make sure we only run these gates features when they are supported. Sometimes creating
-   a new test is the right choice, sometimes we can just insert usage into existing tests.
-6. If we can verify some generated output with `vkAssertBuffer`, that's is good.
-7. Try to use `test_set_name` and `test_marker_mention` with any new object handles so that we can test this works as well.
-8. If the test generates a visual image, consider adding an `-i` option for user to dump the image to disk for verification.
-9. Run `make -j 6` in the build directory. Fix any build issues.
-10. Run `./<test name> -v --cpu` from the build directory and fix any validation issues.
-11. Run the test with `VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump` environment variable set to verify that the new commands
-   we wanted to test actually got executed.
-12. Make note of any commands and structs you could not add to the test, things you find that did not make sense, and suggest the
-   best improvement that could be made to make the test even better.
-13. Make sure usage detection of this extension is in `src/usagetracker/vulkan_feature_detect.cpp` and
-   `src/usagetracker/vulkan_feature_detect.h`. You can use the skill
-   $vulkan-extension-detection to add this if missing.
+Read `https://docs.vulkan.org/refpages/latest/refpages/source/<extension>.html` and inspect related tests. Honor a
+requested starting point; otherwise choose an existing test or a small new one. For a new binary, follow
+`$add-vulkan-test`.
+
+Exercise the extension's commands and structures where practical, querying and enabling required feature bits before
+use. Record any omitted behavior and why. Capability queries alone do not demonstrate extension use.
+
+Use `vkAssertBuffer` for verifiable buffer output, and `test_set_name` / `test_marker_mention` for new object handles
+where useful. For visual output, consider an `-i` image-dump option following existing tests.
+
+Run the affected binary directly with `-v` on a supporting implementation. Use
+`VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump` when available to verify the new commands execute; report skips and paths
+that remain unexercised.
+
+Check corresponding usage detection in `src/usagetracker/vulkan_feature_detect.{cpp,h}`; use
+`$vulkan-extension-detection` to add it if missing as part of the requested extension work.
