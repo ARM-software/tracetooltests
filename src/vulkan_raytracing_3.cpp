@@ -89,7 +89,8 @@ static void create_storage_image(const vulkan_setup_t& vulkan, Resources& resour
 	image_info.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	check(vkCreateImage(vulkan.device, &image_info, nullptr, &resources.storage_image));
+	VkResult result = vkCreateImage(vulkan.device, &image_info, nullptr, &resources.storage_image);
+	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_IMAGE, (uint64_t)resources.storage_image, "raytracing_3_storage_image");
 
 	VkMemoryRequirements mem_reqs{};
@@ -98,8 +99,10 @@ static void create_storage_image(const vulkan_setup_t& vulkan, Resources& resour
 	VkMemoryAllocateInfo alloc_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, nullptr};
 	alloc_info.allocationSize = mem_reqs.size;
 	alloc_info.memoryTypeIndex = get_device_memory_type(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	check(vkAllocateMemory(vulkan.device, &alloc_info, nullptr, &resources.storage_memory));
-	check(vkBindImageMemory(vulkan.device, resources.storage_image, resources.storage_memory, 0));
+	result = vkAllocateMemory(vulkan.device, &alloc_info, nullptr, &resources.storage_memory);
+	check(result);
+	result = vkBindImageMemory(vulkan.device, resources.storage_image, resources.storage_memory, 0);
+	check(result);
 
 	VkImageViewCreateInfo view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, nullptr};
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -110,18 +113,23 @@ static void create_storage_image(const vulkan_setup_t& vulkan, Resources& resour
 	view_info.subresourceRange.levelCount = 1;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount = 1;
-	check(vkCreateImageView(vulkan.device, &view_info, nullptr, &resources.storage_view));
+	result = vkCreateImageView(vulkan.device, &view_info, nullptr, &resources.storage_view);
+	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)resources.storage_view, "raytracing_3_storage_view");
 
 	VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
-	check(vkResetCommandBuffer(resources.context.command_buffer, 0));
-	check(vkBeginCommandBuffer(resources.context.command_buffer, &begin_info));
+	result = vkResetCommandBuffer(resources.context.command_buffer, 0);
+	check(result);
+	result = vkBeginCommandBuffer(resources.context.command_buffer, &begin_info);
+	check(result);
 
 	VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr};
 	barrier.srcAccessMask = 0;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = resources.storage_image;
 	barrier.subresourceRange = view_info.subresourceRange;
 
@@ -136,12 +144,15 @@ static void create_storage_image(const vulkan_setup_t& vulkan, Resources& resour
 		1,
 		&barrier);
 
-	check(vkEndCommandBuffer(resources.context.command_buffer));
+	result = vkEndCommandBuffer(resources.context.command_buffer);
+	check(result);
 	VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers = &resources.context.command_buffer;
-	check(vkQueueSubmit(resources.context.queue, 1, &submit_info, VK_NULL_HANDLE));
-	check(vkQueueWaitIdle(resources.context.queue));
+	result = vkQueueSubmit(resources.context.queue, 1, &submit_info, VK_NULL_HANDLE);
+	check(result);
+	result = vkQueueWaitIdle(resources.context.queue);
+	check(result);
 }
 
 static void create_ubo(const vulkan_setup_t& vulkan, Resources& resources)
@@ -180,13 +191,15 @@ static void create_descriptor_set(const vulkan_setup_t& vulkan, Resources& resou
 	VkDescriptorSetLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, nullptr};
 	layout_info.bindingCount = 3;
 	layout_info.pBindings = bindings;
-	check(vkCreateDescriptorSetLayout(vulkan.device, &layout_info, nullptr, &resources.descriptor_set_layout));
+	VkResult result = vkCreateDescriptorSetLayout(vulkan.device, &layout_info, nullptr, &resources.descriptor_set_layout);
+	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uint64_t)resources.descriptor_set_layout, "raytracing_3_descriptor_layout");
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, nullptr};
 	pipeline_layout_info.setLayoutCount = 1;
 	pipeline_layout_info.pSetLayouts = &resources.descriptor_set_layout;
-	check(vkCreatePipelineLayout(vulkan.device, &pipeline_layout_info, nullptr, &resources.pipeline_layout));
+	result = vkCreatePipelineLayout(vulkan.device, &pipeline_layout_info, nullptr, &resources.pipeline_layout);
+	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uint64_t)resources.pipeline_layout, "raytracing_3_pipeline_layout");
 
 	VkDescriptorPoolSize pool_sizes[3]{};
@@ -202,13 +215,15 @@ static void create_descriptor_set(const vulkan_setup_t& vulkan, Resources& resou
 	pool_info.maxSets = 1;
 	pool_info.poolSizeCount = 3;
 	pool_info.pPoolSizes = pool_sizes;
-	check(vkCreateDescriptorPool(vulkan.device, &pool_info, nullptr, &resources.descriptor_pool));
+	result = vkCreateDescriptorPool(vulkan.device, &pool_info, nullptr, &resources.descriptor_pool);
+	check(result);
 
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, nullptr};
 	alloc_info.descriptorPool = resources.descriptor_pool;
 	alloc_info.descriptorSetCount = 1;
 	alloc_info.pSetLayouts = &resources.descriptor_set_layout;
-	check(vkAllocateDescriptorSets(vulkan.device, &alloc_info, &resources.descriptor_set));
+	result = vkAllocateDescriptorSets(vulkan.device, &alloc_info, &resources.descriptor_set);
+	check(result);
 
 	VkWriteDescriptorSetAccelerationStructureKHR as_info{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr};
 	as_info.accelerationStructureCount = 1;
@@ -286,8 +301,9 @@ static void create_pipeline(const vulkan_setup_t& vulkan, Resources& resources)
 	pipeline_info.maxPipelineRayRecursionDepth = 1;
 	pipeline_info.layout = resources.pipeline_layout;
 
-	check(resources.context.functions.vkCreateRayTracingPipelinesKHR(
-		vulkan.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &resources.pipeline));
+	VkResult result = resources.context.functions.vkCreateRayTracingPipelinesKHR(
+		vulkan.device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &resources.pipeline);
+	check(result);
 	test_set_name(vulkan, VK_OBJECT_TYPE_PIPELINE, (uint64_t)resources.pipeline, "raytracing_3_pipeline");
 }
 
@@ -304,8 +320,9 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 	const uint32_t sbt_size = hit_offset + entry_size;
 
 	std::vector<uint8_t> handle_storage(3 * handle_size);
-	check(resources.context.functions.vkGetRayTracingShaderGroupHandlesKHR(
-		vulkan.device, resources.pipeline, 0, 3, handle_storage.size(), handle_storage.data()));
+	VkResult result = resources.context.functions.vkGetRayTracingShaderGroupHandlesKHR(
+		vulkan.device, resources.pipeline, 0, 3, handle_storage.size(), handle_storage.data());
+	check(result);
 
 	resources.sbt_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
@@ -316,7 +333,9 @@ static void create_sbt(const vulkan_setup_t& vulkan, Resources& resources)
 	test_set_name(vulkan, VK_OBJECT_TYPE_BUFFER, (uint64_t)resources.sbt_buffer.handle, "raytracing_3_sbt");
 
 	uint8_t* mapped = nullptr;
-	check(vkMapMemory(vulkan.device, resources.sbt_buffer.memory, 0, sbt_size, 0, reinterpret_cast<void**>(&mapped)));
+	result = vkMapMemory(vulkan.device, resources.sbt_buffer.memory, 0, sbt_size, 0, reinterpret_cast<void**>(&mapped));
+	check(result);
+	memset(mapped, 0, sbt_size);
 	memcpy(mapped + raygen_offset, handle_storage.data() + handle_size * 0, handle_size);
 	memcpy(mapped + miss_offset, handle_storage.data() + handle_size * 1, handle_size);
 	memcpy(mapped + hit_offset, handle_storage.data() + handle_size * 2, handle_size);
@@ -402,8 +421,10 @@ static void create_indirect_buffer(const vulkan_setup_t& vulkan, Resources& reso
 static void trace(const vulkan_setup_t& vulkan, Resources& resources)
 {
 	VkCommandBufferBeginInfo begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
-	check(vkResetCommandBuffer(resources.context.command_buffer, 0));
-	check(vkBeginCommandBuffer(resources.context.command_buffer, &begin_info));
+	VkResult result = vkResetCommandBuffer(resources.context.command_buffer, 0);
+	check(result);
+	result = vkBeginCommandBuffer(resources.context.command_buffer, &begin_info);
+	check(result);
 
 	vkCmdBindPipeline(resources.context.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, resources.pipeline);
 	vkCmdBindDescriptorSets(resources.context.command_buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, resources.pipeline_layout, 0, 1, &resources.descriptor_set, 0, nullptr);
@@ -411,12 +432,15 @@ static void trace(const vulkan_setup_t& vulkan, Resources& resources)
 
 	resources.context.functions.vkCmdTraceRaysIndirect2KHR(resources.context.command_buffer, resources.indirect_address);
 
-	check(vkEndCommandBuffer(resources.context.command_buffer));
+	result = vkEndCommandBuffer(resources.context.command_buffer);
+	check(result);
 	VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers = &resources.context.command_buffer;
-	check(vkQueueSubmit(resources.context.queue, 1, &submit_info, VK_NULL_HANDLE));
-	check(vkQueueWaitIdle(resources.context.queue));
+	result = vkQueueSubmit(resources.context.queue, 1, &submit_info, VK_NULL_HANDLE);
+	check(result);
+	result = vkQueueWaitIdle(resources.context.queue);
+	check(result);
 }
 
 static void cleanup(const vulkan_setup_t& vulkan, Resources& resources)
@@ -439,14 +463,11 @@ static void cleanup(const vulkan_setup_t& vulkan, Resources& resources)
 	vkDestroyImage(vulkan.device, resources.storage_image, nullptr);
 	vkFreeMemory(vulkan.device, resources.storage_memory, nullptr);
 
-	vkFreeMemory(vulkan.device, resources.ubo.memory, nullptr);
-	vkDestroyBuffer(vulkan.device, resources.ubo.handle, nullptr);
+	acceleration_structures::destroy_buffer(vulkan, resources.ubo);
 
-	vkFreeMemory(vulkan.device, resources.sbt_buffer.memory, nullptr);
-	vkDestroyBuffer(vulkan.device, resources.sbt_buffer.handle, nullptr);
+	acceleration_structures::destroy_buffer(vulkan, resources.sbt_buffer);
 
-	vkFreeMemory(vulkan.device, resources.indirect_buffer.memory, nullptr);
-	vkDestroyBuffer(vulkan.device, resources.indirect_buffer.handle, nullptr);
+	acceleration_structures::destroy_buffer(vulkan, resources.indirect_buffer);
 
 	ray_tracing_common::destroy_simple_triangle_as(vulkan, resources.context, resources.accel);
 	ray_tracing_common::destroy_context(vulkan, resources.context);
