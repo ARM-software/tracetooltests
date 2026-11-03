@@ -3015,6 +3015,28 @@ static void test_large_points_detection()
 	assert(feat10.largePoints == VK_TRUE);
 }
 
+static void assert_line_rasterization_extension_preserved(feature_detection* f)
+{
+	std::unordered_set<std::string> extensions = { "VK_EXT_line_rasterization" };
+	std::unordered_set<std::string> adjusted = f->adjust_device_extensions(extensions);
+	assert(adjusted.empty());
+	assert(extensions.count("VK_EXT_line_rasterization") == 1);
+}
+
+static void assert_line_rasterization_extension_removed(feature_detection* f)
+{
+	std::unordered_set<std::string> extensions = { "VK_EXT_line_rasterization" };
+	std::unordered_set<std::string> adjusted = f->adjust_device_extensions(extensions);
+	assert_string_set_equals(adjusted, { "VK_EXT_line_rasterization" });
+	assert(extensions.empty());
+}
+
+static void enable_EXT_line_rasterization(feature_detection* f)
+{
+	f->requested_instance_api_version = VK_API_VERSION_1_1;
+	f->enabled_VK_EXT_line_rasterization = true;
+}
+
 static void test_vulkan14_line_rasterization_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -3044,6 +3066,7 @@ static void test_vulkan14_line_rasterization_adjustment()
 	assert(feat14.stippledSmoothLines == VK_FALSE);
 
 	f = reset_detection();
+	enable_EXT_line_rasterization(f);
 	VkPipelineRasterizationLineStateCreateInfo line_state = {
 		VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO, nullptr,
 		VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH, VK_FALSE, 1, 0xffff
@@ -3058,8 +3081,10 @@ static void test_vulkan14_line_rasterization_adjustment()
 	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
 	assert(adjusted.empty());
 	assert(feat14.smoothLines == VK_TRUE);
+	assert_line_rasterization_extension_preserved(f);
 
 	f = reset_detection();
+	enable_EXT_line_rasterization(f);
 	line_state.lineRasterizationMode = VK_LINE_RASTERIZATION_MODE_DEFAULT;
 	line_state.stippledLineEnable = VK_TRUE;
 	struct_check_VkPipelineRasterizationStateCreateInfo(&raster_state);
@@ -3073,12 +3098,20 @@ static void test_vulkan14_line_rasterization_adjustment()
 	assert(feat14.stippledBresenhamLines == VK_FALSE);
 
 	f = reset_detection();
+	enable_EXT_line_rasterization(f);
 	check_vkCmdSetLineRasterizationModeEXT(VK_NULL_HANDLE, VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT);
 	feat14 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES, nullptr };
 	feat14.bresenhamLines = VK_TRUE;
 	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
 	assert(adjusted.empty());
 	assert(feat14.bresenhamLines == VK_TRUE);
+	assert_line_rasterization_extension_preserved(f);
+
+	f = reset_detection();
+	enable_EXT_line_rasterization(f);
+	f->enabled_VK_KHR_line_rasterization = true;
+	check_vkCmdSetLineRasterizationModeEXT(VK_NULL_HANDLE, VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT);
+	assert_line_rasterization_extension_removed(f);
 
 	f = reset_detection();
 	check_vkCmdSetLineStipple(VK_NULL_HANDLE, 1, 0xffff);
@@ -3097,6 +3130,25 @@ static void test_vulkan14_line_rasterization_adjustment()
 	feat14.stippledSmoothLines = VK_TRUE;
 	adjusted = f->adjust_VkPhysicalDeviceVulkan14Features(feat14);
 	assert(adjusted.empty());
+	assert_line_rasterization_extension_removed(f);
+
+	f = reset_detection();
+	enable_EXT_line_rasterization(f);
+	check_vkCmdSetLineStippleEnableEXT(VK_NULL_HANDLE, VK_TRUE);
+	assert_line_rasterization_extension_preserved(f);
+
+	f = reset_detection();
+	enable_EXT_line_rasterization(f);
+	f->enabled_VK_KHR_line_rasterization = true;
+	check_vkCmdSetLineStippleEnableEXT(VK_NULL_HANDLE, VK_TRUE);
+	assert_line_rasterization_extension_removed(f);
+
+	f = reset_detection();
+	assert_line_rasterization_extension_removed(f);
+
+	f = reset_detection();
+	check_vkCmdSetLineStippleEXT(VK_NULL_HANDLE, 1, 0xffff);
+	assert_line_rasterization_extension_preserved(f);
 }
 
 static void test_buffer_device_address_shader_module()

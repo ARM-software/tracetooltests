@@ -259,6 +259,12 @@ static bool uses_pre12_descriptor_indexing()
 	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_2;
 }
 
+static bool uses_EXT_line_rasterization()
+{
+	return instance->requested_instance_api_version.load() < VK_API_VERSION_1_4 &&
+	       instance->enabled_VK_EXT_line_rasterization && !instance->enabled_VK_KHR_line_rasterization;
+}
+
 static void mark_descriptor_indexing_usage()
 {
 	instance->core12.descriptorIndexing = true;
@@ -719,7 +725,11 @@ void struct_check_VkPipelineRasterizationStateCreateInfo(const VkPipelineRasteri
 
 	const VkPipelineRasterizationLineStateCreateInfo* line = (const VkPipelineRasterizationLineStateCreateInfo*)get_extension(
 		info, VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO);
-	if (line) mark_line_rasterization_mode_usage(line->lineRasterizationMode, line->stippledLineEnable);
+	if (line)
+	{
+		if (uses_EXT_line_rasterization()) instance->has_VK_EXT_line_rasterization = true;
+		mark_line_rasterization_mode_usage(line->lineRasterizationMode, line->stippledLineEnable);
+	}
 }
 
 void struct_check_VkPipelineDepthStencilStateCreateInfo(const VkPipelineDepthStencilStateCreateInfo* info)
@@ -900,6 +910,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 	if (!has_VK_EXT_astc_decode_mode) removed.insert(exts.extract("VK_EXT_astc_decode_mode"));
 	if (!has_VK_EXT_vertex_input_dynamic_state && exts.count("VK_EXT_legacy_vertex_attributes") == 0)
 		removed.insert(exts.extract("VK_EXT_vertex_input_dynamic_state"));
+	if (!has_VK_EXT_line_rasterization) removed.insert(exts.extract("VK_EXT_line_rasterization"));
 	return removed;
 }
 
@@ -1140,6 +1151,12 @@ VkResult check_vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeli
 				{
 					instance->has_VK_EXT_vertex_input_dynamic_state = true;
 				}
+				if (pCreateInfos[i].pDynamicState->pDynamicStates[state_index] == VK_DYNAMIC_STATE_LINE_STIPPLE_EXT ||
+				    pCreateInfos[i].pDynamicState->pDynamicStates[state_index] == VK_DYNAMIC_STATE_LINE_RASTERIZATION_MODE_EXT ||
+				    pCreateInfos[i].pDynamicState->pDynamicStates[state_index] == VK_DYNAMIC_STATE_LINE_STIPPLE_ENABLE_EXT)
+				{
+					if (uses_EXT_line_rasterization()) instance->has_VK_EXT_line_rasterization = true;
+				}
 			}
 		}
 	}
@@ -1218,6 +1235,10 @@ VkResult check_vkCreateShadersEXT(VkDevice device, uint32_t createInfoCount, con
 VkResult check_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDevice* pDevice)
 {
 	// If we need to check the feature enable struct to know whether an extension is used, we check it here.
+	instance->enabled_VK_EXT_line_rasterization = enables_extension(
+		"VK_EXT_line_rasterization", pCreateInfo->ppEnabledExtensionNames, pCreateInfo->enabledExtensionCount);
+	instance->enabled_VK_KHR_line_rasterization = enables_extension(
+		"VK_KHR_line_rasterization", pCreateInfo->ppEnabledExtensionNames, pCreateInfo->enabledExtensionCount);
 
 	const VkPhysicalDeviceShaderAtomicInt64Features* pdsai64f = (VkPhysicalDeviceShaderAtomicInt64Features*)get_extension(pCreateInfo, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES);
 	if (pdsai64f && (pdsai64f->shaderBufferInt64Atomics || pdsai64f->shaderSharedInt64Atomics)) instance->has_VkPhysicalDeviceShaderAtomicInt64Features = true;
@@ -2357,16 +2378,19 @@ void check_vkCmdSetLineStippleKHR(VkCommandBuffer commandBuffer, uint32_t lineSt
 
 void check_vkCmdSetLineStippleEXT(VkCommandBuffer commandBuffer, uint32_t lineStippleFactor, uint16_t lineStipplePattern)
 {
+	instance->has_VK_EXT_line_rasterization = true;
 	mark_all_stippled_line_features_used();
 }
 
 void check_vkCmdSetLineRasterizationModeEXT(VkCommandBuffer commandBuffer, VkLineRasterizationModeEXT lineRasterizationMode)
 {
+	if (uses_EXT_line_rasterization()) instance->has_VK_EXT_line_rasterization = true;
 	mark_line_rasterization_mode_usage((VkLineRasterizationMode)lineRasterizationMode, VK_FALSE);
 }
 
 void check_vkCmdSetLineStippleEnableEXT(VkCommandBuffer commandBuffer, VkBool32 stippledLineEnable)
 {
+	if (uses_EXT_line_rasterization()) instance->has_VK_EXT_line_rasterization = true;
 	if (stippledLineEnable == VK_TRUE) mark_all_stippled_line_features_used();
 }
 

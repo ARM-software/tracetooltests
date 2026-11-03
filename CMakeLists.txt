@@ -464,6 +464,7 @@ vulkan_test(calibrated_timestamps)
 vulkan_test(performance_counters)
 vulkan_test(queue_remap_timeline)
 vulkan_test_extra(queue_remap_timeline_3 queue_remap_timeline --queue-count 3)
+vulkan_test(line_rasterization)
 
 if (NOT MOCK_DRIVER MATCHES "1")
 vulkan_test(cooperative_matrix)

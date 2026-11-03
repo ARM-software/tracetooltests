@@ -249,6 +249,9 @@ struct feature_detection
 	std::atomic_bool has_VK_EXT_fragment_density_map2 { false };
 	std::atomic_bool has_VK_EXT_astc_decode_mode { false };
 	std::atomic_bool has_VK_EXT_vertex_input_dynamic_state { false };
+	std::atomic_bool has_VK_EXT_line_rasterization { false };
+	std::atomic_bool enabled_VK_EXT_line_rasterization { false };
+	std::atomic_bool enabled_VK_KHR_line_rasterization { false };
 	std::atomic_bool has_VK_KHR_portability_enumeration { false };
 
 	// --- Remove unused feature bits from these structures ---
