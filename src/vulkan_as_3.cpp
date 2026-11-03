@@ -511,9 +511,9 @@ int main(int argc, char** argv)
 	reqs.cmdopt = test_cmdopt;
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_as_3", reqs);
 
-	if (as_host_build)
+	if(as_host_build && !accfeats.accelerationStructureHostCommands)
 	{
-		assert(accfeats.accelerationStructureHostCommands && "Host build is not supported by the GPU");
+		return 77;
 	}
 
 	Resources resources{};
