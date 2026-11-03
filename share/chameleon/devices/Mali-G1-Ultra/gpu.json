@@ -1573,6 +1573,8 @@
                 "VK_ARM_render_pass_striped": 1,
                 "VK_ARM_scheduling_controls": 1,
                 "VK_ANDROID_external_format_resolve": 1,
+		"VK_KHR_present_id2": 1,
+		"VK_KHR_present_wait2": 1,
 		"VK_ARM_tensors": 1,
 		"VK_ARM_data_graph": 1,
 		"VK_EXT_descriptor_heap": 1
