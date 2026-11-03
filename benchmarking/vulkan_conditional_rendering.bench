@@ -1,0 +1,1 @@
+{ "name": "vulkan_conditional_rendering", "description": "Tests conditional rendering using VK_EXT_conditional_rendering" }
