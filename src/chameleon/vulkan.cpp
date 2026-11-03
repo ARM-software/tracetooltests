@@ -805,6 +805,64 @@ static void loadGpu(cVkPhysicalDevice& gpu, const std::string& gpu_path, const s
 		}
 	}
 
+	if (gpu.extensions.count(VK_KHR_PRESENT_ID_2_EXTENSION_NAME) != 0)
+	{
+		const size_t feature_size = sizeof(VkPhysicalDevicePresentId2FeaturesKHR);
+		VkPhysicalDevicePresentId2FeaturesKHR* feature = nullptr;
+		auto feature_it = gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_2_FEATURES_KHR);
+		if (feature_it == gpu.features.end())
+		{
+			feature = reinterpret_cast<VkPhysicalDevicePresentId2FeaturesKHR*>(malloc(feature_size));
+			assert(feature);
+			gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_2_FEATURES_KHR] = {
+				feature, feature_size
+			};
+		}
+		else
+		{
+			feature = reinterpret_cast<VkPhysicalDevicePresentId2FeaturesKHR*>(feature_it->second.first);
+		}
+		*feature = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_2_FEATURES_KHR,
+			nullptr,
+			VK_TRUE
+		};
+		if (deviceRoot["features"].isMember("VkPhysicalDevicePresentId2FeaturesKHR"))
+		{
+			readVkPhysicalDevicePresentId2FeaturesKHR(
+				deviceRoot["features"]["VkPhysicalDevicePresentId2FeaturesKHR"], *feature);
+		}
+	}
+
+	if (gpu.extensions.count(VK_KHR_PRESENT_WAIT_2_EXTENSION_NAME) != 0)
+	{
+		const size_t feature_size = sizeof(VkPhysicalDevicePresentWait2FeaturesKHR);
+		VkPhysicalDevicePresentWait2FeaturesKHR* feature = nullptr;
+		auto feature_it = gpu.features.find(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR);
+		if (feature_it == gpu.features.end())
+		{
+			feature = reinterpret_cast<VkPhysicalDevicePresentWait2FeaturesKHR*>(malloc(feature_size));
+			assert(feature);
+			gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR] = {
+				feature, feature_size
+			};
+		}
+		else
+		{
+			feature = reinterpret_cast<VkPhysicalDevicePresentWait2FeaturesKHR*>(feature_it->second.first);
+		}
+		*feature = {
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR,
+			nullptr,
+			VK_TRUE
+		};
+		if (deviceRoot["features"].isMember("VkPhysicalDevicePresentWait2FeaturesKHR"))
+		{
+			readVkPhysicalDevicePresentWait2FeaturesKHR(
+				deviceRoot["features"]["VkPhysicalDevicePresentWait2FeaturesKHR"], *feature);
+		}
+	}
+
 	// Force support for this, since it is really useful for learning
 	reinterpret_cast<VkPhysicalDeviceFeatures*>(gpu.features[VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2].first)->pipelineStatisticsQuery = true;
 
@@ -4929,6 +4987,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR(
 	cVkDevice* dev = device_cast(device);
 	assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 	cVkSwapchainKHR& swapchain = owner_create<cVkSwapchainKHR, VkSwapchainKHR>(dev->swapchains, pSwapchain, pAllocator);
+	swapchain.flags = pCreateInfo->flags;
 	swapchain.imageExtent = pCreateInfo->imageExtent;
 	swapchain.surface = surface_cast(pCreateInfo->surface);
 	swapchain.minImageCount = pCreateInfo->minImageCount;
@@ -5050,6 +5109,12 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(
 	ENTRY(vkQueuePresentKHR);
 	CLOG("queue=%p, pPresentInfo=%p", queue, pPresentInfo);
 	cVkQueue* c = queue_cast(queue);
+	const VkPresentId2KHR* present_id = reinterpret_cast<const VkPresentId2KHR*>(
+		find_extension(pPresentInfo, VK_STRUCTURE_TYPE_PRESENT_ID_2_KHR));
+	if (present_id)
+	{
+		assert(present_id->swapchainCount == pPresentInfo->swapchainCount);
+	}
 
 	for (unsigned i = 0; i < pPresentInfo->waitSemaphoreCount; i++)
 	{
@@ -5065,6 +5130,16 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR(
 		assert(image_index < swapchain->imageCount);
 		assert(swapchain->imageStates.at(image_index) == cVkSwapchainKHR::Acquired);
 		swapchain->imageStates.at(image_index) = cVkSwapchainKHR::Available;
+		if (present_id && present_id->pPresentIds && present_id->pPresentIds[i] != 0)
+		{
+			assert(swapchain->flags & VK_SWAPCHAIN_CREATE_PRESENT_ID_2_BIT_KHR);
+			const uint64_t id = present_id->pPresentIds[i];
+			std::lock_guard<std::mutex> lock(swapchain->presentIdState->mutex);
+			assert(id > swapchain->presentIdState->lastSubmittedId);
+			const bool inserted = swapchain->presentIdState->submittedIds.insert(id).second;
+			assert(inserted);
+			swapchain->presentIdState->lastSubmittedId = id;
+		}
 		if (pPresentInfo->pResults) pPresentInfo->pResults[i] = VK_SUCCESS;
 		c->commandbuffers.clear();
 	}
@@ -6518,7 +6593,6 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilities2KHR(
 	CLOG("physicalDevice=%p, pSurfaceInfo=%p, pSurfaceCapabilities=%p", physicalDevice, pSurfaceInfo, pSurfaceCapabilities);
 	cVkPhysicalDevice* device = physicaldevice_cast(physicalDevice);
 	pSurfaceCapabilities->sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
-	pSurfaceCapabilities->pNext = nullptr;
 	pSurfaceCapabilities->surfaceCapabilities.minImageCount = 1;
 	pSurfaceCapabilities->surfaceCapabilities.maxImageCount = 0; // meaning no limit
 	pSurfaceCapabilities->surfaceCapabilities.currentExtent = { 0xFFFFFFFF, 0xFFFFFFFF }; // "the surface size will be determined by the extent of a swapchain targeting the surface"
@@ -6533,6 +6607,18 @@ VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilities2KHR(
 	if (vkspsc)
 	{
 		vkspsc->sharedPresentSupportedUsageFlags = VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM; // support all usage cases
+	}
+	VkSurfaceCapabilitiesPresentId2KHR* present_id2 = reinterpret_cast<VkSurfaceCapabilitiesPresentId2KHR*>(
+		find_extension(pSurfaceCapabilities, VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_PRESENT_ID_2_KHR));
+	if (present_id2)
+	{
+		present_id2->presentId2Supported = device->extensions.count(VK_KHR_PRESENT_ID_2_EXTENSION_NAME) != 0;
+	}
+	VkSurfaceCapabilitiesPresentWait2KHR* present_wait2 = reinterpret_cast<VkSurfaceCapabilitiesPresentWait2KHR*>(
+		find_extension(pSurfaceCapabilities, VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_PRESENT_WAIT_2_KHR));
+	if (present_wait2)
+	{
+		present_wait2->presentWait2Supported = device->extensions.count(VK_KHR_PRESENT_WAIT_2_EXTENSION_NAME) != 0;
 	}
 	return VK_SUCCESS;
 }
@@ -11490,9 +11576,14 @@ VKAPI_ATTR VkResult VKAPI_CALL vkReleaseFullScreenExclusiveModeEXT(VkDevice devi
 VKAPI_ATTR VkResult VKAPI_CALL vkWaitForPresent2KHR(VkDevice device, VkSwapchainKHR swapchain, const VkPresentWait2InfoKHR* pPresentWait2Info)
 {
 	ENTRY(vkWaitForPresent2KHR);
+	assert(pPresentWait2Info);
+	assert(pPresentWait2Info->sType == VK_STRUCTURE_TYPE_PRESENT_WAIT_2_INFO_KHR);
 	cVkDevice* cdevice = device_cast(device);
 	cVkSwapchainKHR* cswapchain = swapchain_cast(swapchain);
-	TBD_UNSUPPORTED;
+	assert(cswapchain->flags & VK_SWAPCHAIN_CREATE_PRESENT_WAIT_2_BIT_KHR);
+	assert(pPresentWait2Info->presentId != 0);
+	std::lock_guard<std::mutex> lock(cswapchain->presentIdState->mutex);
+	assert(cswapchain->presentIdState->submittedIds.count(pPresentWait2Info->presentId) != 0);
 	return VK_SUCCESS;
 }
 

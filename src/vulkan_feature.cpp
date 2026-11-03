@@ -361,6 +361,38 @@ static void test_bind_memory2_extension_adjustment()
 	assert(f->has_VK_KHR_bind_memory2 == true);
 }
 
+static void test_present_wait2_extension_adjustment()
+{
+	feature_detection* f = reset_detection();
+	std::unordered_set<std::string> exts = { "VK_KHR_present_wait2" };
+	assert(f->has_VK_KHR_present_wait2 == false);
+	assert_removed_device_extensions(f, exts, { "VK_KHR_present_wait2" });
+	assert(exts.empty());
+
+	VkPhysicalDevicePresentWait2FeaturesKHR features = {
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR, nullptr, VK_TRUE
+	};
+	const char* extension_names[] = { "VK_KHR_present_wait2" };
+	VkDeviceCreateInfo device_info = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &features };
+	device_info.enabledExtensionCount = 1;
+	device_info.ppEnabledExtensionNames = extension_names;
+	assert_adjusted_device_create_info(f, device_info, {}, { "VK_KHR_present_wait2" }, false);
+
+	VkPresentWait2InfoKHR wait_info = {
+		VK_STRUCTURE_TYPE_PRESENT_WAIT_2_INFO_KHR, nullptr, 1, 1000000000
+	};
+	VkResult result = check_vkWaitForPresent2KHR(VK_NULL_HANDLE, VK_NULL_HANDLE, &wait_info);
+	assert(result == VK_SUCCESS);
+	assert(f->has_VK_KHR_present_wait2 == true);
+
+	exts.insert("VK_KHR_present_wait2");
+	assert_removed_device_extensions(f, exts, {});
+	assert(exts.size() == 1);
+
+	device_info.pNext = &features;
+	assert_adjusted_device_create_info(f, device_info, exts, {}, true);
+}
+
 static void test_copy_commands2_extension_adjustment()
 {
 	feature_detection* f = reset_detection();
@@ -3194,6 +3226,7 @@ int main()
 	test_extension_chain_helpers();
 	test_shader_atomic_int64_extension_adjustment();
 	test_bind_memory2_extension_adjustment();
+	test_present_wait2_extension_adjustment();
 	test_copy_commands2_extension_adjustment();
 	test_create_renderpass2_extension_adjustment();
 	test_dynamic_rendering_extension_adjustment();

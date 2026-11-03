@@ -841,6 +841,8 @@ std::unordered_set<std::string> feature_detection::adjust_VkDeviceCreateInfo(VkD
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, enabled_exts, found);
 	check_prune_device({"VK_EXT_astc_decode_mode"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, enabled_exts, found);
+	check_prune_device({"VK_KHR_present_wait2"}, info,
+	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_2_FEATURES_KHR, enabled_exts, found);
 	check_prune_device({"VK_EXT_vertex_input_dynamic_state"}, info,
 	                   VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT,
 	                   enabled_exts, found);
@@ -880,6 +882,7 @@ std::unordered_set<std::string> feature_detection::adjust_device_extensions(std:
 		removed.insert(exts.extract("VK_ANDROID_external_memory_android_hardware_buffer"));
 	if (!has_VK_KHR_map_memory2) removed.insert(exts.extract("VK_KHR_map_memory2"));
 	if (!has_VK_KHR_multiview) removed.insert(exts.extract("VK_KHR_multiview"));
+	if (!has_VK_KHR_present_wait2) removed.insert(exts.extract("VK_KHR_present_wait2"));
 	if (!has_VK_KHR_synchronization2 && !preserve_synchronization2) removed.insert(exts.extract("VK_KHR_synchronization2"));
 	if (!has_VK_KHR_acceleration_structure && !preserve_acceleration_structure) removed.insert(exts.extract("VK_KHR_acceleration_structure"));
 	if (!has_VK_KHR_ray_query) removed.insert(exts.extract("VK_KHR_ray_query"));
@@ -1543,6 +1546,7 @@ VkResult check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCo
 	for (uint32_t i = 0; i < swapchainCount; i++)
 	{
 		if (is_colorspace_ext(pCreateInfos[i].imageColorSpace)) instance->has_VK_EXT_swapchain_colorspace = true;
+		if (pCreateInfos[i].flags & VK_SWAPCHAIN_CREATE_PRESENT_WAIT_2_BIT_KHR) instance->has_VK_KHR_present_wait2 = true;
 	}
 	return VK_SUCCESS;
 }
@@ -1550,6 +1554,7 @@ VkResult check_vkCreateSharedSwapchainsKHR(VkDevice device, uint32_t swapchainCo
 VkResult check_vkCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain)
 {
 	if (is_colorspace_ext(pCreateInfo->imageColorSpace)) instance->has_VK_EXT_swapchain_colorspace = true;
+	if (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PRESENT_WAIT_2_BIT_KHR) instance->has_VK_KHR_present_wait2 = true;
 	return VK_SUCCESS;
 }
 
@@ -1782,6 +1787,12 @@ VkResult check_vkQueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const Vk
 VkResult check_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* pPresentInfo)
 {
 	if (pPresentInfo && submit_pnext_uses_tensors(pPresentInfo->pNext)) instance->has_VK_ARM_tensors = true;
+	return VK_SUCCESS;
+}
+
+VkResult check_vkWaitForPresent2KHR(VkDevice device, VkSwapchainKHR swapchain, const VkPresentWait2InfoKHR* pPresentWait2Info)
+{
+	instance->has_VK_KHR_present_wait2 = true;
 	return VK_SUCCESS;
 }
 

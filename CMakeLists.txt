@@ -486,6 +486,7 @@ vulkan_test(display)
 vulkan_test(headless_surface)
 vulkan_window_test(swapchain_maintenance1)
 vulkan_window_test(surface_maintenance1)
+vulkan_window_test(present_wait2)
 endif()
 
 # These are only built, not automatically run as part of the test suite
