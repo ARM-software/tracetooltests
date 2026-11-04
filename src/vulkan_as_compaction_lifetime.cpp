@@ -6,6 +6,7 @@
 #include "vulkan_as_compaction.rgen.inc"
 
 #include <cstdint>
+#include <algorithm>
 
 using Buffer = acceleration_structures::Buffer;
 using AccelerationStructure = acceleration_structures::AccelerationStructure;
@@ -18,10 +19,13 @@ struct Vertex
 static std::vector<Vertex> vertices = {
 	{{1.0f, 1.0f, 0.0f}},
 	{{-1.0f, 1.0f, 0.0f}},
-	{{0.0f, -1.0f, 0.0f}}
+	{{0.0f, -1.0f, 0.0f}},
+	{{5.0f, 1.0f, 0.0f}},
+	{{3.0f, 1.0f, 0.0f}},
+	{{4.0f, -1.0f, 0.0f}}
 };
 
-static std::vector<uint32_t> indices = {0, 1, 2};
+static std::vector<uint32_t> indices = {0, 1, 2, 3, 4, 5};
 static uint32_t index_count = static_cast<uint32_t>(indices.size());
 
 static uint32_t handle_size;
@@ -34,6 +38,7 @@ static bool buffer_before_source_handles = false;
 static bool shared_source = false;
 static bool use_second_shared_child = false;
 static bool repeat_trim = false;
+static bool reuse_source_storage = false;
 
 enum BuildInputDestruction
 {
@@ -58,7 +63,9 @@ struct Resources
 
 	AccelerationStructure blas;
 	AccelerationStructure source_alias;
+	AccelerationStructure live_blas;
 	Buffer blas_buffer;
+	VkDeviceSize live_blas_size{0};
 
 	AccelerationStructure copied_blas;
 	Buffer copied_blas_buffer;
@@ -97,6 +104,7 @@ static void show_usage()
 {
 	printf("Test source-BLAS alias destruction after compaction, with checked TLAS ray intersections\n");
 	printf("For the lifetime regression use -bbf -tbf and capture frame 3 (after source destruction)\n");
+	printf("For storage reuse use -bbf -tbf --reuse-source-storage and capture frame 4 (in-place update)\n");
 	printf("-tbf/--tlas-build-frame      injects a frame boundary after TLAS is built\n");
 	printf("-bbf/--blas-build-frame      injects a frame boundary after BLAS is built\n");
 	printf("-ksb/--keep-source-buffer    retain the source BLAS buffer as a control variant\n");
@@ -106,6 +114,7 @@ static void show_usage()
 	printf("--destroy-build-input-memory   free BLAS input memory before the trimmed frame\n");
 	printf("--destroy-build-input-buffers  destroy BLAS input buffers before freeing their memory\n");
 	printf("--repeat-trim                  consume the compacted BLAS again in a later frame\n");
+	printf("--reuse-source-storage         build a new live BLAS on the destroyed source's buffer, then update it after trim\n");
 	printf("-cf/--copy-format            ways of copying BLAS (default 0): \n\t0 - vkCmdCopyAccelerationStructureKHR - VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR\n\t1 - vkCmdCopyAccelerationStructureKHR - VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR\n\t2 - vkCmdCopyBuffer\n\t3 - memcpy\n");
 }
 
@@ -147,6 +156,10 @@ void prepare_test_resources(const vulkan_setup_t & vulkan, Resources & resources
 
 void free_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
 {
+	if (reuse_source_storage)
+	{
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.live_blas.handle, nullptr);
+	}
 	vkDestroyBuffer(vulkan.device, resources.blas_scratch.handle, nullptr);
 	vkFreeMemory(vulkan.device, resources.blas_scratch.memory, nullptr);
 	vkDestroyBuffer(vulkan.device, resources.tlas_scratch.handle, nullptr);
@@ -199,6 +212,50 @@ void free_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
 	}
 }
 
+void build_live_blas(const vulkan_setup_t & vulkan, Resources & resources, VkBuildAccelerationStructureModeKHR mode)
+{
+	VkAccelerationStructureGeometryKHR geometry{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR, nullptr};
+	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+	geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+	geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+	geometry.geometry.triangles.vertexData = resources.vertex_buffer.address;
+	geometry.geometry.triangles.maxVertex = static_cast<uint32_t>(vertices.size() - 1);
+	geometry.geometry.triangles.vertexStride = sizeof(Vertex);
+	geometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+	geometry.geometry.triangles.indexData = resources.index_buffer.address;
+
+	VkAccelerationStructureBuildGeometryInfoKHR info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR, nullptr};
+	info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+	info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+	info.mode = mode;
+	info.srcAccelerationStructure = mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR ? resources.live_blas.handle : VK_NULL_HANDLE;
+	info.dstAccelerationStructure = resources.live_blas.handle;
+	info.geometryCount = 1;
+	info.pGeometries = &geometry;
+	info.scratchData.deviceAddress = resources.blas_scratch.address.deviceAddress;
+
+	VkAccelerationStructureBuildRangeInfoKHR range{};
+	range.primitiveCount = 2;
+	const VkAccelerationStructureBuildRangeInfoKHR* ranges = &range;
+	VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
+	check(vkResetCommandBuffer(resources.command_buffer, 0));
+	check(vkBeginCommandBuffer(resources.command_buffer, &begin));
+	resources.functions.vkCmdBuildAccelerationStructuresKHR(resources.command_buffer, 1, &info, &ranges);
+	VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER, nullptr};
+	barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	vkCmdPipelineBarrier(resources.command_buffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		0, 1, &barrier, 0, nullptr, 0, nullptr);
+	check(vkEndCommandBuffer(resources.command_buffer));
+	VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers = &resources.command_buffer;
+	check(vkQueueSubmit(resources.queue, 1, &submit, VK_NULL_HANDLE));
+	check(vkQueueWaitIdle(resources.queue));
+}
+
 void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & resources)
 {
 	const uint32_t primitive_count = 1;
@@ -229,6 +286,16 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		&primitive_count,
 		&build_size_info
 	);
+	VkAccelerationStructureBuildSizesInfoKHR live_size_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
+	if (reuse_source_storage)
+	{
+		VkAccelerationStructureBuildGeometryInfoKHR live_info = build_geometry_info;
+		live_info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+		const uint32_t live_primitive_count = 2;
+		resources.functions.vkGetAccelerationStructureBuildSizesKHR(vulkan.device,
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &live_info, &live_primitive_count, &live_size_info);
+	}
+	resources.live_blas_size = std::max(build_size_info.accelerationStructureSize, live_size_info.accelerationStructureSize);
 
 	VkBufferUsageFlags blas_buffer_usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 	if (copy_format == CopyFormat::copy_vkCmdCopyBuffer)
@@ -238,7 +305,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 	resources.blas_buffer = acceleration_structures::prepare_buffer(
 		vulkan,
-		build_size_info.accelerationStructureSize,
+		resources.live_blas_size,
 		nullptr,
 		blas_buffer_usage,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
@@ -246,7 +313,7 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 	VkAccelerationStructureCreateInfoKHR create_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
 	create_info.buffer = resources.blas_buffer.handle;
-	create_info.size = build_size_info.accelerationStructureSize;
+	create_info.size = resources.live_blas_size;
 	create_info.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
 	check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &create_info, nullptr, &resources.blas.handle));
@@ -265,7 +332,8 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 
 	Buffer scratch_bottom = acceleration_structures::prepare_buffer(
 			vulkan,
-			build_size_info.buildScratchSize,
+			std::max(build_size_info.buildScratchSize,
+				std::max(live_size_info.buildScratchSize, live_size_info.updateScratchSize)),
 			nullptr,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
@@ -513,6 +581,19 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 		check(vkQueueSubmit(resources.queue, 1, &submitInfo2, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 	}
+	if (reuse_source_storage)
+	{
+		// The compacted child still needs the old source build for trim restoration.
+		// The live BLAS replaces that build on the same storage after both old handles die.
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.source_alias.handle, nullptr);
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
+		VkAccelerationStructureCreateInfoKHR live_create_info = create_info;
+		check(resources.functions.vkCreateAccelerationStructureKHR(vulkan.device, &live_create_info, nullptr, &resources.live_blas.handle));
+		VkAccelerationStructureDeviceAddressInfoKHR address_info{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
+		address_info.accelerationStructure = resources.live_blas.handle;
+		resources.live_blas.address.deviceAddress = resources.functions.vkGetAccelerationStructureDeviceAddressKHR(vulkan.device, &address_info);
+		build_live_blas(vulkan, resources, VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR);
+	}
 
 	static VkTransformMatrixKHR identity = {{
 			{1.0f, 0.0f, 0.0f, 0.0f},
@@ -527,8 +608,8 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	instance.mask = 0xFF;
 	instance.instanceShaderBindingTableRecordOffset = 0;
 	instance.flags = 0;
-	instance.accelerationStructureReference = use_second_shared_child ?
-		resources.second_child.address.deviceAddress : resources.copied_blas.address.deviceAddress;
+	instance.accelerationStructureReference = reuse_source_storage ? resources.live_blas.address.deviceAddress :
+		(use_second_shared_child ? resources.second_child.address.deviceAddress : resources.copied_blas.address.deviceAddress);
 	VkMarkingTypeARM instance_marking_type = VK_MARKING_TYPE_DEVICE_ADDRESS_ARM;
 	VkMarkingSubTypeARM instance_sub_type{};
 	instance_sub_type.deviceAddressType = VK_DEVICE_ADDRESS_TYPE_ACCELERATION_STRUCTURE_ARM;
@@ -633,8 +714,11 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	{
 		vkDestroyBuffer(vulkan.device, resources.blas_buffer.handle, nullptr);
 	}
-	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.source_alias.handle, nullptr);
-	resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
+	if (!reuse_source_storage)
+	{
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.source_alias.handle, nullptr);
+		resources.functions.vkDestroyAccelerationStructureKHR(vulkan.device, resources.blas.handle, nullptr);
+	}
 	if (!keep_source_buffer && !buffer_before_source_handles)
 	{
 		vkDestroyBuffer(vulkan.device, resources.blas_buffer.handle, nullptr);
@@ -836,14 +920,15 @@ void bind_and_trace(const vulkan_setup_t & vulkan, Resources & resources)
 		uint32_t crc = 0;
 		const VkUpdateBufferInfoARM info{VK_STRUCTURE_TYPE_UPDATE_BUFFER_INFO_ARM, nullptr,
 			resources.result_buffer.handle, 0, sizeof(initial), nullptr};
-		check(vulkan.vkAssertBuffer(vulkan.device, &info, &crc, "compacted BLAS hit/miss"));
+		check(vulkan.vkAssertBuffer(vulkan.device, &info, &crc,
+			reuse_source_storage ? "live BLAS on reused storage" : "compacted BLAS hit/miss"));
 	}
 	void* mapped = nullptr;
 	check(vkMapMemory(vulkan.device, resources.result_buffer.memory, 0, sizeof(initial), 0, &mapped));
 	auto* hits = static_cast<const uint32_t*>(mapped);
 	if (!getenv("TOOLSTEST_NULL_RUN"))
 	{
-		assert(hits[0] == 1 && hits[1] == 0);
+		assert(hits[0] == 1 && hits[1] == (reuse_source_storage ? 1u : 0u));
 		printf("AS intersection results: hit=%u miss=%u\n", hits[0], hits[1]);
 	}
 	vkUnmapMemory(vulkan.device, resources.result_buffer.memory);
@@ -896,6 +981,11 @@ bool parse_parameters(int& i, int argc, char** argv, vulkan_req_t& reqs)
 		reqs.options["repeat-trim"] = true;
 		return true;
 	}
+	else if (!strcmp(argv[i], "--reuse-source-storage"))
+	{
+		reqs.options["reuse-source-storage"] = true;
+		return true;
+	}
 	else if (match(argv[i], "-cf", "--copy-format"))
 	{
 		int copy_format_variant = get_arg(argv, ++i, argc);
@@ -928,6 +1018,7 @@ int main(int argc, char** argv)
 	reqs.options["use-second-shared-child"] = false;
 	reqs.options["build-input-destruction"] = keep_build_inputs;
 	reqs.options["repeat-trim"] = false;
+	reqs.options["reuse-source-storage"] = false;
 
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr, VK_TRUE};
@@ -954,9 +1045,13 @@ int main(int argc, char** argv)
 	use_second_shared_child = std::get<bool>(reqs.options.at("use-second-shared-child"));
 	build_input_destruction = static_cast<BuildInputDestruction>(std::get<int>(reqs.options.at("build-input-destruction")));
 	repeat_trim = std::get<bool>(reqs.options.at("repeat-trim"));
+	reuse_source_storage = std::get<bool>(reqs.options.at("reuse-source-storage"));
+	if (reuse_source_storage) keep_source_buffer = true;
 	assert(!keep_source_buffer || !buffer_before_source_handles);
 	assert(!use_second_shared_child || shared_source);
 	assert(!shared_source || copy_format == compact_vkCmdCopyAccelerationStructureKHR);
+	assert(!reuse_source_storage || (blas_build_frame && tlas_build_frame && !repeat_trim &&
+		build_input_destruction == keep_build_inputs && copy_format == compact_vkCmdCopyAccelerationStructureKHR));
 
 	handle_size = vulkan.device_ray_tracing_pipeline_properties.shaderGroupHandleSize;
 
@@ -971,7 +1066,7 @@ int main(int argc, char** argv)
 	bind_and_trace(vulkan, resources);
 
 
-	// Close the captured frame range after the compacted AS has been consumed.
+	// Close the captured frame range after the selected BLAS has been consumed.
 	// With -bbf -tbf, the preceding TLAS boundary starts frame 3. This boundary
 	// finalizes its trace after both the GPU work and the replayable checksum.
 	if (tlas_build_frame)
@@ -984,6 +1079,21 @@ int main(int argc, char** argv)
 		VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO, nullptr};
 		submitInfo.pNext = &frameBoundary;
 		check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
+		check(vkQueueWaitIdle(resources.queue));
+	}
+	if (reuse_source_storage)
+	{
+		// Frame 4 starts with the live two-primitive BLAS already in shared storage.
+		// Its in-place update must not consume the old one-primitive source build.
+		build_live_blas(vulkan, resources, VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR);
+		vkDestroyBuffer(vulkan.device, resources.result_buffer.handle, nullptr);
+		vkFreeMemory(vulkan.device, resources.result_buffer.memory, nullptr);
+		bind_and_trace(vulkan, resources);
+		VkFrameBoundaryEXT frame_boundary{VK_STRUCTURE_TYPE_FRAME_BOUNDARY_EXT, nullptr};
+		frame_boundary.flags = VK_FRAME_BOUNDARY_FRAME_END_BIT_EXT;
+		frame_boundary.frameID = frame_id++;
+		VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO, &frame_boundary};
+		check(vkQueueSubmit(resources.queue, 1, &submit_info, VK_NULL_HANDLE));
 		check(vkQueueWaitIdle(resources.queue));
 	}
 
