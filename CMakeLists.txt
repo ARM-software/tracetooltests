@@ -491,6 +491,28 @@ endif()
 # These are only built, not automatically run as part of the test suite
 vulkan_test_build(memory_mprotect)
 
+find_path(LITERT_LM_INCLUDE_DIR NAMES c/engine.h litert-lm/engine.h engine.h
+	HINTS /opt/litert-lm/include $ENV{LITERT_LM_ROOT}/include
+)
+find_library(LITERT_LM_LIBRARY NAMES litert-lm
+	HINTS /opt/litert-lm/lib $ENV{LITERT_LM_ROOT}/lib
+)
+
+if (LITERT_LM_INCLUDE_DIR AND LITERT_LM_LIBRARY)
+	message(STATUS "Found LiteRT-LM: ${LITERT_LM_LIBRARY}")
+	vulkan_test_build(llm_pingpong)
+	target_include_directories(vulkan_llm_pingpong PRIVATE ${LITERT_LM_INCLUDE_DIR})
+	target_link_libraries(vulkan_llm_pingpong PRIVATE ${LITERT_LM_LIBRARY})
+	set_target_properties(vulkan_llm_pingpong PROPERTIES BUILD_RPATH "/opt/litert-lm/lib;${LITERT_LM_INCLUDE_DIR}/../lib")
+	add_test(NAME vulkan_llm_pingpong COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_llm_pingpong)
+	set(ENABLE_JSON "{\"target\": \"vulkan_llm_pingpong\"}")
+	set_tests_properties(vulkan_llm_pingpong PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};${TRACETOOLTESTS_TEST_ARGUMENTS}")
+	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_llm_pingpong.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_llm_pingpong.bench DESTINATION tests)
+else()
+	message(STATUS "LiteRT-LM not found. Skipping vulkan_llm_pingpong.")
+endif()
+
 add_executable(vulkan_featuretest src/vulkan_feature.cpp src/usagetracker/vulkan_feature_detect.h src/usagetracker/vulkan_feature_detect.cpp)
 target_link_libraries(vulkan_featuretest Threads::Threads)
 set_target_properties(vulkan_featuretest PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
