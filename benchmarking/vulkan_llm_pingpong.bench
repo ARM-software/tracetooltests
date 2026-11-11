@@ -1,0 +1,1 @@
+{ "name": "vulkan_llm_pingpong", "description": "LLM-driven ping-pong game using LiteRT-LM and Vulkan rendering" }
