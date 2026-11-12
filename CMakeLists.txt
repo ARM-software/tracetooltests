@@ -500,17 +500,55 @@ find_library(LITERT_LM_LIBRARY NAMES litert-lm
 
 if (LITERT_LM_INCLUDE_DIR AND LITERT_LM_LIBRARY)
 	message(STATUS "Found LiteRT-LM: ${LITERT_LM_LIBRARY}")
+
+	add_library(litert_common STATIC
+		src/litert_common.cpp
+		src/litert_common.h
+		src/util.cpp
+		src/util.h
+	)
+	target_include_directories(litert_common PUBLIC
+		${PROJECT_SOURCE_DIR}
+		${PROJECT_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/include
+		${LITERT_LM_INCLUDE_DIR}
+	)
+	target_link_libraries(litert_common PUBLIC ${LITERT_LM_LIBRARY} Threads::Threads)
+	set_target_properties(litert_common PROPERTIES BUILD_RPATH "/opt/litert-lm/lib;${LITERT_LM_INCLUDE_DIR}/../lib")
+
+	function(litert_test_build test_name)
+		add_executable(litert_${ARGV0} src/litert_${ARGV0}.cpp)
+		target_link_libraries(litert_${ARGV0} PRIVATE litert_common)
+		target_compile_definitions(litert_${ARGV0} PUBLIC ${IT_DEFINES})
+		set_target_properties(litert_${ARGV0} PROPERTIES COMPILE_FLAGS ${IT_CFLAGS})
+		target_include_directories(litert_${ARGV0} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src)
+		install(TARGETS litert_${ARGV0} DESTINATION tests)
+	endfunction()
+
+	function(litert_test test_name)
+		litert_test_build(${ARGV0})
+		add_test(NAME litert_${ARGV0}_gpu COMMAND ${CMAKE_CURRENT_BINARY_DIR}/litert_${ARGV0} --backend gpu)
+		add_test(NAME litert_${ARGV0}_cpu COMMAND ${CMAKE_CURRENT_BINARY_DIR}/litert_${ARGV0} --backend cpu)
+		set(ENABLE_JSON "{\"target\": \"litert_${ARGV0}\"}")
+		set_tests_properties(litert_${ARGV0}_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};${LITERT_TEST_ARGUMENTS}")
+		set_tests_properties(litert_${ARGV0}_cpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};${LITERT_TEST_ARGUMENTS}")
+		file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/litert_${ARGV0}.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/litert_${ARGV0}.bench DESTINATION tests)
+		install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/litert_${ARGV0}.bench ${SYMLINK_DIR}/litert_${ARGV0}.bench)")
+	endfunction()
+
+	litert_test(minimal)
+
 	vulkan_test_build(llm_pingpong)
-	target_include_directories(vulkan_llm_pingpong PRIVATE ${LITERT_LM_INCLUDE_DIR})
-	target_link_libraries(vulkan_llm_pingpong PRIVATE ${LITERT_LM_LIBRARY})
-	set_target_properties(vulkan_llm_pingpong PROPERTIES BUILD_RPATH "/opt/litert-lm/lib;${LITERT_LM_INCLUDE_DIR}/../lib")
+	target_link_libraries(vulkan_llm_pingpong PRIVATE litert_common)
 	add_test(NAME vulkan_llm_pingpong COMMAND ${CMAKE_CURRENT_BINARY_DIR}/vulkan_llm_pingpong)
 	set(ENABLE_JSON "{\"target\": \"vulkan_llm_pingpong\"}")
 	set_tests_properties(vulkan_llm_pingpong PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation;BENCHMARKING_ENABLE_JSON=${ENABLE_JSON};${TRACETOOLTESTS_TEST_ARGUMENTS}")
 	file(COPY ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_llm_pingpong.bench DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	install(FILES ${PROJECT_SOURCE_DIR}/benchmarking/vulkan_llm_pingpong.bench DESTINATION tests)
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_INSTALL_PREFIX}/tests/vulkan_llm_pingpong.bench ${SYMLINK_DIR}/vulkan_llm_pingpong.bench)")
 else()
-	message(STATUS "LiteRT-LM not found. Skipping vulkan_llm_pingpong.")
+	message(STATUS "LiteRT-LM not found. Skipping litert tests and vulkan_llm_pingpong.")
 endif()
 
 add_executable(vulkan_featuretest src/vulkan_feature.cpp src/usagetracker/vulkan_feature_detect.h src/usagetracker/vulkan_feature_detect.cpp)

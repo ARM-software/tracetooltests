@@ -1,6 +1,7 @@
 // LLM-driven Ping-Pong game microbenchmark using LiteRT-LM and Vulkan rendering.
 
 #include "vulkan_common.h"
+#include "litert_common.h"
 #include "vulkan_llm_pingpong_vert.inc"
 #include "vulkan_llm_pingpong_frag.inc"
 
@@ -20,15 +21,6 @@ struct Vertex
 {
 	float x, y;
 	float r, g, b, a;
-};
-
-struct LlmContext
-{
-	LiteRtLmEngineSettings* settings = nullptr;
-	LiteRtLmEngine* engine = nullptr;
-	LiteRtLmSessionConfig* session_config = nullptr;
-	LiteRtLmSession* session = nullptr;
-	bool active = false;
 };
 
 static std::string model_path_arg;
@@ -108,207 +100,6 @@ static bool test_cmdopt(int& i, int argc, char** argv, vulkan_req_t& reqs)
 	return false;
 }
 
-static std::string find_model_path(const std::string& user_specified)
-{
-	if (!user_specified.empty() && access(user_specified.c_str(), R_OK) == 0)
-	{
-		return user_specified;
-	}
-
-	const char* env_path = getenv("LITERT_MODEL_PATH");
-	if (env_path && *env_path && access(env_path, R_OK) == 0)
-	{
-		return std::string(env_path);
-	}
-
-	const char* home = getenv("HOME");
-	if (home && *home)
-	{
-		const std::string candidates[] = {
-			std::string(home) + "/.litert-lm/models/gemma3-1b-it-int4.litertlm",
-			std::string(home) + "/.litert-lm/models/gemma-4-E2B-it.litertlm",
-			std::string(home) + "/.litert-lm/models/Qwen3-0.6B.litertlm",
-			std::string(home) + "/.litert-lm/models/gemma3-1b-gpu-custom/model.litertlm",
-			std::string(home) + "/LiteRT-LM/runtime/testdata/test_lm.litertlm"
-		};
-		for (const auto& c : candidates)
-		{
-			if (access(c.c_str(), R_OK) == 0)
-			{
-				return c;
-			}
-		}
-	}
-
-	const std::string system_candidates[] = {
-		"/opt/litert-lm/models/model.litertlm",
-		"./model.litertlm"
-	};
-	for (const auto& c : system_candidates)
-	{
-		if (access(c.c_str(), R_OK) == 0)
-		{
-			return c;
-		}
-	}
-
-	return "";
-}
-
-static bool init_llm(LlmContext& ctx, const std::string& model_path, const std::string& backend)
-{
-	if (model_path.empty())
-	{
-		fprintf(stderr, "No LiteRT-LM model found. Specify with --model or LITERT_MODEL_PATH.\n");
-		return false;
-	}
-
-	printf("Initializing LiteRT-LM with model: %s (backend: %s)\n", model_path.c_str(), backend.c_str());
-	LiteRtLmStatusCode status = litert_lm_engine_settings_create(
-		model_path.c_str(), backend.c_str(), nullptr, nullptr, &ctx.settings);
-	if (status != kLiteRtLmStatusOk || !ctx.settings)
-	{
-		fprintf(stderr, "litert_lm_engine_settings_create failed: %d\n", status);
-		return false;
-	}
-
-	status = litert_lm_engine_create(ctx.settings, &ctx.engine);
-	if (status != kLiteRtLmStatusOk || !ctx.engine)
-	{
-		fprintf(stderr, "litert_lm_engine_create failed: %d\n", status);
-		litert_lm_engine_settings_delete(ctx.settings);
-		ctx.settings = nullptr;
-		return false;
-	}
-
-	status = litert_lm_session_config_create(&ctx.session_config);
-	if (status != kLiteRtLmStatusOk || !ctx.session_config)
-	{
-		fprintf(stderr, "litert_lm_session_config_create failed: %d\n", status);
-		litert_lm_engine_delete(ctx.engine);
-		litert_lm_engine_settings_delete(ctx.settings);
-		ctx.engine = nullptr;
-		ctx.settings = nullptr;
-		return false;
-	}
-
-	litert_lm_session_config_set_max_output_tokens(ctx.session_config, 48);
-
-	LiteRtLmSamplerParams* sampler_params = nullptr;
-	if (litert_lm_sampler_params_create(kLiteRtLmSamplerTypeTopP, &sampler_params) == kLiteRtLmStatusOk && sampler_params)
-	{
-		litert_lm_sampler_params_set_top_p(sampler_params, 0.95f);
-		litert_lm_sampler_params_set_top_k(sampler_params, 40);
-		litert_lm_sampler_params_set_temperature(sampler_params, temperature_arg);
-		int32_t chosen_seed = (seed_arg >= 0) ? seed_arg : static_cast<int32_t>(time(nullptr) ^ (getpid() << 16));
-		litert_lm_sampler_params_set_seed(sampler_params, chosen_seed);
-		litert_lm_session_config_set_sampler_params(ctx.session_config, sampler_params);
-		litert_lm_sampler_params_delete(sampler_params);
-	}
-
-	status = litert_lm_engine_create_session(ctx.engine, ctx.session_config, &ctx.session);
-	if (status != kLiteRtLmStatusOk || !ctx.session)
-	{
-		fprintf(stderr, "litert_lm_engine_create_session failed: %d\n", status);
-		litert_lm_session_config_delete(ctx.session_config);
-		litert_lm_engine_delete(ctx.engine);
-		litert_lm_engine_settings_delete(ctx.settings);
-		ctx.session_config = nullptr;
-		ctx.engine = nullptr;
-		ctx.settings = nullptr;
-		return false;
-	}
-
-	ctx.active = true;
-	printf("LiteRT-LM engine and session successfully initialized.\n");
-	return true;
-}
-
-static void cleanup_llm(LlmContext& ctx)
-{
-	if (ctx.session)
-	{
-		litert_lm_session_delete(ctx.session);
-		ctx.session = nullptr;
-	}
-	if (ctx.session_config)
-	{
-		litert_lm_session_config_delete(ctx.session_config);
-		ctx.session_config = nullptr;
-	}
-	if (ctx.engine)
-	{
-		litert_lm_engine_delete(ctx.engine);
-		ctx.engine = nullptr;
-	}
-	if (ctx.settings)
-	{
-		litert_lm_engine_settings_delete(ctx.settings);
-		ctx.settings = nullptr;
-	}
-	ctx.active = false;
-}
-
-static void reset_session(LlmContext& ctx)
-{
-	if (ctx.session)
-	{
-		litert_lm_session_delete(ctx.session);
-		ctx.session = nullptr;
-	}
-	if (ctx.engine && ctx.session_config)
-	{
-		litert_lm_engine_create_session(ctx.engine, ctx.session_config, &ctx.session);
-	}
-}
-
-static std::string query_llm(LlmContext& ctx, const std::string& prompt)
-{
-	if (!ctx.active || !ctx.session)
-	{
-		return "";
-	}
-
-	LiteRtLmInputData* input_data = nullptr;
-	LiteRtLmStatusCode status = litert_lm_input_data_create(
-		kLiteRtLmInputDataTypeText, prompt.c_str(), prompt.size(), &input_data);
-	if (status != kLiteRtLmStatusOk || !input_data)
-	{
-		return "";
-	}
-
-	const LiteRtLmInputData* inputs[] = { input_data };
-	LiteRtLmResponses* responses = nullptr;
-	status = litert_lm_session_generate_content(ctx.session, inputs, 1, &responses);
-
-	if (status == kLiteRtLmStatusResourceExhausted)
-	{
-		reset_session(ctx);
-		if (ctx.session)
-		{
-			status = litert_lm_session_generate_content(ctx.session, inputs, 1, &responses);
-		}
-	}
-
-	std::string result_text;
-	if (status == kLiteRtLmStatusOk && responses)
-	{
-		size_t count = 0;
-		litert_lm_responses_get_num_candidates(responses, &count);
-		if (count > 0)
-		{
-			const char* text = nullptr;
-			if (litert_lm_responses_get_response_text_at(responses, 0, &text) == kLiteRtLmStatusOk && text)
-			{
-				result_text = text;
-			}
-		}
-		litert_lm_responses_delete(responses);
-	}
-	litert_lm_input_data_delete(input_data);
-	return result_text;
-}
-
 static void hsv_to_rgb(float h, float s, float v, float out_rgb[3])
 {
 	float c = v * s;
@@ -383,7 +174,7 @@ static void add_trapezoid(std::vector<Vertex>& verts,
 
 int main(int argc, char** argv)
 {
-	std::string resolved_model = find_model_path(model_path_arg);
+	std::string resolved_model = litert_find_model(model_path_arg);
 
 	vulkan_req_t reqs{};
 	reqs.apiVersion = VK_API_VERSION_1_1;
@@ -396,16 +187,25 @@ int main(int argc, char** argv)
 	// If the user specified an override on CLI, re-evaluate model path
 	if (!model_path_arg.empty())
 	{
-		resolved_model = find_model_path(model_path_arg);
+		resolved_model = litert_find_model(model_path_arg);
 	}
 
-	LlmContext llm_ctx{};
-	bool llm_ok = init_llm(llm_ctx, resolved_model, backend_arg);
+	litert_config_t lcfg;
+	lcfg.model_path = resolved_model;
+	lcfg.backend = backend_arg;
+	lcfg.max_output_tokens = 48;
+	lcfg.temperature = temperature_arg;
+	lcfg.seed = seed_arg;
+	lcfg.enable_benchmark = false;
+
+	litert_context_t llm_ctx{};
+	bool llm_ok = litert_init(llm_ctx, lcfg);
 	if (!llm_ok && backend_arg != "cpu")
 	{
 		// Attempt CPU fallback if GPU init was not possible
 		printf("Retrying LiteRT-LM initialization with CPU backend...\n");
-		llm_ok = init_llm(llm_ctx, resolved_model, "cpu");
+		lcfg.backend = "cpu";
+		llm_ok = litert_init(llm_ctx, lcfg);
 	}
 
 	if (!llm_ok)
@@ -419,9 +219,9 @@ int main(int argc, char** argv)
 	printf("Querying LLM for paddle mesh and vertex palette...\n");
 	std::string palette_prompt =
 		"Provide 4 vibrant, high-contrast hex colors separated by comma for a ping-pong paddle vertices (e.g. #FF0055, #00FFAA, #FFFF00, #AA00FF):";
-	std::string palette_resp = query_llm(llm_ctx, palette_prompt);
+	std::string palette_resp = litert_query(llm_ctx, palette_prompt);
 	printf("LLM Palette Response: %s\n", palette_resp.c_str());
-	reset_session(llm_ctx);
+	litert_reset_session(llm_ctx);
 
 	const int NUM_SLICES = 6;
 	const int NUM_POINTS = NUM_SLICES + 1;
@@ -781,7 +581,7 @@ int main(int argc, char** argv)
 				"Ball rebounded! Ball y=%.2f, vy=%.2f. Bot paddle y=%.2f. Frame=%d. Reply 'UP', 'DOWN', or 'STAY':",
 				ball_y, ball_vy, paddle_y, frame);
 
-			std::string decision = query_llm(llm_ctx, prompt_buf);
+			std::string decision = litert_query(llm_ctx, prompt_buf);
 			printf("[Frame %d] LLM Bot Decision: %s\n", frame, decision.c_str());
 
 			unsigned int dec_hash = string_hash(decision);
@@ -1015,7 +815,7 @@ int main(int argc, char** argv)
 
 	vkDestroyCommandPool(vulkan.device, command_pool, nullptr);
 
-	cleanup_llm(llm_ctx);
+	litert_cleanup(llm_ctx);
 	test_done(vulkan);
 
 	printf("vulkan_llm_pingpong completed successfully!\n");
