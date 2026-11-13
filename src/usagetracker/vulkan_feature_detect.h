@@ -223,6 +223,7 @@ struct feature_detection
 	std::atomic_bool has_VK_ANDROID_external_memory_android_hardware_buffer { false };
 	std::atomic_bool has_VK_KHR_map_memory2 { false };
 	std::atomic_bool has_VK_KHR_multiview { false };
+	std::atomic_bool has_VK_KHR_present_wait2 { false };
 	std::atomic_bool has_VK_KHR_synchronization2 { false };
 	std::atomic_bool has_VK_KHR_acceleration_structure { false };
 	std::atomic_bool has_VK_KHR_ray_query { false };
@@ -360,6 +361,7 @@ VkResult check_vkCreateImageView(VkDevice device, const VkImageViewCreateInfo* i
 VkResult check_vkQueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence);
 VkResult check_vkQueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence);
 VkResult check_vkQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* pPresentInfo);
+VkResult check_vkWaitForPresent2KHR(VkDevice device, VkSwapchainKHR swapchain, const VkPresentWait2InfoKHR* pPresentWait2Info);
 void check_vkGetMicromapBuildSizesEXT(VkDevice device, VkAccelerationStructureBuildTypeKHR buildType, const VkMicromapBuildInfoEXT* pBuildInfo,
                                       VkMicromapBuildSizesInfoEXT* pSizeInfo);
 VkResult check_vkBuildMicromapsEXT(VkDevice device, VkDeferredOperationKHR deferredOperation, uint32_t infoCount, const VkMicromapBuildInfoEXT* pInfos);

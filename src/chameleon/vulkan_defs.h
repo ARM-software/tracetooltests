@@ -1039,6 +1039,13 @@ struct cVkDisplayKHR : cVkBase
 	}
 };
 
+struct cVkSwapchainPresentIdState
+{
+	std::mutex mutex;
+	uint64_t lastSubmittedId = 0;
+	std::unordered_set<uint64_t> submittedIds;
+};
+
 struct cVkSwapchainKHR : cVkBase
 {
 	enum ImageState
@@ -1049,6 +1056,7 @@ struct cVkSwapchainKHR : cVkBase
 	};
 
 	cVkSurfaceKHR* surface = nullptr;
+	VkSwapchainCreateFlagsKHR flags = 0;
 	uint32_t minImageCount = 0;
 	VkFormat imageFormat = VK_FORMAT_MAX_ENUM;
 	uint32_t queueFamilyIndexCount = 0;
@@ -1064,6 +1072,8 @@ struct cVkSwapchainKHR : cVkBase
 	uint32_t imageCount = 3;
 	/// Rotating current presentation image
 	uint32_t currentImage = 0;
+	/// Presentation IDs submitted to the immediate presentation model
+	std::shared_ptr<cVkSwapchainPresentIdState> presentIdState = std::make_shared<cVkSwapchainPresentIdState>();
 	/// Pointers to presentation images
 	std::vector<cVkImage*> images;
 	std::vector<ImageState> imageStates;
