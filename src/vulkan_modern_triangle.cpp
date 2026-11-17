@@ -175,11 +175,13 @@ int main(int argc, char** argv)
 	reqs.options["height"] = 480;
 	reqs.device_extensions.push_back(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
 	reqs.device_extensions.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
+	reqs.device_extensions.push_back(VK_ARM_TRACE_HELPERS_EXTENSION_NAME);
 	reqs.extension_features = reinterpret_cast<VkBaseInStructure*>(&heap_features);
 	reqs.usage = show_usage;
 	reqs.cmdopt = test_cmdopt;
 
 	vulkan_setup_t vulkan = test_init(argc, argv, "vulkan_modern_triangle", reqs);
+	if (!vulkan.has_trace_helpers) return 77;
 	const uint32_t width = std::get<int>(reqs.options.at("width"));
 	const uint32_t height = std::get<int>(reqs.options.at("height"));
 	assert(width > 0 && height > 0);
@@ -189,6 +191,7 @@ int main(int argc, char** argv)
 	MAKEDEVICEPROCADDR(vulkan, vkCmdBindShadersEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkWriteResourceDescriptorsEXT);
 	MAKEDEVICEPROCADDR(vulkan, vkCmdBindResourceHeapEXT);
+	MAKEDEVICEPROCADDR(vulkan, vkCmdPushDataEXT);
 	PFN_vkCmdBindVertexBuffers3KHR pf_vkCmdBindVertexBuffers3KHR = nullptr;
 	PFN_vkCmdCopyImageToMemoryKHR pf_vkCmdCopyImageToMemoryKHR = nullptr;
 	if (use_device_address_commands)
@@ -258,8 +261,17 @@ int main(int argc, char** argv)
 	VkResult result = pf_vkWriteResourceDescriptorsEXT(
 		vulkan.device, 1, &color_descriptor, &descriptor_output);
 	check(result);
+
+	const uint32_t descriptor_offset = 0;
+	buffer_allocation descriptor_offsets = create_buffer(
+		vulkan, sizeof(descriptor_offset), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, "modern_triangle_descriptor_offsets");
+	std::memcpy(descriptor_offsets.mapped, &descriptor_offset, sizeof(descriptor_offset));
+	testFlushMemoryDescriptors(vulkan, descriptor_offsets.memory, 0, descriptor_offsets.size,
+	                           {0}, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER},
+	                           true, {VK_MARKING_TYPE_DESCRIPTOR_OFFSET_ARM});
 	testFlushMemoryDescriptors(vulkan, resource_heap.memory, 0, resource_heap.size,
-	                           {heap_map_offset}, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER});
+	                           {heap_map_offset}, {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER},
+	                           true, {VK_MARKING_TYPE_DESCRIPTOR_ARM});
 
 	VkDescriptorSetAndBindingMappingEXT mapping{
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT, nullptr};
@@ -267,8 +279,13 @@ int main(int argc, char** argv)
 	mapping.firstBinding = 0;
 	mapping.bindingCount = 1;
 	mapping.resourceMask = VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT;
-	mapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT;
-	mapping.sourceData.constantOffset.heapOffset = 0;
+	mapping.source = VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_INDIRECT_INDEX_EXT;
+	mapping.sourceData.indirectIndex.heapOffset = 0;
+	mapping.sourceData.indirectIndex.pushOffset = 0;
+	mapping.sourceData.indirectIndex.addressOffset = 0;
+	assert(heap_properties.bufferDescriptorSize <= UINT32_MAX);
+	mapping.sourceData.indirectIndex.heapIndexStride = static_cast<uint32_t>(heap_properties.bufferDescriptorSize);
+	mapping.sourceData.indirectIndex.heapArrayStride = 0;
 	VkShaderDescriptorSetAndBindingMappingInfoEXT mapping_info{
 		VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT, nullptr, 1, &mapping};
 
@@ -353,6 +370,22 @@ int main(int argc, char** argv)
 	heap_bind.reservedRangeOffset = reserved_offset;
 	heap_bind.reservedRangeSize = heap_properties.minResourceHeapReservedRange;
 	pf_vkCmdBindResourceHeapEXT(command_buffer, &heap_bind);
+
+	const std::array<VkMarkingTypeARM, 1> push_marking_types = {
+		VK_MARKING_TYPE_DEVICE_ADDRESS_ARM};
+	std::array<VkMarkingSubTypeARM, 1> push_marking_sub_types{};
+	push_marking_sub_types[0].deviceAddressType = VK_DEVICE_ADDRESS_TYPE_BUFFER_ARM;
+	const std::array<VkDeviceSize, 1> push_marking_offsets = {0};
+	VkMarkedOffsetsARM push_markings{VK_STRUCTURE_TYPE_MARKED_OFFSETS_ARM, nullptr};
+	push_markings.count = push_marking_types.size();
+	push_markings.pMarkingTypes = push_marking_types.data();
+	push_markings.pSubTypes = push_marking_sub_types.data();
+	push_markings.pOffsets = push_marking_offsets.data();
+	VkPushDataInfoEXT push_info{VK_STRUCTURE_TYPE_PUSH_DATA_INFO_EXT, vulkan.has_trace_helpers ? &push_markings : nullptr};
+	push_info.offset = 0;
+	push_info.data.address = &descriptor_offsets.address;
+	push_info.data.size = sizeof(descriptor_offsets.address);
+	pf_vkCmdPushDataEXT(command_buffer, &push_info);
 
 	VkViewport viewport{0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f};
 	VkRect2D scissor{{0, 0}, {width, height}};
@@ -523,6 +556,9 @@ int main(int argc, char** argv)
 	if (readback.mapped) vkUnmapMemory(vulkan.device, readback.memory);
 	vkDestroyBuffer(vulkan.device, readback.buffer, nullptr);
 	testFreeMemory(vulkan, readback.memory);
+	vkUnmapMemory(vulkan.device, descriptor_offsets.memory);
+	vkDestroyBuffer(vulkan.device, descriptor_offsets.buffer, nullptr);
+	testFreeMemory(vulkan, descriptor_offsets.memory);
 	vkUnmapMemory(vulkan.device, resource_heap.memory);
 	vkDestroyBuffer(vulkan.device, resource_heap.buffer, nullptr);
 	testFreeMemory(vulkan, resource_heap.memory);

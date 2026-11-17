@@ -195,7 +195,8 @@ void testFlushMemoryDeviceAddresses(const vulkan_setup_t& vulkan, VkDeviceMemory
 void testFlushMemoryShaderGroupHandles(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
 		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkShaderGroupShaderKHR>& shader_group_types, bool extra = true);
 void testFlushMemoryDescriptors(const vulkan_setup_t& vulkan, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size,
-		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkDescriptorType>& descriptor_types, bool extra = true);
+		const std::vector<VkDeviceSize>& marked_offsets, const std::vector<VkDescriptorType>& descriptor_types, bool extra = true,
+		const std::vector<VkMarkingTypeARM>& marking_types = {});
 
 /// Adds a dummy queue submit with a pipeline barrier that references the passed buffers in order to make tools not ignore them.
 void testQueueBuffer(const vulkan_setup_t& vulkan, VkQueue queue, const std::vector<VkBuffer>& buffers);
