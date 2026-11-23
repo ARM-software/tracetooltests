@@ -51,10 +51,10 @@ void bench_save_results_file(const benchmarking& b)
 		if (!b.scene_name.empty())
 		{
 			result["scene"] = b.scene_name.at(v.scene);
-			if ((int)b.scene_result_file.size() >= v.scene && !b.scene_result_file.at(v.scene).empty())
+			if ((int)b.scene_result_file.size() > v.scene && !b.scene_result_file.at(v.scene).empty())
 			{
 				result["output"] = b.scene_result_file.at(v.scene);
-				result["putput_type"] = "png";
+				result["output_type"] = "png";
 				result["validated"] = false;
 			}
 		}
