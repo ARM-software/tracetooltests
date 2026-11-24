@@ -56,7 +56,7 @@ static buffer_t create_buffer(const vulkan_setup_t &vulkan, VkDeviceSize size, V
 	return result;
 }
 
-static bool has_color(const uint8_t *pixels)
+[[maybe_unused]] static bool has_color(const uint8_t *pixels)
 {
 	for (VkDeviceSize i = 0; i < image_size; i += 4)
 	{
@@ -66,7 +66,7 @@ static bool has_color(const uint8_t *pixels)
 	return false;
 }
 
-static bool has_stippled_line(const uint8_t *pixels, uint32_t first_row, uint32_t last_row)
+[[maybe_unused]] static bool has_stippled_line(const uint8_t *pixels, uint32_t first_row, uint32_t last_row)
 {
 	for (uint32_t y = first_row; y <= last_row; y++)
 	{

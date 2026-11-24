@@ -10,7 +10,7 @@ fi
 REPORTDIR=reports/gfxr/demos${TAG}
 REPORT=$REPORTDIR/report.html
 CSV=$REPORTDIR/report.csv
-DEMO_PARAMS="--benchmark -bfs 100 -bw 0"
+DEMO_PARAMS="--benchmark -bfs 10 -bw 0"
 TRACEDIR=traces${TAG}
 REPLAYER=${REPLAYER:-"$(which gfxrecon-replay)"}
 OPTIMIZER=${OPTIMIZER:-"$(which gfxrecon-optimize)"}

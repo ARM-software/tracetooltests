@@ -12,7 +12,7 @@ const float positions[] = {
 
 constexpr VkDeviceSize readback_size = target_width * target_height * 4;
 
-static bool region_has_green(const uint8_t *data, uint32_t first_column, uint32_t column_count)
+[[maybe_unused]] static bool region_has_green(const uint8_t *data, uint32_t first_column, uint32_t column_count)
 {
 	for (uint32_t y = 0; y < target_height; y++)
 	{
