@@ -105,17 +105,20 @@ static void show_usage()
 	printf("Test source-BLAS alias destruction after compaction, with checked TLAS ray intersections\n");
 	printf("For the lifetime regression use -bbf -tbf and capture frame 3 (after source destruction)\n");
 	printf("For storage reuse use -bbf -tbf --reuse-source-storage and capture frame 4 (in-place update)\n");
-	printf("-tbf/--tlas-build-frame      injects a frame boundary after TLAS is built\n");
-	printf("-bbf/--blas-build-frame      injects a frame boundary after BLAS is built\n");
-	printf("-ksb/--keep-source-buffer    retain the source BLAS buffer as a control variant\n");
+	printf("-tbf/--tlas-build-frame             injects a frame boundary after TLAS is built\n");
+	printf("-bbf/--blas-build-frame             injects a frame boundary after BLAS is built\n");
+	printf("-ksb/--keep-source-buffer           retain the source BLAS buffer as a control variant\n");
 	printf("-bsf/--buffer-before-source-handles destroy source storage before its AS handles\n");
-	printf("--shared-source                compact the same source BLAS into two children\n");
-	printf("--use-second-shared-child      build the TLAS from the second compacted child\n");
-	printf("--destroy-build-input-memory   free BLAS input memory before the trimmed frame\n");
-	printf("--destroy-build-input-buffers  destroy BLAS input buffers before freeing their memory\n");
-	printf("--repeat-trim                  consume the compacted BLAS again in a later frame\n");
-	printf("--reuse-source-storage         build a new live BLAS on the destroyed source's buffer, then update it after trim\n");
-	printf("-cf/--copy-format            ways of copying BLAS (default 0): \n\t0 - vkCmdCopyAccelerationStructureKHR - VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR\n\t1 - vkCmdCopyAccelerationStructureKHR - VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR\n\t2 - vkCmdCopyBuffer\n\t3 - memcpy\n");
+	printf("--shared-source                     compact the same source BLAS into two children\n");
+	printf("--use-second-shared-child           build the TLAS from the second compacted child\n");
+	printf("--destroy-build-input-memory        free BLAS input memory before the trimmed frame\n");
+	printf("--destroy-build-input-buffers       destroy BLAS input buffers before freeing their memory\n");
+	printf("--repeat-trim                       consume the compacted BLAS again in a later frame\n");
+	printf("--reuse-source-storage              build a new live BLAS on the destroyed source's buffer, then update it after trim\n");
+	printf("-cf/--copy-format                   ways of copying BLAS (default 0): \n\t0 - vkCmdCopyAccelerationStructureKHR - "
+	       "VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR\n\t1 - vkCmdCopyAccelerationStructureKHR - "
+	       "VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR\n\t2 - vkCmdCopyBuffer\n\t3 - memcpy\n");
+	printf("--invalidate-input-buffer           invalidate input buffer after BLAS build\n");
 }
 
 void prepare_test_resources(const vulkan_setup_t & vulkan, Resources & resources)
@@ -378,6 +381,14 @@ void prepare_acceleration_structures(const vulkan_setup_t & vulkan, Resources & 
 	submitInfo.pCommandBuffers = &resources.command_buffer;
 	check(vkQueueSubmit(resources.queue, 1, &submitInfo, VK_NULL_HANDLE));
 	check(vkQueueWaitIdle(resources.queue));
+
+	uint32_t *index_data = nullptr;
+	vkMapMemory(vulkan.device, resources.index_buffer.memory, 0, indices.size() * sizeof(uint32_t), 0, (void **)&index_data);
+	for (uint32_t idx = 0; idx < indices.size(); ++idx)
+	{
+		index_data[idx] += 10;
+	}
+	vkUnmapMemory(vulkan.device, resources.index_buffer.memory);
 
 	// Keep BLAS scratch alive through the trimmed frame; the reconstructed build still references it.
 
@@ -998,6 +1009,11 @@ bool parse_parameters(int& i, int argc, char** argv, vulkan_req_t& reqs)
 
 		return true;
 	}
+	else if (!strcmp(argv[i], "--invalidate-input-buffer"))
+	{
+		reqs.options["invalidate-input-buffer"] = true;
+		return true;
+	}
 	return false;
 }
 
@@ -1019,6 +1035,7 @@ int main(int argc, char** argv)
 	reqs.options["build-input-destruction"] = keep_build_inputs;
 	reqs.options["repeat-trim"] = false;
 	reqs.options["reuse-source-storage"] = false;
+	reqs.options["invalidate-input-buffer"] = false;
 
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr, VK_TRUE};
 	VkPhysicalDeviceRayQueryFeaturesKHR ray_query_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr, VK_TRUE};
@@ -1046,6 +1063,7 @@ int main(int argc, char** argv)
 	build_input_destruction = static_cast<BuildInputDestruction>(std::get<int>(reqs.options.at("build-input-destruction")));
 	repeat_trim = std::get<bool>(reqs.options.at("repeat-trim"));
 	reuse_source_storage = std::get<bool>(reqs.options.at("reuse-source-storage"));
+	invalidate_input_buffer = std::get<bool>(reqs.options.at("invalidate-input-buffer"));
 	if (reuse_source_storage) keep_source_buffer = true;
 	assert(!keep_source_buffer || !buffer_before_source_handles);
 	assert(!use_second_shared_child || shared_source);
